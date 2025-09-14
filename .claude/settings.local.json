@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Program Files (x86)/CodeRepos/AKCNProjectManagement/**)",
+      "Bash(git init:*)",
+      "Bash(npm create:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

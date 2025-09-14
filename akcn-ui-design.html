@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AK云原生改造管理系统 - UI设计文档</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            line-height: 1.6;
+            color: #2d3748;
+            background: #f7fafc;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .nav-tabs {
+            background: white;
+            padding: 0 40px;
+            border-bottom: 2px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            gap: 30px;
+            overflow-x: auto;
+        }
+        
+        .nav-tabs a {
+            padding: 20px 0;
+            color: #718096;
+            text-decoration: none;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+        
+        .nav-tabs a:hover {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .page-section {
+            margin-bottom: 60px;
+        }
+        
+        .section-title {
+            font-size: 2em;
+            color: #2d3748;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .sub-title {
+            font-size: 1.3em;
+            color: #4a5568;
+            margin: 25px 0 15px;
+        }
+        
+        /* Mock UI 样式 */
+        .mock-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .mock-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .mock-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .mock-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #ed8936;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        
+        /* 搜索栏 */
+        .search-bar {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+        }
+        
+        .filter-select {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            background: white;
+        }
+        
+        /* 数据表格 */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .data-table th {
+            background: #f7fafc;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #4a5568;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .data-table tr:hover {
+            background: #f7fafc;
+        }
+        
+        /* 状态标签 */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-pending {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        
+        .status-progress {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+        
+        .status-completed {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .status-blocked {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        /* 进度条 */
+        .progress-bar {
+            background: #e2e8f0;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s;
+        }
+        
+        /* 卡片 */
+        .stat-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #718096;
+            margin-top: 5px;
+        }
+        
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        /* 表单 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        /* 标签页 */
+        .tabs {
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+        
+        .tab-list {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .tab-item {
+            padding: 10px 0;
+            color: #718096;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+        }
+        
+        .tab-item.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        /* 时间线 */
+        .timeline {
+            position: relative;
+            padding-left: 40px;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e2e8f0;
+        }
+        
+        .timeline-item {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -30px;
+            top: 5px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #667eea;
+            border: 2px solid white;
+        }
+        
+        .timeline-content {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .timeline-time {
+            color: #718096;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        
+        /* 快速操作 */
+        .quick-actions {
+            position: fixed;
+            right: 30px;
+            bottom: 30px;
+            z-index: 1000;
+        }
+        
+        .fab {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        /* 仪表盘图表 */
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .chart-placeholder {
+            background: linear-gradient(45deg, #f7fafc 25%, #e2e8f0 25%, #e2e8f0 50%, #f7fafc 50%, #f7fafc 75%, #e2e8f0 75%);
+            background-size: 20px 20px;
+            height: 300px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #718096;
+        }
+        
+        /* 我的任务特殊样式 */
+        .my-task-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+        
+        .my-task-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        }
+        
+        .task-highlight {
+            background: #fef5e7;
+            border-left: 4px solid #f39c12;
+        }
+        
+        /* 审计日志样式 */
+        .audit-item {
+            display: flex;
+            align-items: start;
+            gap: 15px;
+            padding: 15px;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .audit-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .audit-icon.update {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+        
+        .audit-icon.create {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .audit-icon.delete {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .diff-view {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        
+        .diff-old {
+            background: #fff5f5;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #feb2b2;
+        }
+        
+        .diff-new {
+            background: #f0fff4;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #9ae6b4;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>UI设计文档</h1>
+        <p>AK云原生改造管理系统 - 界面设计与交互规范</p>
+    </div>
+    
+    <nav class="nav-tabs">
+        <a href="#dashboard">仪表盘</a>
+        <a href="#app-list">应用管理</a>
+        <a href="#my-tasks">我的任务</a>
+        <a href="#subtasks">子任务管理</a>
+        <a href="#audit">审计日志</a>
+        <a href="#import">批量导入</a>
+        <a href="#reports">报表中心</a>
+        <a href="#components">组件规范</a>
+    </nav>
+    
+    <div class="container">
+        <!-- 仪表盘 -->
+        <section id="dashboard" class="page-section">
+            <h2 class="section-title">1. 仪表盘（Dashboard）</h2>
+            
+            <div class="mock-container">
+                <div class="mock-header">
+                    <div>
+                        <div class="mock-title">AK云原生改造管理系统</div>
+                        <div style="color: #718096; font-size: 14px;">欢迎回来，张三 | 研发一部</div>
+                    </div>
+                    <div class="mock-actions">
+                        <button class="btn btn-secondary">
+                            <span>📅</span> 2025年1月15日
+                        </button>
+                        <button class="btn btn-primary">
+                            <span>🔔</span> 通知 (3)
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 统计卡片 -->
+                <div class="card-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">156</div>
+                        <div class="stat-label">应用总数</div>
+                        <div style="margin-top: 10px;">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 45%"></div>
+                            </div>
+                            <div style="font-size: 12px; color: #718096; margin-top: 5px;">
+                                整体进度 45%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-value">78</div>
+                        <div class="stat-label">进行中</div>
+                        <div style="margin-top: 10px; color: #3182ce;">
+                            <span style="font-size: 24px;">📈</span>
+                            <div style="font-size: 12px;">+12 本月新增</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-value">45</div>
+                        <div class="stat-label">已完成</div>
+                        <div style="margin-top: 10px; color: #38a169;">
+                            <span style="font-size: 24px;">✅</span>
+                            <div style="font-size: 12px;">28.8% 完成率</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-value">12</div>
+                        <div class="stat-label">存在阻塞</div>
+                        <div style="margin-top: 10px; color: #e53e3e;">
+                            <span style="font-size: 24px;">⚠️</span>
+                            <div style="font-size: 12px;">需要关注</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 图表区域 -->
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-top: 30px;">
+                    <div class="chart-container">
+                        <h3 style="margin-bottom: 15px;">改造进度趋势</h3>
+                        <div class="chart-placeholder">
+                            📊 折线图：显示每月完成的应用数量趋势
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <h3 style="margin-bottom: 15px;">部门进度分布</h3>
+                        <div class="chart-placeholder" style="height: 300px;">
+                            📈 饼图：各部门完成情况
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 待办事项 -->
+                <div class="mock-container" style="margin-top: 30px;">
+                    <h3 style="margin-bottom: 15px;">待办事项</h3>
+                    <div class="my-task-item task-highlight">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>用户管理系统 - 数据库迁移模块</strong>
+                                <div style="font-size: 14px; color: #e53e3e; margin-top: 5px;">
+                                    ⏰ 计划完成日期：2025-01-20（剩余5天）
+                                </div>
+                            </div>
+                            <button class="btn btn-primary">立即处理</button>
+                        </div>
+                    </div>
+                    
+                    <div class="my-task-item">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>订单系统 - 前端改造模块</strong>
+                                <div style="font-size: 14px; color: #718096; margin-top: 5px;">
+                                    计划完成日期：2025-02-01
+                                </div>
+                            </div>
+                            <button class="btn btn-secondary">查看详情</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 应用管理列表 -->
+        <section id="app-list" class="page-section">
+            <h2 class="section-title">2. 应用管理列表</h2>
+            
+            <div class="mock-container">
+                <div class="mock-header">
+                    <div class="mock-title">应用系统列表</div>
+                    <div class="mock-actions">
+                        <button class="btn btn-primary">➕ 新增应用</button>
+                        <button class="btn btn-success">📥 批量导入</button>
+                        <button class="btn btn-warning">📤 导出Excel</button>
+                    </div>
+                </div>
+                
+                <!-- 搜索栏 -->
+                <div class="search-bar">
+                    <input type="text" class="search-input" placeholder="搜索 L2 ID 或应用名称...">
+                    <select class="filter-select">
+                        <option>全部状态</option>
+                        <option>待启动</option>
+                        <option>研发进行中</option>
+                        <option>业务上线中</option>
+                        <option>全部完成</option>
+                    </select>
+                    <select class="filter-select">
+                        <option>全部部门</option>
+                        <option>研发一部</option>
+                        <option>研发二部</option>
+                        <option>运维部</option>
+                    </select>
+                    <select class="filter-select">
+                        <option>改造目标</option>
+                        <option>AK</option>
+                        <option>云原生</option>
+                    </select>
+                    <button class="btn btn-primary">搜索</button>
+                    <button class="btn btn-secondary">重置</button>
+                </div>
+                
+                <!-- 数据表格 -->
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox"></th>
+                            <th>L2 ID</th>
+                            <th>应用名称</th>
+                            <th>改造目标</th>
+                            <th>当前状态</th>
+                            <th>进度</th>
+                            <th>负责团队</th>
+                            <th>负责人</th>
+                            <th>更新时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="checkbox"></td>
+                            <td><strong>L2_APP_001</strong></td>
+                            <td>用户管理系统</td>
+                            <td><span class="status-badge" style="background: #e0e7ff; color: #3730a3;">云原生</span></td>
+                            <td><span class="status-badge status-progress">研发进行中</span></td>
+                            <td>
+                                <div class="progress-bar" style="width: 100px;">
+                                    <div class="progress-fill" style="width: 65%"></div>
+                                </div>
+                                <span style="font-size: 12px;">65%</span>
+                            </td>
+                            <td>研发一部</td>
+                            <td>李四</td>
+                            <td>2025-01-15 09:30</td>
+                            <td>
+                                <button class="btn btn-sm" style="padding: 4px 8px; font-size: 12px;">编辑</button>
+                                <button class="btn btn-sm btn-primary" style="padding: 4px 8px; font-size: 12px;">子任务</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox"></td>
+                            <td><strong>L2_APP_002</strong></td>
+                            <td>订单管理系统</td>
+                            <td><span class="status-badge" style="background: #fef3c7; color: #92400e;">AK</span></td>
+                            <td><span class="status-badge status-pending">待启动</span></td>
+                            <td>
+                                <div class="progress-bar" style="width: 100px;">
+                                    <div class="progress-fill" style="width: 0%"></div>
+                                </div>
+                                <span style="font-size: 12px;">0%</span>
+                            </td>
+                            <td>研发二部</td>
+                            <td>王五</td>
+                            <td>2025-01-14 14:20</td>
+                            <td>
+                                <button class="btn btn-sm" style="padding: 4px 8px; font-size: 12px;">编辑</button>
+                                <button class="btn btn-sm btn-primary" style="padding: 4px 8px; font-size: 12px;">子任务</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox"></td>
+                            <td><strong>L2_APP_003</strong></td>
+                            <td>库存系统</td>
+                            <td><span class="status-badge" style="background: #e0e7ff; color: #3730a3;">云原生</span></td>
+                            <td><span class="status-badge status-blocked">存在阻塞</span></td>
+                            <td>
+                                <div class="progress-bar" style="width: 100px;">
+                                    <div class="progress-fill" style="width: 30%; background: #f56565;"></div>
+                                </div>
+                                <span style="font-size: 12px; color: #e53e3e;">30% ⚠️</span>
+                            </td>
+                            <td>研发一部</td>
+                            <td>赵六</td>
+                            <td>2025-01-15 11:45</td>
+                            <td>
+                                <button class="btn btn-sm" style="padding: 4px 8px; font-size: 12px;">编辑</button>
+                                <button class="btn btn-sm btn-primary" style="padding: 4px 8px; font-size: 12px;">子任务</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <!-- 分页 -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+                    <div style="color: #718096;">
+                        显示 1-10 条，共 156 条记录
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn btn-secondary" style="padding: 6px 12px;">上一页</button>
+                        <button class="btn btn-primary" style="padding: 6px 12px;">1</button>
+                        <button class="btn btn-secondary" style="padding: 6px 12px;">2</button>
+                        <button class="btn btn-secondary" style="padding: 6px 12px;">3</button>
+                        <button class="btn btn-secondary" style="padding: 6px 12px;">...</button>
+                        <button class="btn btn-secondary" style="padding: 6px 12px;">16</button>
+                        <button class="btn btn-secondary" style="padding: 6px 12px;">下一页</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 我的任务（解决痛点2） -->
+        <section id="my-tasks" class="page-section">
+            <h2 class="section-title">3. 我的任务（快速定位，避免误填）</h2>
+            
+            <div class="mock-container">
+                <div class="mock-header">
+                    <div>
+                        <div class="mock-title">我的任务</div>
+                        <div style="color: #718096; font-size: 14px;">
+                            当前用户：张三 | 研发一部 | 共 8 个待处理任务
+                        </div>
+                    </div>
+                    <div class="mock-actions">
+                        <button class="btn btn-secondary">
+                            <span>🔍</span> 筛选
+                        </button>
+                        <button class="btn btn-primary">
+                            <span>↻</span> 刷新
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 快速筛选标签 -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="btn btn-primary">全部 (8)</button>
+                    <button class="btn btn-secondary">待处理 (5)</button>
+                    <button class="btn btn-secondary">进行中 (2)</button>
+                    <button class="btn btn-secondary">已延期 (1)</button>
+                </div>
+                
+                <!-- 任务列表 - 自动定位到用户负责的任务 -->
+                <div style="background: #fef5e7; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <strong>💡 智能提示：</strong>系统已自动筛选出您负责的任务，避免误操作其他任务
+                </div>
+                
+                <div class="my-task-item task-highlight">
+                    <div style="display: flex; justify-content: space-between;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 24px;">🔴</span>
+                                <div>
+                                    <strong style="font-size: 16px;">用户管理系统 - 数据库迁移</strong>
+                                    <span class="status-badge status-blocked" style="margin-left: 10px;">已延期</span>
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                                <div>
+                                    <span style="color: #718096;">L2 ID:</span> L2_APP_001
+                                </div>
+                                <div>
+                                    <span style="color: #718096;">模块:</span> 数据库迁移
+                                </div>
+                                <div>
+                                    <span style="color: #718096;">计划日期:</span> 
+                                    <span style="color: #e53e3e;">2025-01-10（已延期5天）</span>
+                                </div>
+                                <div>
+                                    <span style="color: #718096;">当前进度:</span> 75%
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 75%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <button class="btn btn-primary">立即更新</button>
+                            <button class="btn btn-secondary">查看详情</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="my-task-item">
+                    <div style="display: flex; justify-content: space-between;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 24px;">🟡</span>
+                                <div>
+                                    <strong style="font-size: 16px;">订单系统 - API接口改造</strong>
+                                    <span class="status-badge status-progress" style="margin-left: 10px;">进行中</span>
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                                <div>
+                                    <span style="color: #718096;">L2 ID:</span> L2_APP_002
+                                </div>
+                                <div>
+                                    <span style="color: #718096;">模块:</span> API接口
+                                </div>
+                                <div>
+                                    <span style="color: #718096;">计划日期:</span> 2025-02-01
+                                </div>
+                                <div>
+                                    <span style="color: #718096;">当前进度:</span> 45%
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 45%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <button class="btn btn-primary">更新进度</button>
+                            <button class="btn btn-secondary">查看详情</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 操作确认弹窗示例 -->
+                <div style="background: #f0fff4; border: 2px solid #9ae6b4; border-radius: 8px; padding: 20px; margin-top: 20px;">
+                    <strong>✅ 二次确认机制（防误操作）</strong>
+                    <p style="margin-top: 10px; color: #718096;">
+                        点击"更新进度"后，系统会弹出确认窗口，显示即将修改的内容，避免误操作
+                    </p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 子任务管理 -->
+        <section id="subtasks" class="page-section">
+            <h2 class="section-title">4. 子任务管理</h2>
+            
+            <div class="mock-container">
+                <div class="mock-header">
+                    <div>
+                        <div class="mock-title">用户管理系统 - 子任务详情</div>
+                        <div style="color: #718096; font-size: 14px;">L2_APP_001 | 负责人：李四</div>
+                    </div>
+                    <div class="mock-actions">
+                        <button class="btn btn-secondary">返回列表</button>
+                        <button class="btn btn-primary">➕ 新增子任务</button>
+                    </div>
+                </div>
+                
+                <!-- 应用概览 -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #667eea;">5</div>
+                        <div style="color: #718096;">子任务总数</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #48bb78;">2</div>
+                        <div style="color: #718096;">已完成</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #3182ce;">2</div>
+                        <div style="color: #718096;">进行中</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #e53e3e;">1</div>
+                        <div style="color: #718096;">阻塞中</div>
+                    </div>
+                </div>
+                
+                <!-- 子任务列表 -->
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>模块名称</th>
+                            <th>子目标</th>
+                            <th>版本</th>
+                            <th>状态</th>
+                            <th>进度</th>
+                            <th>计划完成</th>
+                            <th>实际完成</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>用户认证模块</strong></td>
+                            <td>云原生</td>
+                            <td>v1.0</td>
+                            <td><span class="status-badge status-completed">已完成</span></td>
+                            <td>
+                                <div class="progress-bar" style="width: 100px;">
+                                    <div class="progress-fill" style="width: 100%; background: #48bb78;"></div>
+                                </div>
+                                100%
+                            </td>
+                            <td>2025-01-10</td>
+                            <td style="color: #48bb78;">2025-01-08 ✓</td>
+                            <td>
+                                <button class="btn btn-sm btn-secondary" style="padding: 4px 8px; font-size: 12px;">查看</button>
+                            </td>
+                        </tr>
+                        <tr style="background: #fef5e7;">
+                            <td>
+                                <strong>数据库迁移</strong>
+                                <span style="color: #e53e3e; font-size: 12px;">⚠️ 阻塞</span>
+                            </td>
+                            <td>云原生</td>
+                            <td>v1.0</td>
+                            <td><span class="status-badge status-blocked">阻塞中</span></td>
+                            <td>
+                                <div class="progress-bar" style="width: 100px;">
+                                    <div class="progress-fill" style="width: 30%; background: #e53e3e;"></div>
+                                </div>
+                                30%
+                            </td>
+                            <td>2025-01-15</td>
+                            <td style="color: #e53e3e;">延期中</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger" style="padding: 4px 8px; font-size: 12px;">解决阻塞</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>API接口改造</strong></td>
+                            <td>云原生</td>
+                            <td>v2.0</td>
+                            <td><span class="status-badge status-progress">进行中</span></td>
+                            <td>
+                                <div class="progress-bar" style="width: 100px;">
+                                    <div class="progress-fill" style="width: 60%"></div>
+                                </div>
+                                60%
+                            </td>
+                            <td>2025-02-01</td>
+                            <td>-</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" style="padding: 4px 8px; font-size: 12px;">更新</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <!-- 批量操作 -->
+                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <strong>批量操作：</strong>
+                    <button class="btn btn-secondary" style="margin-left: 10px;">批量更新状态</button>
+                    <button class="btn btn-secondary">批量修改日期</button>
+                    <button class="btn btn-warning">导出子任务</button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 审计日志（解决痛点3） -->
+        <section id="audit" class="page-section">
+            <h2 class="section-title">5. 审计日志（无限制记录）</h2>
+            
+            <div class="mock-container">
+                <div class="mock-header">
+                    <div>
+                        <div class="mock-title">审计日志</div>
+                        <div style="color: #48bb78; font-size: 14px;">
+                            ✅ 突破Excel 1000条限制，所有操作永久保存
+                        </div>
+                    </div>
+                    <div class="mock-actions">
+                        <button class="btn btn-secondary">导出日志</button>
+                    </div>
+                </div>
+                
+                <!-- 搜索过滤 -->
+                <div class="search-bar">
+                    <select class="filter-select">
+                        <option>全部表</option>
+                        <option>应用表</option>
+                        <option>子任务表</option>
+                    </select>
+                    <select class="filter-select">
+                        <option>全部操作</option>
+                        <option>新增</option>
+                        <option>更新</option>
+                        <option>删除</option>
+                    </select>
+                    <input type="text" class="search-input" placeholder="操作人" style="width: 150px;">
+                    <input type="date" class="form-input" style="width: 150px;">
+                    <span>至</span>
+                    <input type="date" class="form-input" style="width: 150px;">
+                    <button class="btn btn-primary">搜索</button>
+                </div>
+                
+                <!-- 统计信息 -->
+                <div style="background: #f0fff4; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                    <strong>📊 日志统计：</strong>
+                    共 <strong style="color: #667eea;">15,432</strong> 条记录 | 
+                    今日操作 <strong style="color: #48bb78;">128</strong> 次 | 
+                    最近操作：<strong>2分钟前</strong>
+                </div>
+                
+                <!-- 日志列表 -->
+                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <div class="audit-item">
+                        <div class="audit-icon update">✏️</div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <div>
+                                    <strong>李四</strong> 更新了 <strong>子任务</strong>
+                                    <span style="color: #718096; margin-left: 10px;">2分钟前</span>
+                                </div>
+                                <button class="btn btn-sm btn-secondary" style="padding: 4px 8px;">查看详情</button>
+                            </div>
+                            <div style="color: #718096; margin-top: 5px;">
+                                表：sub_tasks | 记录ID：101 | IP：192.168.1.100
+                            </div>
+                            <div class="diff-view">
+                                <div class="diff-old">
+                                    <strong>修改前：</strong><br>
+                                    状态：待启动<br>
+                                    进度：0%
+                                </div>
+                                <div class="diff-new">
+                                    <strong>修改后：</strong><br>
+                                    状态：研发进行中<br>
+                                    进度：30%
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <button class="btn btn-sm btn-warning" style="padding: 4px 8px; font-size: 12px;">
+                                    ↶ 回滚到此版本
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="audit-item">
+                        <div class="audit-icon create">➕</div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <div>
+                                    <strong>张三</strong> 创建了 <strong>应用</strong>
+                                    <span style="color: #718096; margin-left: 10px;">15分钟前</span>
+                                </div>
+                                <button class="btn btn-sm btn-secondary" style="padding: 4px 8px;">查看详情</button>
+                            </div>
+                            <div style="color: #718096; margin-top: 5px;">
+                                L2_APP_004 - 财务管理系统
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="audit-item">
+                        <div class="audit-icon delete">🗑️</div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <div>
+                                    <strong>王五</strong> 删除了 <strong>子任务</strong>
+                                    <span style="color: #718096; margin-left: 10px;">1小时前</span>
+                                </div>
+                                <button class="btn btn-sm btn-secondary" style="padding: 4px 8px;">查看详情</button>
+                            </div>
+                            <div style="color: #718096; margin-top: 5px;">
+                                测试模块（已备份）
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 分页 -->
+                <div style="display: flex; justify-content: center; margin-top: 20px;">
+                    <button class="btn btn-secondary">上一页</button>
+                    <span style="margin: 0 20px;">第 1 页 / 共 309 页</span>
+                    <button class="btn btn-secondary">下一页</button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 批量导入 -->
+        <section id="import" class="page-section">
+            <h2 class="section-title">6. 批量导入</h2>
+            
+            <div class="mock-container">
+                <div class="mock-header">
+                    <div class="mock-title">Excel批量导入</div>
+                    <div class="mock-actions">
+                        <button class="btn btn-secondary">下载模板</button>
+                    </div>
+                </div>
+                
+                <!-- 导入步骤 -->
+                <div style="display: flex; justify-content: space-around; margin: 30px 0;">
+                    <div style="text-align: center;">
+                        <div style="width: 60px; height: 60px; border-radius: 50%; background: #667eea; color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 24px;">1</div>
+                        <div style="margin-top: 10px;">选择文件</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 60px; height: 60px; border-radius: 50%; background: #e2e8f0; color: #718096; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 24px;">2</div>
+                        <div style="margin-top: 10px;">数据预览</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 60px; height: 60px; border-radius: 50%; background: #e2e8f0; color: #718096; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 24px;">3</div>
+                        <div style="margin-top: 10px;">确认导入</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 60px; height: 60px; border-radius: 50%; background: #e2e8f0; color: #718096; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 24px;">4</div>
+                        <div style="margin-top: 10px;">导入结果</div>
+                    </div>
+                </div>
+                
+                <!-- 文件上传区域 -->
+                <div style="border: 2px dashed #cbd5e0; border-radius: 8px; padding: 40px; text-align: center; background: #f8f9fa;">
+                    <div style="font-size: 48px;">📁</div>
+                    <div style="margin: 20px 0;">
+                        <strong>拖拽文件到此处或点击选择</strong>
+                    </div>
+                    <button class="btn btn-primary">选择Excel文件</button>
+                    <div style="color: #718096; margin-top: 10px; font-size: 14px;">
+                        支持 .xlsx, .xls 格式，文件大小不超过 10MB
+                    </div>
+                </div>
+                
+                <!-- 导入选项 -->
+                <div style="margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
+                        <label class="form-label">导入模式</label>
+                        <select class="form-input">
+                            <option>追加（保留现有数据）</option>
+                            <option>覆盖（替换现有数据）</option>
+                            <option>更新（根据L2 ID匹配更新）</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">表类型</label>
+                        <select class="form-input">
+                            <option>主表（应用表）</option>
+                            <option>子表（任务表）</option>
+                            <option>主表和子表</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- 验证选项 -->
+                <div style="background: #f0f4ff; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                    <label>
+                        <input type="checkbox" checked> 
+                        <strong>先验证数据（推荐）</strong>
+                    </label>
+                    <p style="margin-top: 5px; color: #718096; font-size: 14px;">
+                        勾选后将先进行数据验证，显示错误和警告，确认无误后再导入
+                    </p>
+                </div>
+                
+                <div style="display: flex; justify-content: center; margin-top: 30px;">
+                    <button class="btn btn-primary" style="padding: 12px 40px;">开始导入</button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 报表中心 -->
+        <section id="reports" class="page-section">
+            <h2 class="section-title">7. 报表中心</h2>
+            
+            <div class="mock-container">
+                <div class="mock-header">
+                    <div class="mock-title">报表中心</div>
+                    <div class="mock-actions">
+                        <button class="btn btn-primary">生成报表</button>
+                        <button class="btn btn-warning">导出PDF</button>
+                    </div>
+                </div>
+                
+                <!-- 报表类型选择 -->
+                <div class="tabs">
+                    <div class="tab-list">
+                        <div class="tab-item active">汇总报表</div>
+                        <div class="tab-item">进度报表</div>
+                        <div class="tab-item">延期分析</div>
+                        <div class="tab-item">部门对比</div>
+                    </div>
+                </div>
+                
+                <!-- 时间范围选择 -->
+                <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+                    <button class="btn btn-secondary">本周</button>
+                    <button class="btn btn-primary">本月</button>
+                    <button class="btn btn-secondary">本季度</button>
+                    <button class="btn btn-secondary">本年</button>
+                    <button class="btn btn-secondary">自定义</button>
+                </div>
+                
+                <!-- 报表内容 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="chart-container">
+                        <h3>改造完成情况</h3>
+                        <div class="chart-placeholder">
+                            环形图：已完成 vs 进行中 vs 未开始
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <h3>月度进度趋势</h3>
+                        <div class="chart-placeholder">
+                            柱状图：每月完成数量
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 数据表格 -->
+                <div style="margin-top: 30px;">
+                    <h3 style="margin-bottom: 15px;">详细数据</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>部门</th>
+                                <th>应用总数</th>
+                                <th>已完成</th>
+                                <th>进行中</th>
+                                <th>未开始</th>
+                                <th>完成率</th>
+                                <th>平均进度</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>研发一部</td>
+                                <td>45</td>
+                                <td>15</td>
+                                <td>20</td>
+                                <td>10</td>
+                                <td><strong style="color: #48bb78;">33.3%</strong></td>
+                                <td>52%</td>
+                            </tr>
+                            <tr>
+                                <td>研发二部</td>
+                                <td>38</td>
+                                <td>10</td>
+                                <td>18</td>
+                                <td>10</td>
+                                <td><strong style="color: #e53e3e;">26.3%</strong></td>
+                                <td>41%</td>
+                            </tr>
+                            <tr>
+                                <td>运维部</td>
+                                <td>25</td>
+                                <td>8</td>
+                                <td>12</td>
+                                <td>5</td>
+                                <td><strong style="color: #ed8936;">32.0%</strong></td>
+                                <td>48%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 导出选项 -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 30px;">
+                    <h4>导出选项</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 15px;">
+                        <label>
+                            <input type="checkbox" checked> 包含图表
+                        </label>
+                        <label>
+                            <input type="checkbox" checked> 包含详细数据
+                        </label>
+                        <label>
+                            <input type="checkbox"> 包含原始数据
+                        </label>
+                    </div>
+                    <button class="btn btn-success" style="margin-top: 20px;">
+                        📥 导出为Excel
+                    </button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 组件规范 -->
+        <section id="components" class="page-section">
+            <h2 class="section-title">8. UI组件规范</h2>
+            
+            <div class="mock-container">
+                <h3 class="sub-title">颜色规范</h3>
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px;">
+                    <div style="text-align: center;">
+                        <div style="width: 100%; height: 60px; background: #667eea; border-radius: 8px;"></div>
+                        <div style="margin-top: 5px;">主色 #667eea</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 100%; height: 60px; background: #48bb78; border-radius: 8px;"></div>
+                        <div style="margin-top: 5px;">成功 #48bb78</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 100%; height: 60px; background: #ed8936; border-radius: 8px;"></div>
+                        <div style="margin-top: 5px;">警告 #ed8936</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 100%; height: 60px; background: #f56565; border-radius: 8px;"></div>
+                        <div style="margin-top: 5px;">错误 #f56565</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 100%; height: 60px; background: #718096; border-radius: 8px;"></div>
+                        <div style="margin-top: 5px;">次要 #718096</div>
+                    </div>
+                </div>
+                
+                <h3 class="sub-title">按钮样式</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-primary">主要按钮</button>
+                    <button class="btn btn-success">成功按钮</button>
+                    <button class="btn btn-warning">警告按钮</button>
+                    <button class="btn btn-danger">危险按钮</button>
+                    <button class="btn btn-secondary">次要按钮</button>
+                    <button class="btn btn-primary" disabled style="opacity: 0.5; cursor: not-allowed;">禁用按钮</button>
+                </div>
+                
+                <h3 class="sub-title">状态标签</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <span class="status-badge status-pending">待启动</span>
+                    <span class="status-badge status-progress">进行中</span>
+                    <span class="status-badge status-completed">已完成</span>
+                    <span class="status-badge status-blocked">阻塞中</span>
+                    <span class="status-badge" style="background: #fef3c7; color: #92400e;">AK</span>
+                    <span class="status-badge" style="background: #e0e7ff; color: #3730a3;">云原生</span>
+                </div>
+                
+                <h3 class="sub-title">表单元素</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">输入框</label>
+                        <input type="text" class="form-input" placeholder="请输入内容">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">下拉选择</label>
+                        <select class="form-input">
+                            <option>选项1</option>
+                            <option>选项2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">日期选择</label>
+                        <input type="date" class="form-input">
+                    </div>
+                </div>
+                
+                <h3 class="sub-title">交互反馈</h3>
+                <div style="display: grid; gap: 15px;">
+                    <div style="background: #c6f6d5; border: 1px solid #9ae6b4; padding: 15px; border-radius: 8px;">
+                        ✅ <strong>成功提示：</strong>操作已成功完成
+                    </div>
+                    <div style="background: #fed7d7; border: 1px solid #fc8181; padding: 15px; border-radius: 8px;">
+                        ❌ <strong>错误提示：</strong>操作失败，请重试
+                    </div>
+                    <div style="background: #fef5e7; border: 1px solid #f6d55c; padding: 15px; border-radius: 8px;">
+                        ⚠️ <strong>警告提示：</strong>请注意相关风险
+                    </div>
+                    <div style="background: #e0e7ff; border: 1px solid #a5b4fc; padding: 15px; border-radius: 8px;">
+                        ℹ️ <strong>信息提示：</strong>这是一条普通信息
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 快速操作按钮 -->
+        <div class="quick-actions">
+            <button class="fab">+</button>
+        </div>
+    </div>
+</body>
+</html>
