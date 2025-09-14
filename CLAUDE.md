@@ -465,3 +465,97 @@ npm run type-check
 
 #### Ready for Review
 The current implementation provides a fully functional frontend that addresses all identified pain points and includes all features specified in the UI design mockup. The codebase is ready for code review and further development.
+
+## 开发流程规范
+
+### 阶段1：Automate（自动化执行）
+**目标**: 按节点执行 → 编写测试 → 实现代码 → 文档同步
+
+#### 代码质量要求
+- 严格遵循项目现有代码规范
+- 保持与现有代码风格一致
+- 使用项目现有的工具和库
+- 复用项目现有组件
+- 代码尽量精简易读
+- API KEY 放到 .env 文件中
+
+#### 逐步实施流程
+每个子任务执行流程：
+
+1. **执行前检查**：验证输入契约、环境准备、依赖满足
+2. **实现核心逻辑**：按设计文档编写代码
+3. **编写单元测试**：覆盖边界条件、异常情况
+4. **运行验证测试**：确保功能正确
+5. **更新相关文档**：保持文档同步
+
+### 阶段2：Assess（评估阶段）
+**目标**: 执行结果 → 质量评估 → 文档更新 → 交付确认
+
+#### 质量评估指标
+- **代码质量**：规范、可读性、复杂度
+- **测试质量**：覆盖率、用例有效性
+- **文档质量**：完整性、准确性、一致性
+- **系统集成**：与现有系统良好集成
+- **技术债务**：未引入新的技术债务
+
+#### 最终交付物
+- **FINAL_[任务名].md**：项目总结报告
+- **TODO_[任务名].md**：待办事项和配置清单
+
+## 开发规范与约定
+
+### 代码风格统一
+- 使用 Vue 3 Composition API
+- TypeScript 严格类型检查
+- Element Plus 组件优先
+- SCSS 样式预处理器
+- ESLint + Prettier 代码格式化
+
+### 测试策略
+```bash
+# 单元测试
+npm run test:unit
+
+# 组件测试  
+npm run test:component
+
+# E2E 测试
+npm run test:e2e
+
+# 测试覆盖率
+npm run test:coverage
+```
+
+### 文档维护
+- 每个新功能必须更新 CLAUDE.md
+- API 变更必须更新接口文档
+- 组件库更新必须同步组件文档
+- 部署流程变更必须更新部署文档
+
+### 环境配置
+```bash
+# 开发环境
+.env.development
+
+# 测试环境
+.env.test
+
+# 生产环境
+.env.production
+```
+
+### Git 工作流
+1. 从 `master` 创建功能分支：`feature/任务名`
+2. 按阶段1流程完成开发
+3. 按阶段2流程完成评估
+4. 提交PR请求代码审查
+5. 合并到 `master` 分支
+
+### 任务交付标准
+每个任务完成后必须提供：
+- ✅ 功能代码实现
+- ✅ 单元测试用例
+- ✅ 功能验证测试
+- ✅ 相关文档更新
+- ✅ FINAL_[任务名].md 总结报告
+- ✅ TODO_[任务名].md 配置清单
