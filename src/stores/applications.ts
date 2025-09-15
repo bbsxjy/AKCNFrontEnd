@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
-import { applicationApi, type ApplicationFilters } from '@/api/applications'
-import type { Application, PaginatedResponse } from '@/types'
+import { ApplicationsAPI } from '@/api/applications'
+import type { ApplicationListParams } from '@/api/applications'
+import type { Application } from '@/types'
 
 export const useApplicationStore = defineStore('applications', () => {
   const applications = ref<Application[]>([])
@@ -9,17 +10,12 @@ export const useApplicationStore = defineStore('applications', () => {
   const loading = ref(false)
   const total = ref(0)
   
-  const filters = reactive<ApplicationFilters>({
-    page: 1,
-    page_size: 20,
-    l2_id: '',
-    app_name: '',
+  const filters = reactive<ApplicationListParams>({
+    skip: 0,
+    limit: 20,
+    search: '',
     status: '',
-    department: '',
-    year: undefined,
-    target: '',
-    sort_by: 'updated_at',
-    order: 'desc'
+    team: ''
   })
 
   const pagination = reactive({
@@ -29,7 +25,7 @@ export const useApplicationStore = defineStore('applications', () => {
     totalPages: 0
   })
 
-  const fetchApplications = async (newFilters?: Partial<ApplicationFilters>) => {
+  const fetchApplications = async (newFilters?: Partial<ApplicationListParams>) => {
     try {
       loading.value = true
       
@@ -37,18 +33,17 @@ export const useApplicationStore = defineStore('applications', () => {
         Object.assign(filters, newFilters)
       }
 
-      const response = await applicationApi.getApplications(filters)
-      const data = response.data.data
-
-      applications.value = data.items
-      total.value = data.total
+      const response = await ApplicationsAPI.getApplications(filters)
       
-      pagination.page = data.page
-      pagination.pageSize = data.page_size
-      pagination.total = data.total
-      pagination.totalPages = data.total_pages
+      applications.value = response.items
+      total.value = response.total
+      
+      pagination.page = Math.floor((filters.skip || 0) / (filters.limit || 20)) + 1
+      pagination.pageSize = filters.limit || 20
+      pagination.total = response.total
+      pagination.totalPages = Math.ceil(response.total / (filters.limit || 20))
 
-      return data
+      return response
     } catch (error) {
       console.error('Failed to fetch applications:', error)
       throw error
@@ -60,9 +55,9 @@ export const useApplicationStore = defineStore('applications', () => {
   const fetchApplication = async (id: number) => {
     try {
       loading.value = true
-      const response = await applicationApi.getApplication(id)
-      currentApplication.value = response.data.data
-      return response.data.data
+      const response = await ApplicationsAPI.getApplication(id)
+      currentApplication.value = response
+      return response
     } catch (error) {
       console.error('Failed to fetch application:', error)
       throw error
@@ -71,12 +66,12 @@ export const useApplicationStore = defineStore('applications', () => {
     }
   }
 
-  const createApplication = async (data: Partial<Application>) => {
+  const createApplication = async (data: any) => {
     try {
       loading.value = true
-      const response = await applicationApi.createApplication(data)
+      const response = await ApplicationsAPI.createApplication(data)
       await fetchApplications()
-      return response.data.data
+      return response
     } catch (error) {
       console.error('Failed to create application:', error)
       throw error
@@ -85,10 +80,10 @@ export const useApplicationStore = defineStore('applications', () => {
     }
   }
 
-  const updateApplication = async (id: number, data: Partial<Application>) => {
+  const updateApplication = async (id: number, data: any) => {
     try {
       loading.value = true
-      const response = await applicationApi.updateApplication(id, data)
+      const response = await ApplicationsAPI.updateApplication(id, data)
       
       // Update local data
       const index = applications.value.findIndex(app => app.id === id)
@@ -96,7 +91,7 @@ export const useApplicationStore = defineStore('applications', () => {
         applications.value[index] = { ...applications.value[index], ...data }
       }
       
-      return response.data.data
+      return response
     } catch (error) {
       console.error('Failed to update application:', error)
       throw error
@@ -108,7 +103,7 @@ export const useApplicationStore = defineStore('applications', () => {
   const deleteApplication = async (id: number) => {
     try {
       loading.value = true
-      await applicationApi.deleteApplication(id)
+      await ApplicationsAPI.deleteApplication(id)
       
       // Remove from local data
       applications.value = applications.value.filter(app => app.id !== id)
@@ -124,16 +119,11 @@ export const useApplicationStore = defineStore('applications', () => {
 
   const resetFilters = () => {
     Object.assign(filters, {
-      page: 1,
-      page_size: 20,
-      l2_id: '',
-      app_name: '',
+      skip: 0,
+      limit: 20,
+      search: '',
       status: '',
-      department: '',
-      year: undefined,
-      target: '',
-      sort_by: 'updated_at',
-      order: 'desc'
+      team: ''
     })
   }
 

@@ -170,6 +170,11 @@ Key stores:
    - Editor: Edit assigned applications
    - Viewer: Read-only access
 
+## Development Guidelines for Claude
+
+1. **不要新建脚本文件**: 不要创建新的批处理脚本(.bat)、Shell脚本(.sh)或其他脚本文件来处理需求。所有功能应该在现有代码结构内实现。
+2. **不要自动启动服务器**: 永远不要自动运行 `npm run dev` 或其他启动命令。让用户自己决定何时启动服务器。只提供启动指令即可。
+
 ## Testing Strategy
 
 - Unit tests for utilities and composables
@@ -559,3 +564,26 @@ npm run test:coverage
 - ✅ 相关文档更新
 - ✅ FINAL_[任务名].md 总结报告
 - ✅ TODO_[任务名].md 配置清单
+
+## 测试配置
+
+### API测试模式
+为了方便开发和测试，前端已配置为跳过登录验证：
+
+1. **固定Token**: 所有API请求使用固定测试token `Bearer token_1_admin_full_access_test_2024`
+2. **虚拟用户**: 自动设置测试管理员用户信息
+3. **跳过认证**: 无需登录即可访问所有页面
+4. **WebSocket禁用**: 在后端未启动时禁用WebSocket连接
+
+### 测试配置文件
+- `/src/api/index.ts` - API基础配置，使用固定token
+- `/src/stores/auth.ts` - 认证store，预设测试用户
+- `/src/layouts/MainLayout.vue` - 主布局，跳过登录检查
+- `/src/views/DashboardView.vue` - 禁用WebSocket连接
+
+### 切换到生产模式
+当后端准备就绪时，需要恢复以下功能：
+1. 恢复动态token获取和刷新
+2. 启用真实用户认证流程
+3. 恢复WebSocket实时连接
+4. 添加路由守卫和权限检查

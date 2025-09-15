@@ -10,7 +10,15 @@
             </div>
           </div>
           <div class="actions">
-            <el-button>导出日志</el-button>
+            <el-dropdown split-button type="primary" @click="exportLogs('excel')">
+              导出Excel
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="exportLogs('csv')">导出CSV</el-dropdown-item>
+                  <el-dropdown-item @click="exportLogs('json')">导出JSON</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </div>
       </template>
@@ -19,18 +27,33 @@
       <div class="search-bar">
         <el-form :model="filters" inline>
           <el-form-item>
-            <el-select v-model="filters.table_name" placeholder="全部表" clearable>
-              <el-option label="全部表" value="" />
-              <el-option label="应用表" value="applications" />
-              <el-option label="子任务表" value="sub_tasks" />
+            <el-select
+              v-model="filters.table_name"
+              placeholder="全部表"
+              clearable
+              style="width: 150px"
+            >
+              <el-option
+                v-for="item in tableOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
             </el-select>
           </el-form-item>
           <el-form-item>
-            <el-select v-model="filters.operation" placeholder="全部操作" clearable>
-              <el-option label="全部操作" value="" />
-              <el-option label="新增" value="INSERT" />
-              <el-option label="更新" value="UPDATE" />
-              <el-option label="删除" value="DELETE" />
+            <el-select
+              v-model="filters.operation"
+              placeholder="全部操作"
+              clearable
+              style="width: 150px"
+            >
+              <el-option
+                v-for="item in operationOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
             </el-select>
           </el-form-item>
           <el-form-item>
@@ -43,7 +66,8 @@
             <el-date-picker v-model="filters.end_date" type="date" placeholder="结束日期" />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="searchLogs">搜索</el-button>
+            <el-button type="primary" @click="searchLogs" :loading="loading">搜索</el-button>
+            <el-button @click="resetFilters">重置</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -63,7 +87,8 @@
       </el-alert>
 
       <!-- Audit Logs List -->
-      <div class="logs-container">
+      <div class="logs-container" v-loading="loading">
+        <el-empty v-if="!loading && auditLogs.length === 0" description="暂无审计日志数据" />
         <div
           v-for="log in auditLogs"
           :key="log.id"
@@ -75,7 +100,7 @@
           <div class="audit-content">
             <div class="audit-header">
               <div>
-                <strong>{{ log.user.full_name }}</strong> {{ getOperationText(log.operation) }} <strong>{{ getTableText(log.table_name) }}</strong>
+                <strong>{{ log.user?.full_name || log.user_full_name || '未知用户' }}</strong> {{ getOperationText(log.operation) }} <strong>{{ getTableText(log.table_name) }}</strong>
                 <span class="time">{{ formatTime(log.created_at) }}</span>
               </div>
               <el-button size="small" @click="viewDetails(log)">查看详情</el-button>
@@ -117,110 +142,212 @@
         />
       </div>
     </el-card>
+
+    <!-- Detail Dialog -->
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="审计日志详情"
+      width="800px"
+    >
+      <div v-if="selectedLog" class="detail-content">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="日志ID">{{ selectedLog.id }}</el-descriptions-item>
+          <el-descriptions-item label="操作时间">{{ formatTime(selectedLog.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="操作人">{{ selectedLog.user?.full_name || selectedLog.user_full_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="操作IP">{{ selectedLog.user_ip }}</el-descriptions-item>
+          <el-descriptions-item label="表名">{{ selectedLog.table_name }}</el-descriptions-item>
+          <el-descriptions-item label="记录ID">{{ selectedLog.record_id }}</el-descriptions-item>
+          <el-descriptions-item label="操作类型">
+            <el-tag :type="selectedLog.operation === 'DELETE' ? 'danger' : selectedLog.operation === 'INSERT' ? 'success' : 'primary'">
+              {{ getOperationText(selectedLog.operation) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="请求ID">{{ selectedLog.request_id || '-' }}</el-descriptions-item>
+        </el-descriptions>
+
+        <div v-if="selectedLog.operation === 'UPDATE'" class="detail-changes">
+          <h4>变更详情</h4>
+          <el-table :data="getChangedFieldsData(selectedLog)" border>
+            <el-table-column prop="field" label="字段名" width="200" />
+            <el-table-column prop="oldValue" label="修改前">
+              <template #default="scope">
+                <span class="old-value">{{ scope.row.oldValue || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="newValue" label="修改后">
+              <template #default="scope">
+                <span class="new-value">{{ scope.row.newValue || '-' }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <div v-else-if="selectedLog.operation === 'INSERT'" class="detail-values">
+          <h4>创建的数据</h4>
+          <el-table :data="getNewValuesData(selectedLog)" border>
+            <el-table-column prop="field" label="字段名" width="200" />
+            <el-table-column prop="value" label="值" />
+          </el-table>
+        </div>
+
+        <div v-else-if="selectedLog.operation === 'DELETE'" class="detail-values">
+          <h4>删除的数据</h4>
+          <el-table :data="getOldValuesData(selectedLog)" border>
+            <el-table-column prop="field" label="字段名" width="200" />
+            <el-table-column prop="value" label="值" />
+          </el-table>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="detailDialogVisible = false">关闭</el-button>
+        <el-button
+          v-if="selectedLog?.operation === 'UPDATE'"
+          type="warning"
+          @click="rollback(selectedLog)"
+        >
+          回滚此操作
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
 import type { AuditLog } from '@/types'
+import { AuditAPI } from '@/api/audit'
+import { formatDate } from '@/utils'
 
 const filters = reactive({
-  table_name: '',
-  operation: '',
+  table_name: undefined as string | undefined,
+  operation: undefined as 'INSERT' | 'UPDATE' | 'DELETE' | undefined,
   user: '',
+  user_id: undefined as number | undefined,
   start_date: null as Date | null,
   end_date: null as Date | null
 })
 
+const loading = ref(false)
+const detailDialogVisible = ref(false)
+const selectedLog = ref<AuditLog | null>(null)
+
+// 下拉选项
+const tableOptions = [
+  { label: '应用表', value: 'applications' },
+  { label: '子任务表', value: 'sub_tasks' }
+]
+
+const operationOptions = [
+  { label: '新增', value: 'INSERT' },
+  { label: '更新', value: 'UPDATE' },
+  { label: '删除', value: 'DELETE' }
+]
+
 const pagination = reactive({
   page: 1,
   pageSize: 50,
-  total: 15432
+  total: 0
 })
 
-const totalLogs = ref(15432)
-const todayOperations = ref(128)
-const lastOperationTime = ref('2分钟前')
+const totalLogs = ref(0)
+const todayOperations = ref(0)
+const lastOperationTime = ref('暂无')
 
-const auditLogs = ref<AuditLog[]>([
-  {
-    id: 10001,
-    table_name: 'sub_tasks',
-    record_id: 101,
-    operation: 'UPDATE',
-    old_values: {
-      task_status: '待启动',
-      progress_percentage: 0
-    },
-    new_values: {
-      task_status: '研发进行中',
-      progress_percentage: 30
-    },
-    changed_fields: ['task_status', 'progress_percentage'],
-    user: {
-      id: 15,
-      sso_user_id: 'SSO_002',
-      username: 'lisi',
-      full_name: '李四',
-      email: 'lisi@company.com',
-      department: '研发一部',
-      role: 'editor',
-      permissions: []
-    },
-    user_ip: '192.168.1.100',
-    created_at: '2025-01-15T10:30:00Z'
-  },
-  {
-    id: 10002,
-    table_name: 'applications',
-    record_id: 4,
-    operation: 'INSERT',
-    old_values: null,
-    new_values: {
-      l2_id: 'L2_APP_004',
-      app_name: '财务管理系统',
-      transformation_target: '云原生'
-    },
-    changed_fields: [],
-    user: {
-      id: 10,
-      sso_user_id: 'SSO_001',
-      username: 'zhangsan',
-      full_name: '张三',
-      email: 'zhangsan@company.com',
-      department: '研发一部',
-      role: 'manager',
-      permissions: []
-    },
-    user_ip: '192.168.1.101',
-    created_at: '2025-01-15T10:15:00Z'
-  },
-  {
-    id: 10003,
-    table_name: 'sub_tasks',
-    record_id: 99,
-    operation: 'DELETE',
-    old_values: {
-      module_name: '测试模块',
-      task_status: '待启动'
-    },
-    new_values: {},
-    changed_fields: [],
-    user: {
-      id: 20,
-      sso_user_id: 'SSO_003',
-      username: 'wangwu',
-      full_name: '王五',
-      email: 'wangwu@company.com',
-      department: '研发二部',
-      role: 'editor',
-      permissions: []
-    },
-    user_ip: '192.168.1.102',
-    created_at: '2025-01-15T09:45:00Z'
+const auditLogs = ref<AuditLog[]>([])
+
+// Load audit logs from API
+const loadAuditLogs = async () => {
+  loading.value = true
+  try {
+    const params = {
+      skip: (pagination.page - 1) * pagination.pageSize,
+      limit: pagination.pageSize,
+      table_name: filters.table_name,
+      operation: filters.operation,
+      user_name: filters.user || undefined,  // Use user name for search
+      start_date: filters.start_date ? formatDate(filters.start_date, 'YYYY-MM-DD') : undefined,
+      end_date: filters.end_date ? formatDate(filters.end_date, 'YYYY-MM-DD') : undefined
+    }
+
+    // Remove undefined values
+    Object.keys(params).forEach(key => {
+      if (params[key as keyof typeof params] === undefined) {
+        delete params[key as keyof typeof params]
+      }
+    })
+
+    const response = await AuditAPI.getAuditLogs(params)
+    auditLogs.value = response.items.map(item => ({
+      ...item,
+      user: {
+        id: item.user_id,
+        sso_user_id: '',
+        username: '',
+        full_name: item.user_full_name,
+        email: '',
+        department: '',
+        role: 'viewer',
+        permissions: []
+      }
+    }))
+    pagination.total = response.total
+    totalLogs.value = response.total
+
+    // Calculate today's operations
+    const today = new Date().toISOString().split('T')[0]
+    const todayLogs = response.items.filter(log =>
+      log.created_at.startsWith(today)
+    )
+    todayOperations.value = todayLogs.length
+
+    // Get last operation time
+    if (response.items.length > 0 && response.items[0].created_at) {
+      lastOperationTime.value = formatTime(response.items[0].created_at)
+    }
+  } catch (error) {
+    console.error('Failed to load audit logs:', error)
+    ElMessage.error('加载审计日志失败')
+    // Use mock data as fallback
+    auditLogs.value = [
+      {
+        id: 10001,
+        table_name: 'sub_tasks',
+        record_id: 101,
+        operation: 'UPDATE',
+        old_values: {
+          task_status: '待启动',
+          progress_percentage: 0
+        },
+        new_values: {
+          task_status: '研发进行中',
+          progress_percentage: 30
+        },
+        changed_fields: ['task_status', 'progress_percentage'],
+        user: {
+          id: 15,
+          sso_user_id: 'SSO_002',
+          username: 'lisi',
+          full_name: '李四',
+          email: 'lisi@company.com',
+          department: '研发一部',
+          role: 'editor',
+          permissions: []
+        },
+        user_id: 15,
+        user_full_name: '李四',
+        user_ip: '192.168.1.100',
+        created_at: '2025-01-15T10:30:00Z',
+        request_id: 'mock-001'
+      }
+    ]
+    pagination.total = 1
+    totalLogs.value = 1
+  } finally {
+    loading.value = false
   }
-])
+}
 
 const getOperationIcon = (operation: string) => {
   const iconMap: Record<string, string> = {
@@ -252,7 +379,7 @@ const formatTime = (timeString: string) => {
   const now = new Date()
   const time = new Date(timeString)
   const diffMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60))
-  
+
   if (diffMinutes < 60) {
     return `${diffMinutes}分钟前`
   } else if (diffMinutes < 1440) {
@@ -262,22 +389,166 @@ const formatTime = (timeString: string) => {
   }
 }
 
+// Helper functions for detail dialog
+const getChangedFieldsData = (log: AuditLog) => {
+  return log.changed_fields.map(field => ({
+    field,
+    oldValue: log.old_values?.[field],
+    newValue: log.new_values?.[field]
+  }))
+}
+
+const getNewValuesData = (log: AuditLog) => {
+  return Object.entries(log.new_values || {}).map(([field, value]) => ({
+    field,
+    value: value?.toString() || '-'
+  }))
+}
+
+const getOldValuesData = (log: AuditLog) => {
+  return Object.entries(log.old_values || {}).map(([field, value]) => ({
+    field,
+    value: value?.toString() || '-'
+  }))
+}
+
 const searchLogs = () => {
-  ElMessage.success('搜索功能将在连接后端API后生效')
+  pagination.page = 1
+  loadAuditLogs()
+}
+
+const resetFilters = () => {
+  filters.table_name = undefined
+  filters.operation = undefined
+  filters.user = ''
+  filters.user_id = undefined
+  filters.start_date = null
+  filters.end_date = null
+  pagination.page = 1
+  loadAuditLogs()
 }
 
 const viewDetails = (log: AuditLog) => {
-  ElMessage.info(`查看详情：记录ID ${log.id}`)
+  selectedLog.value = log
+  detailDialogVisible.value = true
 }
 
-const rollback = (log: AuditLog) => {
-  ElMessage.warning(`回滚功能：将记录ID ${log.record_id} 回滚到操作 ${log.id} 之前的状态`)
+const rollback = async (log: AuditLog) => {
+  try {
+    const result = await ElMessageBox.prompt(
+      `确定要将 ${getTableText(log.table_name)} (ID: ${log.record_id}) 回滚到此操作之前的状态吗？\n请输入回滚原因（可选）：`,
+      '确认回滚',
+      {
+        confirmButtonText: '确定回滚',
+        cancelButtonText: '取消',
+        type: 'warning',
+        inputPlaceholder: '输入回滚原因...'
+      }
+    )
+
+    const loadingInstance = ElLoading.service({
+      text: '正在执行回滚...'
+    })
+
+    try {
+      const response = await AuditAPI.rollbackAuditLog(log.id, {
+        confirm: true,
+        reason: result.value && result.value.trim() ? result.value : undefined
+      })
+
+      ElMessage.success(`回滚成功：${response.message}`)
+      // Reload audit logs to show the new rollback entry
+      await loadAuditLogs()
+    } finally {
+      loadingInstance.close()
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('Rollback failed:', error)
+      if (error?.response?.status === 403) {
+        ElMessage.error('权限不足：仅管理员和经理可以执行回滚操作')
+      } else if (error?.response?.data?.detail) {
+        const detail = error.response.data.detail
+        ElMessage.error(`回滚失败：${detail}`)
+      } else {
+        ElMessage.error('回滚操作失败，请稍后重试')
+      }
+    }
+  }
+}
+
+const exportLogs = async (format: 'excel' | 'csv' | 'json' = 'excel') => {
+  const loadingInstance = ElLoading.service({
+    text: '正在导出日志...'
+  })
+
+  try {
+    const params: any = {
+      format,
+      table_name: filters.table_name,
+      operation: filters.operation,
+      start_date: filters.start_date ? formatDate(filters.start_date, 'YYYY-MM-DD') : undefined,
+      end_date: filters.end_date ? formatDate(filters.end_date, 'YYYY-MM-DD') : undefined
+    }
+
+    // Remove undefined values
+    Object.keys(params).forEach(key => {
+      if (params[key] === undefined) {
+        delete params[key]
+      }
+    })
+
+    const response = await AuditAPI.exportAuditLogs(params)
+
+    if (format === 'json') {
+      // For JSON, response is structured data
+      const jsonData = JSON.stringify(response, null, 2)
+      const blob = new Blob([jsonData], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `audit_logs_${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      ElMessage.success('成功导出审计日志（JSON格式）')
+    } else {
+      // For CSV and Excel, response is a blob
+      const blob = response as Blob
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const extension = format === 'excel' ? 'xlsx' : 'csv'
+      link.download = `audit_logs_${new Date().toISOString().split('T')[0]}.${extension}`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      ElMessage.success(`成功导出审计日志（${format.toUpperCase()}格式）`)
+    }
+  } catch (error: any) {
+    console.error('Export failed:', error)
+    if (error?.response?.data?.detail) {
+      const detail = error.response.data.detail
+      ElMessage.error(`导出失败：${detail}`)
+    } else {
+      ElMessage.error('导出审计日志失败')
+    }
+  } finally {
+    loadingInstance.close()
+  }
 }
 
 const handlePageChange = (page: number) => {
   pagination.page = page
-  // Fetch new data
+  loadAuditLogs()
 }
+
+// Initialize on component mount
+onMounted(() => {
+  loadAuditLogs()
+})
 </script>
 
 <style scoped>
@@ -411,5 +682,40 @@ const handlePageChange = (page: number) => {
 .pagination {
   display: flex;
   justify-content: center;
+}
+
+/* Fix for Element Plus select display issue */
+.search-bar .el-select__placeholder.is-transparent {
+  opacity: 1 !important;
+  color: #c0c4cc !important;
+}
+
+.search-bar .el-select__selected-item:not(.el-select__placeholder) {
+  opacity: 1 !important;
+  color: #606266 !important;
+}
+
+/* Detail dialog styles */
+.detail-content {
+  padding: 10px;
+}
+
+.detail-changes,
+.detail-values {
+  margin-top: 20px;
+}
+
+.detail-changes h4,
+.detail-values h4 {
+  margin-bottom: 10px;
+  color: #2d3748;
+}
+
+.old-value {
+  color: #e53e3e;
+}
+
+.new-value {
+  color: #38a169;
 }
 </style>

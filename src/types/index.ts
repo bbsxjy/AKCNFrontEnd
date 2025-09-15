@@ -87,9 +87,12 @@ export interface AuditLog {
   old_values: Record<string, any> | null
   new_values: Record<string, any>
   changed_fields: string[]
-  user: User
+  user?: User
+  user_id?: number
+  user_full_name?: string
   user_ip: string
   created_at: string
+  request_id?: string
 }
 
 // Statistics types

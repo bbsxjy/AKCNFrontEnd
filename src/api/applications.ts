@@ -1,59 +1,191 @@
 import api from './index'
-import type { Application, ApiResponse, PaginatedResponse } from '@/types'
 
-export interface ApplicationFilters {
-  page?: number
-  page_size?: number
-  l2_id?: string
-  app_name?: string
+export interface ApplicationListParams {
+  skip?: number
+  limit?: number
+  search?: string
   status?: string
-  department?: string
-  year?: number
-  target?: string
-  sort_by?: string
-  order?: 'asc' | 'desc'
+  team?: string
 }
 
-export const applicationApi = {
-  // Get applications list
-  getApplications(filters: ApplicationFilters = {}) {
-    return api.get<ApiResponse<PaginatedResponse<Application>>>('/applications', {
-      params: filters
-    })
-  },
+export interface ApplicationListResponse {
+  total: number
+  items: Application[]
+}
 
-  // Get single application
-  getApplication(id: number) {
-    return api.get<ApiResponse<Application>>(`/applications/${id}`)
-  },
+export interface Application {
+  id: number
+  application_id: string
+  application_name: string
+  business_domain: string
+  business_subdomain: string
+  responsible_person: string
+  responsible_team: string
+  status: string
+  priority: string
+  kpi_classification: string
+  service_tier: string
+  traffic: number
+  size: string
+  public_cloud_vendor: string
+  progress_percentage: number
+  resource_progress: number
+  service_progress: number
+  traffic_progress: number
+  transformation_target?: string  // 添加改造目标字段
+  created_at: string
+  updated_at: string
+}
 
-  // Create application
-  createApplication(data: Partial<Application>) {
-    return api.post<ApiResponse<Application>>('/applications', data)
-  },
+export interface CreateApplicationRequest {
+  application_id: string
+  application_name: string
+  business_domain: string
+  business_subdomain: string
+  responsible_person: string
+  responsible_team: string
+  status: string
+  priority: string
+  kpi_classification: string
+  service_tier: string
+  traffic: number
+  size: string
+  public_cloud_vendor: string
+}
+
+export interface UpdateApplicationRequest {
+  application_id?: string
+  application_name?: string
+  business_domain?: string
+  business_subdomain?: string
+  responsible_person?: string
+  responsible_team?: string
+  status?: string
+  priority?: string
+  kpi_classification?: string
+  service_tier?: string
+  traffic?: number
+  size?: string
+  public_cloud_vendor?: string
+}
+
+export interface BatchOperationRequest {
+  operation: 'update' | 'delete'
+  ids: number[]
+  data?: UpdateApplicationRequest
+}
+
+export interface BatchOperationResponse {
+  success: number
+  failed: number
+  results: any[]
+}
+
+export class ApplicationsAPI {
+  // List applications with filtering and pagination
+  static async getApplications(params: ApplicationListParams = {}): Promise<ApplicationListResponse> {
+    const queryParams = new URLSearchParams()
+    
+    if (params.skip !== undefined) queryParams.append('skip', params.skip.toString())
+    if (params.limit !== undefined) queryParams.append('limit', params.limit.toString())
+    if (params.search) queryParams.append('search', params.search)
+    if (params.status) queryParams.append('status', params.status)
+    if (params.team) queryParams.append('team', params.team)
+
+    const response = await api.get(`/applications?${queryParams.toString()}`)
+    return response.data
+  }
+
+  // Get single application by ID
+  static async getApplication(id: number): Promise<Application> {
+    const response = await api.get(`/applications/${id}`)
+    return response.data
+  }
+
+  // Create new application
+  static async createApplication(data: CreateApplicationRequest): Promise<Application> {
+    const response = await api.post('/applications', data)
+    return response.data
+  }
 
   // Update application
-  updateApplication(id: number, data: Partial<Application>) {
-    return api.put<ApiResponse<Application>>(`/applications/${id}`, data)
-  },
+  static async updateApplication(id: number, data: UpdateApplicationRequest): Promise<Application> {
+    const response = await api.put(`/applications/${id}`, data)
+    return response.data
+  }
 
   // Delete application
-  deleteApplication(id: number) {
-    return api.delete<ApiResponse>(`/applications/${id}`)
-  },
-
-  // Export applications
-  exportApplications(filters: ApplicationFilters = {}) {
-    return api.get('/reports/export', {
-      params: { type: 'main', format: 'xlsx', ...filters },
-      responseType: 'blob'
-    })
-  },
-
-  // Get applications for current user (My Tasks)
-  getMyApplications() {
-    return api.get<ApiResponse<Application[]>>('/applications', {
-      params: { my_tasks_only: true }
-    })
+  static async deleteApplication(id: number): Promise<{ message: string }> {
+    const response = await api.delete(`/applications/${id}`)
+    return response.data
   }
+
+  // Batch operations
+  static async batchOperation(data: BatchOperationRequest): Promise<BatchOperationResponse> {
+    const response = await api.post('/applications/batch', data)
+    return response.data
+  }
+
+  // Get application statistics for dashboard
+  static async getApplicationStats(): Promise<{
+    total: number
+    active: number
+    completed: number
+    blocked: number
+    progress_average: number
+  }> {
+    try {
+      const applications = await this.getApplications({ limit: 1000 })
+      
+      const stats = {
+        total: applications.total,
+        active: 0,
+        completed: 0,
+        blocked: 0,
+        progress_average: 0
+      }
+
+      if (applications.items.length > 0) {
+        applications.items.forEach(app => {
+          switch (app.status) {
+            case '研发进行中':
+            case '业务上线中':
+              stats.active++
+              break
+            case '全部完成':
+              stats.completed++
+              break
+            case '存在阻塞':
+              stats.blocked++
+              break
+          }
+        })
+
+        const totalProgress = applications.items.reduce((sum, app) => sum + app.progress_percentage, 0)
+        stats.progress_average = Math.round(totalProgress / applications.items.length)
+      }
+
+      return stats
+    } catch (error) {
+      console.error('Failed to get application stats:', error)
+      return {
+        total: 0,
+        active: 0,
+        completed: 0,
+        blocked: 0,
+        progress_average: 0
+      }
+    }
+  }
+}
+
+// For backward compatibility with existing code
+export const applicationApi = {
+  getApplications: ApplicationsAPI.getApplications.bind(ApplicationsAPI),
+  getApplication: ApplicationsAPI.getApplication.bind(ApplicationsAPI),
+  createApplication: ApplicationsAPI.createApplication.bind(ApplicationsAPI),
+  updateApplication: ApplicationsAPI.updateApplication.bind(ApplicationsAPI),
+  deleteApplication: ApplicationsAPI.deleteApplication.bind(ApplicationsAPI),
+  batchOperation: ApplicationsAPI.batchOperation.bind(ApplicationsAPI),
+  getApplicationStats: ApplicationsAPI.getApplicationStats.bind(ApplicationsAPI)
 }

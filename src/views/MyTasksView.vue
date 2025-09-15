@@ -232,6 +232,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { SubTasksAPI } from '@/api/subtasks'
 
 interface MyTask {
   id: number
@@ -256,6 +257,7 @@ const activeFilter = ref('all')
 const showUpdateDialog = ref(false)
 const selectedTask = ref<MyTask | null>(null)
 const updating = ref(false)
+const loading = ref(false)
 
 const updateForm = reactive({
   status: '',
@@ -336,13 +338,13 @@ const setFilter = (filter: string) => {
 
 const getStatusTagType = (status: string) => {
   const statusMap: Record<string, string> = {
-    '待启动': '',
+    '待启动': 'info',
     '研发进行中': 'primary',
     '业务上线中': 'warning',
     '已完成': 'success',
     '存在阻塞': 'danger'
   }
-  return statusMap[status] || ''
+  return statusMap[status] || 'info'
 }
 
 const getProgressColor = (task: MyTask) => {
@@ -352,8 +354,51 @@ const getProgressColor = (task: MyTask) => {
   return '#667eea'
 }
 
-const refreshTasks = () => {
-  ElMessage.success('任务列表已刷新')
+const loadMyTasks = async () => {
+  try {
+    loading.value = true
+    
+    // Get subtasks assigned to current user
+    const mySubtasks = await SubTasksAPI.getMySubTasks()
+    
+    // Transform API data to MyTask format
+    allTasks.value = mySubtasks.map((task: any) => {
+      const plannedDate = new Date(task.planned_end_date)
+      const today = new Date()
+      const isDelayed = plannedDate < today && task.status !== '已完成'
+      const delayDays = isDelayed ? Math.floor((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24)) : 0
+      const daysUntilDue = Math.floor((plannedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      const isUrgent = daysUntilDue <= 7 && daysUntilDue >= 0
+      
+      return {
+        id: task.id,
+        l2Id: task.application_id || 'N/A',
+        appName: task.application_name || '未知应用',
+        moduleName: task.subtask_name,
+        status: task.status,
+        progress: task.progress_percentage || 0,
+        plannedDate: task.planned_end_date,
+        isDelayed,
+        delayDays,
+        isUrgent: isUrgent || isDelayed,
+        priorityIcon: isDelayed ? '🔴' : (isUrgent ? '🟡' : '🟢'),
+        isBlocked: task.status === '存在阻塞',
+        blockReason: task.notes
+      }
+    })
+  } catch (error) {
+    console.error('Failed to load my tasks:', error)
+    // Keep existing mock data as fallback
+  } finally {
+    loading.value = false
+  }
+}
+
+const refreshTasks = async (isManual = true) => {
+  await loadMyTasks()
+  if (isManual) {
+    ElMessage.success('任务列表已刷新')
+  }
 }
 
 const updateTask = (task: MyTask) => {
@@ -380,20 +425,21 @@ const confirmUpdate = async () => {
     updating.value = true
     selectedTask.value.updating = true
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Update task data
-    Object.assign(selectedTask.value, {
+    // Update via API
+    await SubTasksAPI.updateSubTask(selectedTask.value.id, {
       status: updateForm.status,
-      progress: updateForm.progress,
-      isBlocked: updateForm.isBlocked,
-      blockReason: updateForm.blockReason
+      progress_percentage: updateForm.progress,
+      notes: updateForm.isBlocked ? updateForm.blockReason : '',
+      actual_end_date: updateForm.actualDate ? updateForm.actualDate.toISOString().split('T')[0] : undefined
     })
 
     ElMessage.success('任务更新成功')
     showUpdateDialog.value = false
+    
+    // Reload tasks to get updated data
+    await loadMyTasks()
   } catch (error) {
+    console.error('Failed to update task:', error)
     ElMessage.error('更新失败，请重试')
   } finally {
     updating.value = false
@@ -403,9 +449,12 @@ const confirmUpdate = async () => {
   }
 }
 
-onMounted(() => {
-  // Auto-refresh tasks every 30 seconds
-  setInterval(refreshTasks, 30000)
+onMounted(async () => {
+  // Load initial data
+  await loadMyTasks()
+  
+  // Auto-refresh tasks every 30 seconds (no notification for auto-refresh)
+  setInterval(() => refreshTasks(false), 30000)
 })
 </script>
 
@@ -574,5 +623,127 @@ onMounted(() => {
 
 .change-list li {
   margin-bottom: 5px;
+}
+
+/* 移动端响应式设计 */
+@media (max-width: 768px) {
+  .my-tasks-view {
+    padding: 10px;
+  }
+  
+  .header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: stretch;
+  }
+  
+  .header h2 {
+    font-size: 20px;
+    text-align: center;
+  }
+  
+  .user-info {
+    font-size: 13px;
+    text-align: center;
+  }
+  
+  .filter-tabs {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  .filter-tabs .el-button {
+    flex: 1;
+    min-width: 80px;
+    font-size: 12px;
+  }
+  
+  .task-card {
+    margin-bottom: 15px;
+  }
+  
+  .task-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .task-title {
+    width: 100%;
+  }
+  
+  .task-title strong {
+    font-size: 14px;
+  }
+  
+  .status-tag {
+    margin-left: 0;
+    align-self: flex-start;
+  }
+  
+  .detail-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .task-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .task-actions .el-button {
+    flex: 1;
+    min-width: 100px;
+    font-size: 12px;
+  }
+  
+  .task-progress {
+    margin: 10px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .my-tasks-view {
+    padding: 8px;
+  }
+  
+  .header h2 {
+    font-size: 18px;
+  }
+  
+  .user-info {
+    font-size: 12px;
+  }
+  
+  .filter-tabs .el-button {
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+  
+  .task-card .el-card__body {
+    padding: 12px;
+  }
+  
+  .task-priority-icon {
+    font-size: 20px;
+  }
+  
+  .task-title strong {
+    font-size: 13px;
+  }
+  
+  .detail-item {
+    font-size: 12px;
+  }
+  
+  .task-l2id {
+    font-size: 12px;
+  }
+  
+  .task-actions .el-button {
+    font-size: 11px;
+    padding: 6px 12px;
+  }
 }
 </style>

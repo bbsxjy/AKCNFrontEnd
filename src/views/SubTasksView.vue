@@ -47,28 +47,28 @@
 
       <!-- SubTasks Table -->
       <el-table :data="subTasks" style="width: 100%">
-        <el-table-column prop="module_name" label="模块名称" width="150">
+        <el-table-column prop="module_name" label="模块名称" min-width="200">
           <template #default="{ row }">
             <strong>{{ row.module_name }}</strong>
             <div v-if="row.is_blocked" class="block-warning">⚠️ 阻塞</div>
           </template>
         </el-table-column>
-        <el-table-column prop="sub_target" label="子目标" width="80">
+        <el-table-column prop="sub_target" label="子目标" width="100">
           <template #default="{ row }">
             <el-tag size="small" :type="row.sub_target === '云原生' ? 'primary' : 'warning'">
               {{ row.sub_target }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="version_name" label="版本" width="80" />
-        <el-table-column prop="task_status" label="状态" width="120">
+        <el-table-column prop="version_name" label="版本" min-width="120" />
+        <el-table-column prop="task_status" label="状态" width="130">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.task_status)" size="small">
               {{ row.task_status }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="progress_percentage" label="进度" width="150">
+        <el-table-column prop="progress_percentage" label="进度" min-width="180">
           <template #default="{ row }">
             <el-progress
               :percentage="row.progress_percentage"
@@ -77,12 +77,12 @@
             />
           </template>
         </el-table-column>
-        <el-table-column prop="planned_dates" label="计划完成" width="120">
+        <el-table-column prop="planned_dates" label="计划完成" min-width="140">
           <template #default="{ row }">
             {{ row.planned_dates?.release_date || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="actual_dates" label="实际完成" width="120">
+        <el-table-column prop="actual_dates" label="实际完成" min-width="140">
           <template #default="{ row }">
             <span v-if="row.actual_dates?.release_date" class="completed-date">
               {{ row.actual_dates.release_date }} ✓
@@ -91,7 +91,7 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="row.is_blocked"
@@ -220,13 +220,13 @@ const subTasks = ref<SubTask[]>([
 
 const getStatusType = (status: string) => {
   const statusMap: Record<string, string> = {
-    '待启动': '',
+    '待启动': 'info',
     '研发进行中': 'primary',
     '业务上线中': 'warning',
     '已完成': 'success',
     '阻塞中': 'danger'
   }
-  return statusMap[status] || ''
+  return statusMap[status] || 'info'
 }
 
 const getProgressColor = (row: SubTask) => {
@@ -315,5 +315,127 @@ const updateProgress = (row: SubTask) => {
 
 .batch-operations .el-button {
   margin-left: 10px;
+}
+
+/* 移动端响应式设计 */
+@media (max-width: 768px) {
+  .subtasks-view {
+    padding: 10px;
+  }
+  
+  .header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: stretch;
+  }
+  
+  .header h2 {
+    font-size: 18px;
+    text-align: center;
+  }
+  
+  .app-info {
+    text-align: center;
+    font-size: 13px;
+  }
+  
+  .actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  .actions .el-button {
+    flex: 1;
+    font-size: 12px;
+  }
+  
+  .overview {
+    margin-bottom: 20px;
+  }
+  
+  .overview .el-col {
+    margin-bottom: 10px;
+  }
+  
+  .stat-item {
+    padding: 15px 10px;
+  }
+  
+  .stat-value {
+    font-size: 1.5em;
+  }
+  
+  .stat-label {
+    font-size: 13px;
+  }
+  
+  /* 表格移动端优化 */
+  .el-table {
+    font-size: 12px;
+  }
+  
+  .el-table .el-table__cell {
+    padding: 8px 4px;
+  }
+  
+  .batch-operations {
+    margin-top: 15px;
+    padding: 10px;
+  }
+  
+  .batch-operations .el-button {
+    margin: 5px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .subtasks-view {
+    padding: 8px;
+  }
+  
+  .header h2 {
+    font-size: 16px;
+  }
+  
+  .app-info {
+    font-size: 12px;
+  }
+  
+  .actions .el-button {
+    font-size: 11px;
+    padding: 8px 12px;
+  }
+  
+  .overview .el-row {
+    gap: 10px;
+  }
+  
+  .stat-value {
+    font-size: 1.3em;
+  }
+  
+  .stat-label {
+    font-size: 12px;
+  }
+  
+  .el-table {
+    font-size: 11px;
+  }
+  
+  .el-table .el-table__cell {
+    padding: 6px 2px;
+  }
+  
+  .el-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+  
+  .el-button--small {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
 }
 </style>

@@ -1,9 +1,19 @@
 /**
  * 格式化日期
  */
-export const formatDate = (dateString: string | null, format = 'YYYY-MM-DD HH:mm:ss'): string => {
-  if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString('zh-CN', {
+export const formatDate = (date: string | Date | null, format = 'YYYY-MM-DD HH:mm:ss'): string => {
+  if (!date) return '-'
+
+  const dateObj = date instanceof Date ? date : new Date(date)
+
+  if (format === 'YYYY-MM-DD') {
+    const year = dateObj.getFullYear()
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+    const day = String(dateObj.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  return dateObj.toLocaleDateString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

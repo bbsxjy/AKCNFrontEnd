@@ -7,7 +7,14 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git checkout:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npm install)",
+      "Bash(npm:*)",
+      "Bash(node:*)",
+      "Bash(npx vite:*)",
+      "Bash(tail:*)",
+      "Bash(del:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []
