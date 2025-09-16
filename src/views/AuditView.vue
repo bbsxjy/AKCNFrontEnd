@@ -278,7 +278,11 @@ const loadAuditLogs = async () => {
       }
     })
 
+    console.log('🔍 Audit API Request params:', params)
     const response = await AuditAPI.getAuditLogs(params)
+    console.log('📊 Audit API Response:', response)
+    console.log('📝 Items count:', response?.items?.length || 0)
+
     auditLogs.value = response.items.map(item => ({
       ...item,
       user: {
@@ -295,6 +299,8 @@ const loadAuditLogs = async () => {
     pagination.total = response.total
     totalLogs.value = response.total
 
+    console.log('✅ Processed audit logs:', auditLogs.value.length)
+
     // Calculate today's operations
     const today = new Date().toISOString().split('T')[0]
     const todayLogs = response.items.filter(log =>
@@ -306,9 +312,18 @@ const loadAuditLogs = async () => {
     if (response.items.length > 0 && response.items[0].created_at) {
       lastOperationTime.value = formatTime(response.items[0].created_at)
     }
-  } catch (error) {
-    console.error('Failed to load audit logs:', error)
-    ElMessage.error('加载审计日志失败')
+  } catch (error: any) {
+    console.error('❌ Audit logs API failed:', error)
+    console.error('❌ Error details:', {
+      message: error?.message,
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      data: error?.response?.data,
+      url: error?.config?.url,
+      method: error?.config?.method
+    })
+
+    ElMessage.error(`加载审计日志失败: ${error?.response?.status || error?.message || '未知错误'}`)
     // No fallback - show empty state
     auditLogs.value = []
     pagination.total = 0

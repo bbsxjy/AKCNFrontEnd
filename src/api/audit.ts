@@ -73,7 +73,14 @@ export class AuditAPI {
     if (params.start_date) queryParams.append('start_date', params.start_date)
     if (params.end_date) queryParams.append('end_date', params.end_date)
 
-    const response = await api.get(`/audit?${queryParams.toString()}`)
+    const url = `/audit?${queryParams.toString()}`
+    console.log('🔍 [AuditAPI] Request URL:', url)
+    console.log('🔍 [AuditAPI] Request params object:', params)
+
+    const response = await api.get(url)
+    console.log('📊 [AuditAPI] Raw response:', response)
+    console.log('📊 [AuditAPI] Response data:', response.data)
+
     return response.data
   }
 
