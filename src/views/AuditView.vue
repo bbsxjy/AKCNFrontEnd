@@ -309,41 +309,11 @@ const loadAuditLogs = async () => {
   } catch (error) {
     console.error('Failed to load audit logs:', error)
     ElMessage.error('加载审计日志失败')
-    // Use mock data as fallback
-    auditLogs.value = [
-      {
-        id: 10001,
-        table_name: 'sub_tasks',
-        record_id: 101,
-        operation: 'UPDATE',
-        old_values: {
-          task_status: '待启动',
-          progress_percentage: 0
-        },
-        new_values: {
-          task_status: '研发进行中',
-          progress_percentage: 30
-        },
-        changed_fields: ['task_status', 'progress_percentage'],
-        user: {
-          id: 15,
-          sso_user_id: 'SSO_002',
-          username: 'lisi',
-          full_name: '李四',
-          email: 'lisi@company.com',
-          department: '研发一部',
-          role: 'editor',
-          permissions: []
-        },
-        user_id: 15,
-        user_full_name: '李四',
-        user_ip: '192.168.1.100',
-        created_at: '2025-01-15T10:30:00Z',
-        request_id: 'mock-001'
-      }
-    ]
-    pagination.total = 1
-    totalLogs.value = 1
+    // No fallback - show empty state
+    auditLogs.value = []
+    pagination.total = 0
+    totalLogs.value = 0
+    todayOperations.value = 0
   } finally {
     loading.value = false
   }

@@ -1,5 +1,5 @@
 import * as echarts from 'echarts'
-import { onUnmounted, watch, type Ref } from 'vue'
+import { onUnmounted, watch, getCurrentInstance, type Ref } from 'vue'
 
 export function useChart(
   chartRef: Ref<HTMLElement | null>,
@@ -28,11 +28,23 @@ export function useChart(
     }
     window.addEventListener('resize', handleResize)
 
-    // Cleanup on unmount
-    onUnmounted(() => {
-      window.removeEventListener('resize', handleResize)
-      chartInstance?.dispose()
-    })
+    // Cleanup on unmount - only if we have an active component instance
+    const instance = getCurrentInstance()
+    if (instance) {
+      onUnmounted(() => {
+        window.removeEventListener('resize', handleResize)
+        chartInstance?.dispose()
+      })
+    } else {
+      // If no component instance, clean up manually when chart is disposed
+      const cleanup = () => {
+        window.removeEventListener('resize', handleResize)
+      }
+      // Store cleanup function for manual cleanup
+      if (chartInstance) {
+        ;(chartInstance as any)._cleanup = cleanup
+      }
+    }
   }
 
   // Watch for option changes if reactive

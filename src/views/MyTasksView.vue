@@ -267,52 +267,8 @@ const updateForm = reactive({
   actualDate: null as Date | null
 })
 
-// Mock data - filtered to current user's tasks
-const allTasks = ref<MyTask[]>([
-  {
-    id: 101,
-    l2Id: 'L2_APP_001',
-    appName: '用户管理系统',
-    moduleName: '数据库迁移',
-    status: '存在阻塞',
-    progress: 75,
-    plannedDate: '2025-01-10',
-    isDelayed: true,
-    delayDays: 5,
-    isUrgent: true,
-    priorityIcon: '🔴',
-    isBlocked: true,
-    blockReason: '数据库权限问题'
-  },
-  {
-    id: 102,
-    l2Id: 'L2_APP_002',
-    appName: '订单系统',
-    moduleName: 'API接口改造',
-    status: '研发进行中',
-    progress: 45,
-    plannedDate: '2025-02-01',
-    isDelayed: false,
-    delayDays: 0,
-    isUrgent: false,
-    priorityIcon: '🟡',
-    isBlocked: false
-  },
-  {
-    id: 103,
-    l2Id: 'L2_APP_003',
-    appName: '库存系统',
-    moduleName: '前端重构',
-    status: '待启动',
-    progress: 0,
-    plannedDate: '2025-02-15',
-    isDelayed: false,
-    delayDays: 0,
-    isUrgent: false,
-    priorityIcon: '🟢',
-    isBlocked: false
-  }
-])
+// Task data from API
+const allTasks = ref<MyTask[]>([])
 
 const totalTasks = computed(() => allTasks.value.length)
 const pendingTasks = computed(() => allTasks.value.filter(t => t.status === '待启动'))
@@ -388,7 +344,8 @@ const loadMyTasks = async () => {
     })
   } catch (error) {
     console.error('Failed to load my tasks:', error)
-    // Keep existing mock data as fallback
+    // No fallback - show empty state
+    allTasks.value = []
   } finally {
     loading.value = false
   }

@@ -97,7 +97,7 @@ export class ReportsAPI {
   // Generate progress summary report
   static async getProgressSummary(params: ProgressSummaryParams = {}): Promise<ProgressSummaryResponse> {
     const queryParams = new URLSearchParams()
-    
+
     if (params.format) queryParams.append('format', params.format)
     if (params.team) queryParams.append('team', params.team)
     if (params.start_date) queryParams.append('start_date', params.start_date)
@@ -110,7 +110,7 @@ export class ReportsAPI {
   // Generate delayed projects report
   static async getDelayedProjects(params: DelayedProjectsParams = {}): Promise<DelayedProjectsResponse> {
     const queryParams = new URLSearchParams()
-    
+
     if (params.format) queryParams.append('format', params.format)
     if (params.threshold_days) queryParams.append('threshold_days', params.threshold_days.toString())
 

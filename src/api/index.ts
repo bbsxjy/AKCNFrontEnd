@@ -11,42 +11,26 @@ const api = axios.create({
   }
 })
 
-// Token refresh function
+// Token refresh function - DISABLED FOR TESTING
+// Using fixed token: Bearer token_1_admin_full_access_test_2024
 const refreshToken = async (): Promise<string | null> => {
-  try {
-    const refreshTokenValue = localStorage.getItem('refresh_token')
-    if (!refreshTokenValue) {
-      throw new Error('No refresh token available')
-    }
-
-    const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-      refresh_token: refreshTokenValue
-    })
-
-    const { access_token, refresh_token } = response.data
-    localStorage.setItem('access_token', access_token)
-    localStorage.setItem('refresh_token', refresh_token)
-    
-    return access_token
-  } catch (error) {
-    console.error('Token refresh failed:', error)
-    // Clear tokens and redirect to login
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    window.location.href = '/login'
-    return null
-  }
+  // Skip token refresh for testing, always return the fixed token
+  return 'token_1_admin_full_access_test_2024'
 }
 
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Use fixed test token for development
-    config.headers.Authorization = 'Bearer token_1_admin_full_access_test_2024'
-    
+    // TESTING: Use fixed token instead of localStorage
+    // const token = localStorage.getItem('access_token')
+    const token = 'token_1_admin_full_access_test_2024'
+
+    // Always add the fixed token to the Authorization header
+    config.headers.Authorization = `Bearer ${token}`
+
     // Add client IP for audit logging (will be overridden by server)
     config.headers['X-Client-IP'] = 'frontend'
-    
+
     return config
   },
   (error) => {
@@ -62,18 +46,19 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
-      
-      // Try to refresh token
-      const newToken = await refreshToken()
-      
-      if (newToken) {
-        // Retry original request with new token
-        originalRequest.headers.Authorization = `Bearer ${newToken}`
-        return api(originalRequest)
-      }
-    }
+    // TESTING: Skip 401 handling for now
+    // if (error.response?.status === 401 && !originalRequest._retry) {
+    //   originalRequest._retry = true
+    //
+    //   // Try to refresh token
+    //   const newToken = await refreshToken()
+    //
+    //   if (newToken) {
+    //     // Retry original request with new token
+    //     originalRequest.headers.Authorization = `Bearer ${newToken}`
+    //     return api(originalRequest)
+    //   }
+    // }
 
     // Handle other errors
     if (error.response?.status === 403) {

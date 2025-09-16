@@ -28,17 +28,17 @@
           </el-badge>
           <template #dropdown>
             <el-dropdown-menu style="width: 350px;">
-              <div v-if="notifications.length === 0" style="padding: 20px; text-align: center; color: #909399;">
+              <div v-if="!notifications || notifications.length === 0" style="padding: 20px; text-align: center; color: #909399;">
                 暂无新通知
               </div>
-              <el-dropdown-item v-for="notification in notifications.slice(0, 5)" :key="notification.id" :command="`view_${notification.id}`">
+              <el-dropdown-item v-for="notification in (notifications || []).slice(0, 5)" :key="notification.id" :command="`view_${notification.id}`">
                 <div style="padding: 8px 0;">
                   <div style="font-weight: bold; margin-bottom: 4px;">{{ notification.title }}</div>
                   <div style="color: #606266; font-size: 12px;">{{ notification.message }}</div>
                   <div style="color: #909399; font-size: 11px; margin-top: 4px;">{{ formatTime(notification.created_at) }}</div>
                 </div>
               </el-dropdown-item>
-              <el-dropdown-item v-if="notifications.length > 0" divided command="mark_all_read">
+              <el-dropdown-item v-if="notifications && notifications.length > 0" divided command="mark_all_read">
                 <div style="text-align: center; color: #409EFF;">标记全部已读</div>
               </el-dropdown-item>
               <el-dropdown-item command="view_all">
@@ -250,34 +250,13 @@ const formatTime = (timestamp: string) => {
 const loadNotifications = async () => {
   try {
     const response = await NotificationsAPI.getNotifications({ unread_only: true, limit: 10 })
-    notifications.value = response.items
-    notificationCount.value = response.unread_count
+    notifications.value = response.items || []
+    notificationCount.value = response.unread_count || 0
   } catch (error) {
     console.error('Failed to load notifications:', error)
-    // Use mock data as fallback
-    notifications.value = [
-      {
-        id: 1,
-        type: 'delay_warning',
-        title: '项目延期警告',
-        message: 'APP001 已延期5天，请及时处理',
-        severity: 'high',
-        is_read: false,
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-        data: { application_id: 1, delay_days: 5 }
-      },
-      {
-        id: 2,
-        type: 'progress_update',
-        title: '进度更新',
-        message: '用户管理系统进度已达到75%',
-        severity: 'medium',
-        is_read: false,
-        created_at: new Date(Date.now() - 7200000).toISOString(),
-        data: { application_id: 2, progress: 75 }
-      }
-    ]
-    notificationCount.value = 2
+    // No fallback - show empty state
+    notifications.value = []
+    notificationCount.value = 0
   }
 }
 

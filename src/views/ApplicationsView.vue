@@ -230,29 +230,137 @@
     </el-dialog>
 
     <!-- Batch Import Dialog -->
-    <el-dialog v-model="showImportDialog" title="批量导入" width="600px">
-      <el-upload
-        class="upload-area"
-        drag
-        :action="'#'"
-        :auto-upload="false"
-        :on-change="handleFileChange"
-        accept=".xlsx,.xls,.csv"
-      >
-        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-        <div class="el-upload__text">
-          将Excel文件拖到此处，或<em>点击上传</em>
-        </div>
-        <template #tip>
-          <div class="el-upload__tip">
-            只能上传 Excel/CSV 文件，且大小不超过 10MB
+    <el-dialog v-model="showImportDialog" title="批量导入" width="700px" :close-on-click-modal="false">
+      <el-steps :active="importStep" align-center style="margin-bottom: 30px">
+        <el-step title="选择文件" />
+        <el-step title="验证数据" />
+        <el-step title="导入中" />
+        <el-step title="完成" />
+      </el-steps>
+
+      <!-- Step 1: File Upload -->
+      <div v-if="importStep === 0">
+        <el-upload
+          class="upload-area"
+          drag
+          :action="'#'"
+          :auto-upload="false"
+          :on-change="handleFileChange"
+          :on-remove="handleFileRemove"
+          accept=".xlsx,.xls"
+          :limit="1"
+        >
+          <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+          <div class="el-upload__text">
+            将Excel文件拖到此处，或<em>点击上传</em>
           </div>
-        </template>
-      </el-upload>
+          <template #tip>
+            <div class="el-upload__tip">
+              <p>只能上传 Excel 文件（.xlsx, .xls），且大小不超过 10MB</p>
+              <p>
+                <el-button type="text" size="small" @click.stop="downloadTemplate">
+                  下载导入模板
+                </el-button>
+              </p>
+            </div>
+          </template>
+        </el-upload>
+
+        <el-form style="margin-top: 20px">
+          <el-form-item label="导入选项">
+            <el-checkbox v-model="importOptions.update_existing">
+              更新已存在的记录
+            </el-checkbox>
+            <el-checkbox v-model="importOptions.validate_only" style="margin-left: 20px">
+              仅验证数据（不实际导入）
+            </el-checkbox>
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <!-- Step 2: Validation Results -->
+      <div v-if="importStep === 1">
+        <el-alert
+          v-if="validationResult.errors.length === 0"
+          title="数据验证通过"
+          type="success"
+          :closable="false"
+          show-icon
+        >
+          <p>文件包含 {{ validationResult.total }} 条记录，全部验证通过</p>
+        </el-alert>
+        <el-alert
+          v-else
+          title="发现数据问题"
+          type="warning"
+          :closable="false"
+          show-icon
+        >
+          <p>文件包含 {{ validationResult.total }} 条记录，其中 {{ validationResult.errors.length }} 条存在问题</p>
+        </el-alert>
+
+        <div v-if="validationResult.errors.length > 0" style="margin-top: 20px">
+          <h4>错误详情：</h4>
+          <el-table :data="validationResult.errors" max-height="300">
+            <el-table-column prop="row" label="行号" width="80" />
+            <el-table-column prop="field" label="字段" width="120" />
+            <el-table-column prop="error" label="错误描述" />
+            <el-table-column prop="value" label="错误值" width="150" />
+          </el-table>
+        </div>
+      </div>
+
+      <!-- Step 3: Import Progress -->
+      <div v-if="importStep === 2">
+        <el-progress :percentage="importProgress" :status="importProgressStatus" />
+        <p style="text-align: center; margin-top: 20px">{{ importProgressText }}</p>
+      </div>
+
+      <!-- Step 4: Import Results -->
+      <div v-if="importStep === 3">
+        <el-result
+          :icon="importResult.status === 'success' ? 'success' : 'warning'"
+          :title="importResult.status === 'success' ? '导入成功' : '导入完成（部分失败）'"
+        >
+          <template #sub-title>
+            <div style="margin-top: 10px">
+              <p>成功导入: {{ importResult.imported }} 条</p>
+              <p>更新记录: {{ importResult.updated }} 条</p>
+              <p>跳过记录: {{ importResult.skipped }} 条</p>
+              <p v-if="importResult.failed > 0" style="color: #f56c6c">失败记录: {{ importResult.failed }} 条</p>
+            </div>
+          </template>
+          <template #extra v-if="importResult.errors.length > 0">
+            <el-button type="text" @click="showImportErrors = !showImportErrors">
+              {{ showImportErrors ? '隐藏' : '查看' }}错误详情
+            </el-button>
+            <el-collapse-transition>
+              <div v-show="showImportErrors" style="margin-top: 20px">
+                <el-table :data="importResult.errors" max-height="200">
+                  <el-table-column prop="row" label="行号" width="80" />
+                  <el-table-column prop="error" label="错误描述" />
+                </el-table>
+              </div>
+            </el-collapse-transition>
+          </template>
+        </el-result>
+      </div>
+
       <template #footer>
-        <el-button @click="showImportDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleImport" :disabled="!importFile" :loading="loading">
-          开始导入
+        <el-button v-if="importStep === 0" @click="closeImportDialog">取消</el-button>
+        <el-button v-if="importStep === 0" type="primary" @click="validateImport" :disabled="!importFile" :loading="loading">
+          下一步：验证数据
+        </el-button>
+
+        <el-button v-if="importStep === 1" @click="importStep = 0">上一步</el-button>
+        <el-button v-if="importStep === 1 && validationResult.errors.length > 0" @click="closeImportDialog">取消</el-button>
+        <el-button v-if="importStep === 1" type="primary" @click="handleImport" :loading="loading"
+          :disabled="importOptions.validate_only">
+          {{ validationResult.errors.length > 0 ? '忽略错误并导入' : '开始导入' }}
+        </el-button>
+
+        <el-button v-if="importStep === 3" type="primary" @click="closeImportDialog">
+          完成
         </el-button>
       </template>
     </el-dialog>
@@ -275,6 +383,29 @@ const showEditDialog = ref(false)
 const selectedApplications = ref<Application[]>([])
 const importFile = ref<File | null>(null)
 const editingId = ref<number | null>(null)
+
+// Import related states
+const importStep = ref(0)
+const importOptions = reactive({
+  update_existing: true,
+  validate_only: false
+})
+const validationResult = reactive({
+  total: 0,
+  errors: [] as Array<{row: number, field: string, error: string, value: any}>
+})
+const importProgress = ref(0)
+const importProgressStatus = ref<'success' | 'exception' | 'warning' | ''>()
+const importProgressText = ref('准备导入...')
+const importResult = reactive({
+  status: 'success' as 'success' | 'warning' | 'error',
+  imported: 0,
+  updated: 0,
+  skipped: 0,
+  failed: 0,
+  errors: [] as Array<{row: number, error: string}>
+})
+const showImportErrors = ref(false)
 
 // Data states
 const allApplications = ref<Application[]>([]) // 存储所有原始数据
@@ -595,7 +726,97 @@ const exportExcel = async () => {
 }
 
 const handleFileChange = (file: any) => {
+  const fileSize = file.size / 1024 / 1024 // Convert to MB
+  if (fileSize > 10) {
+    ElMessage.error('文件大小不能超过 10MB')
+    return false
+  }
+
+  const fileType = file.name.split('.').pop()?.toLowerCase()
+  if (!['xlsx', 'xls'].includes(fileType || '')) {
+    ElMessage.error('只支持 Excel 文件格式（.xlsx, .xls）')
+    return false
+  }
+
   importFile.value = file.raw
+  return true
+}
+
+const handleFileRemove = () => {
+  importFile.value = null
+}
+
+const downloadTemplate = async () => {
+  try {
+    await ExcelAPI.downloadTemplate('applications')
+    ElMessage.success('模板下载成功')
+  } catch (error) {
+    console.error('Failed to download template:', error)
+    ElMessage.error('模板下载失败，请稍后重试')
+  }
+}
+
+const validateImport = async () => {
+  if (!importFile.value) {
+    ElMessage.error('请选择要导入的文件')
+    return
+  }
+
+  try {
+    loading.value = true
+
+    // First, validate the file
+    const params = {
+      file: importFile.value,
+      update_existing: importOptions.update_existing,
+      validate_only: true // Always validate first
+    }
+
+    const response = await ExcelAPI.importApplications(params)
+
+    // Parse validation results
+    validationResult.total = (response.imported || 0) + (response.updated || 0) + (response.skipped || 0)
+    validationResult.errors = response.errors?.map((e: any) => ({
+      row: e.row,
+      field: e.field || '未知字段',
+      error: e.error,
+      value: e.data?.invalid_value || ''
+    })) || []
+
+    importStep.value = 1
+
+    if (validationResult.errors.length === 0) {
+      ElMessage.success('数据验证通过')
+    } else {
+      ElMessage.warning(`发现 ${validationResult.errors.length} 个数据问题`)
+    }
+  } catch (error: any) {
+    console.error('Failed to validate import:', error)
+    ElMessage.error(error.response?.data?.detail || '验证失败，请检查文件格式')
+  } finally {
+    loading.value = false
+  }
+}
+
+const closeImportDialog = () => {
+  showImportDialog.value = false
+  // Reset all states
+  importStep.value = 0
+  importFile.value = null
+  importOptions.update_existing = true
+  importOptions.validate_only = false
+  validationResult.total = 0
+  validationResult.errors = []
+  importProgress.value = 0
+  importProgressStatus.value = ''
+  importProgressText.value = '准备导入...'
+  importResult.status = 'success'
+  importResult.imported = 0
+  importResult.updated = 0
+  importResult.skipped = 0
+  importResult.failed = 0
+  importResult.errors = []
+  showImportErrors.value = false
 }
 
 const handleImport = async () => {
@@ -606,33 +827,84 @@ const handleImport = async () => {
 
   try {
     loading.value = true
+    importStep.value = 2
+    importProgress.value = 0
+    importProgressStatus.value = ''
+    importProgressText.value = '正在上传文件...'
+
+    // Simulate progress for better UX
+    const progressTimer = setInterval(() => {
+      if (importProgress.value < 90) {
+        importProgress.value += Math.random() * 10
+        if (importProgress.value < 30) {
+          importProgressText.value = '正在上传文件...'
+        } else if (importProgress.value < 60) {
+          importProgressText.value = '正在解析数据...'
+        } else {
+          importProgressText.value = '正在导入数据...'
+        }
+      }
+    }, 500)
 
     const params = {
       file: importFile.value,
-      update_existing: true,
+      update_existing: importOptions.update_existing,
       validate_only: false
     }
 
     const response = await ExcelAPI.importApplications(params)
 
-    if (response.status === 'success') {
-      ElMessage.success(`成功导入 ${response.imported} 条，更新 ${response.updated} 条，跳过 ${response.skipped} 条`)
+    clearInterval(progressTimer)
+    importProgress.value = 100
+    importProgressStatus.value = 'success'
+    importProgressText.value = '导入完成！'
 
-      // Show errors if any
-      if (response.errors && response.errors.length > 0) {
-        const errorMsg = response.errors.map(e => `第${e.row}行: ${e.error}`).join('\n')
-        ElMessage.warning(`导入完成但有错误:\n${errorMsg}`)
-      }
+    // Parse import results
+    importResult.status = response.status === 'success' ? 'success' : 'warning'
+    importResult.imported = response.imported || 0
+    importResult.updated = response.updated || 0
+    importResult.skipped = response.skipped || 0
+    importResult.failed = response.errors?.length || 0
+    importResult.errors = response.errors?.map((e: any) => ({
+      row: e.row,
+      error: e.error
+    })) || []
 
-      showImportDialog.value = false
-      importFile.value = null
-      loadApplications()
-    } else {
-      throw new Error('Import failed')
+    // Wait a moment to show 100% progress
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    importStep.value = 3
+
+    if (response.status === 'success' && importResult.failed === 0) {
+      ElMessage.success(`成功导入 ${response.imported} 条，更新 ${response.updated} 条`)
+    } else if (importResult.failed > 0) {
+      ElMessage.warning(`导入完成，但有 ${importResult.failed} 条记录失败`)
     }
-  } catch (error) {
+
+    // Reload applications data after successful import
+    if (importResult.imported > 0 || importResult.updated > 0) {
+      await loadApplications()
+    }
+  } catch (error: any) {
     console.error('Failed to import:', error)
-    ElMessage.error('导入失败，请检查文件格式')
+
+    // Handle specific error cases
+    if (error.response?.status === 400) {
+      ElMessage.error(error.response?.data?.detail || '文件格式错误，请检查文件内容')
+    } else if (error.response?.status === 413) {
+      ElMessage.error('文件太大，请确保文件不超过 10MB')
+    } else if (error.response?.status === 422) {
+      ElMessage.error('数据验证失败，请检查数据格式')
+    } else if (error.response?.status === 500) {
+      ElMessage.error('服务器错误，请稍后重试')
+    } else if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
+      ElMessage.error('无法连接到服务器，请检查后端服务是否已启动')
+    } else {
+      ElMessage.error(error.response?.data?.detail || error.message || '导入失败，请检查文件格式')
+    }
+
+    // Reset to file selection step on error
+    importStep.value = 0
   } finally {
     loading.value = false
   }

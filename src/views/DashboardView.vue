@@ -102,9 +102,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ApplicationsAPI } from '@/api/applications'
-import { SubTasksAPI } from '@/api/subtasks'
-import { websocketService } from '@/api/websocket'
+import { DashboardAPI } from '@/api/dashboard'
 import { useChart, getProgressTrendOptions, getDepartmentPieOptions } from '@/composables/useCharts'
 
 const router = useRouter()
@@ -126,78 +124,117 @@ const loading = ref(false)
 const progressChartRef = ref<HTMLElement | null>(null)
 const departmentChartRef = ref<HTMLElement | null>(null)
 
+// Chart data from API
+const chartData = ref({
+  progressTrend: [] as any[],
+  departmentDistribution: [] as any[]
+})
+
 // Chart data
 const progressChartOptions = computed(() => {
-  // Generate last 6 months data
-  const months = []
-  const values = []
-  const now = new Date()
-
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    months.push(date.toLocaleDateString('zh-CN', { month: 'short' }))
-    // Simulate progress trend
-    values.push(Math.min(95, 30 + (5 - i) * 12 + Math.random() * 10))
+  if (chartData.value.progressTrend.length === 0) {
+    // 如果还没有数据，显示空图表
+    return getProgressTrendOptions({ dates: [], values: [] })
   }
 
-  return getProgressTrendOptions({ dates: months, values })
+  const dates = chartData.value.progressTrend.map(item => {
+    const date = new Date(item.date)
+    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+  })
+  const values = chartData.value.progressTrend.map(item => item.value)
+
+  return getProgressTrendOptions({ dates, values })
 })
 
 const departmentChartOptions = computed(() => {
-  // Simulate department distribution
-  return getDepartmentPieOptions([
-    { name: '研发一部', value: 12 },
-    { name: '研发二部', value: 8 },
-    { name: '运维部', value: 15 },
-    { name: '架构部', value: 10 },
-    { name: '测试部', value: 5 }
-  ])
+  if (chartData.value.departmentDistribution.length === 0) {
+    // 如果还没有数据，显示空图表
+    return getDepartmentPieOptions([])
+  }
+
+  return getDepartmentPieOptions(
+    chartData.value.departmentDistribution.map(dept => ({
+      name: dept.name,
+      value: dept.value
+    }))
+  )
 })
 
 // Load dashboard data
 const loadDashboardData = async () => {
   try {
     loading.value = true
-    
-    // Load application stats
-    const appStats = await ApplicationsAPI.getApplicationStats()
-    stats.value = {
-      total: appStats.total,
-      active: appStats.active,
-      completed: appStats.completed,
-      blocked: appStats.blocked,
-      averageProgress: appStats.progress_average
-    }
 
-    // Load my tasks (subtasks for current user)
-    const mySubtasks = await SubTasksAPI.getMySubTasks()
-    
-    // Transform subtasks to task format for display
-    myTasks.value = mySubtasks
-      .filter(task => task.status !== '已完成')
-      .slice(0, 5) // Show only top 5 urgent tasks
-      .map(task => ({
-        id: task.id,
-        title: `${task.subtask_name}`,
-        plannedDate: task.planned_end_date,
-        isUrgent: new Date(task.planned_end_date) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Within 7 days
-        applicationId: task.application_id
-      }))
-      
+    // 使用 DashboardAPI 获取所有数据
+    const dashboardData = await DashboardAPI.getDashboardData()
+
+    // 更新统计数据
+    stats.value = dashboardData.stats
+
+    // 更新图表数据
+    chartData.value = dashboardData.chartData
+    console.log('Dashboard chart data loaded:', dashboardData.chartData)
+    console.log('Progress trend data:', dashboardData.chartData.progressTrend)
+
+    // 更新我的任务
+    myTasks.value = dashboardData.myTasks
+
+    // 刷新图表
+    setTimeout(() => {
+      refreshProgressChart()
+      refreshDepartmentChart()
+    }, 100)
+
   } catch (error) {
     console.error('Failed to load dashboard data:', error)
-    ElMessage.error('加载仪表板数据失败')
+    // 如果API失败，尝试单独加载各个数据
+    await loadDataFallback()
   } finally {
     loading.value = false
   }
 }
 
-const refreshTodos = async () => {
-  await loadDashboardData()
-  ElMessage.success('待办事项已刷新')
+// 备用数据加载方法（如果主API失败）
+const loadDataFallback = async () => {
+  try {
+    // 并行加载各个数据
+    const [statsData, tasks, chartDataResult] = await Promise.all([
+      DashboardAPI.getDashboardStats(),
+      DashboardAPI.getMyTasks(5),
+      DashboardAPI.getChartData()
+    ])
+
+    stats.value = statsData
+    myTasks.value = tasks
+    chartData.value = chartDataResult
+
+    // 刷新图表
+    setTimeout(() => {
+      refreshProgressChart()
+      refreshDepartmentChart()
+    }, 100)
+
+  } catch (error) {
+    console.error('Fallback data loading also failed:', error)
+    ElMessage.error('加载仪表板数据失败，请检查网络连接')
+  }
 }
 
-const handleTask = (task: any) => {
+const refreshTodos = async () => {
+  try {
+    loading.value = true
+    // 只刷新待办任务
+    myTasks.value = await DashboardAPI.getMyTasks(5)
+    ElMessage.success('待办事项已刷新')
+  } catch (error) {
+    console.error('Failed to refresh todos:', error)
+    ElMessage.error('刷新待办事项失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleTask = (_task: any) => {
   router.push('/my-tasks')
 }
 
@@ -213,6 +250,19 @@ const initializeWebSocket = async () => {
   console.log('WebSocket disabled for testing mode')
 }
 
+// 定期刷新数据（每30秒）
+const startAutoRefresh = () => {
+  setInterval(async () => {
+    try {
+      // 静默刷新统计数据
+      const newStats = await DashboardAPI.getDashboardStats()
+      stats.value = newStats
+    } catch (error) {
+      console.error('Auto refresh failed:', error)
+    }
+  }, 30000)
+}
+
 // Initialize charts
 const { refresh: refreshProgressChart } = useChart(progressChartRef, progressChartOptions)
 const { refresh: refreshDepartmentChart } = useChart(departmentChartRef, departmentChartOptions)
@@ -220,6 +270,7 @@ const { refresh: refreshDepartmentChart } = useChart(departmentChartRef, departm
 onMounted(async () => {
   await loadDashboardData()
   await initializeWebSocket()
+  startAutoRefresh()
 
   // Refresh charts on window resize
   window.addEventListener('resize', () => {
