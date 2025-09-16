@@ -435,9 +435,37 @@ const getProgressColor = (row: SubTask) => {
   return '#667eea'
 }
 
-const formatDate = (dateString: string | null) => {
+const formatDate = (dateString: string | null | undefined) => {
   if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString('zh-CN')
+
+  try {
+    // Handle different date formats
+    let date: Date
+    if (dateString.includes('T')) {
+      // ISO format: 2024-01-01T00:00:00
+      date = new Date(dateString)
+    } else if (dateString.includes('-')) {
+      // Date format: 2024-01-01
+      date = new Date(dateString + 'T00:00:00')
+    } else {
+      // Fallback
+      date = new Date(dateString)
+    }
+
+    if (isNaN(date.getTime())) {
+      return '-'
+    }
+
+    // Return formatted date
+    if (dateString.includes('T')) {
+      return date.toLocaleString('zh-CN')
+    } else {
+      return date.toLocaleDateString('zh-CN')
+    }
+  } catch (error) {
+    console.error('Date formatting error:', error, 'Input:', dateString)
+    return '-'
+  }
 }
 
 const goBack = () => {

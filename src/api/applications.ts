@@ -85,7 +85,7 @@ export class ApplicationsAPI {
   // List applications with filtering and pagination
   static async getApplications(params: ApplicationListParams = {}): Promise<ApplicationListResponse> {
     const queryParams = new URLSearchParams()
-    
+
     if (params.skip !== undefined) queryParams.append('skip', params.skip.toString())
     if (params.limit !== undefined) queryParams.append('limit', params.limit.toString())
     if (params.search) queryParams.append('search', params.search)
@@ -93,13 +93,66 @@ export class ApplicationsAPI {
     if (params.team) queryParams.append('team', params.team)
 
     const response = await api.get(`/applications?${queryParams.toString()}`)
+
+    // Map backend fields to frontend fields
+    if (response.data && response.data.items) {
+      response.data.items = response.data.items.map((item: any) => ({
+        id: item.id,
+        application_id: item.l2_id || item.application_id,
+        application_name: item.app_name || item.application_name,
+        business_domain: item.business_domain,
+        business_subdomain: item.business_subdomain,
+        responsible_person: item.responsible_person,
+        responsible_team: item.responsible_team,
+        status: item.status,
+        priority: item.priority,
+        kpi_classification: item.kpi_classification,
+        service_tier: item.service_tier,
+        traffic: item.traffic,
+        size: item.size,
+        public_cloud_vendor: item.public_cloud_vendor,
+        progress_percentage: item.progress_percentage || 0,
+        resource_progress: item.resource_progress || 0,
+        service_progress: item.service_progress || 0,
+        traffic_progress: item.traffic_progress || 0,
+        transformation_target: item.transformation_target,
+        created_at: item.created_at,
+        updated_at: item.updated_at
+      }))
+    }
+
     return response.data
   }
 
   // Get single application by ID
   static async getApplication(id: number): Promise<Application> {
     const response = await api.get(`/applications/${id}`)
-    return response.data
+
+    // Map backend fields to frontend fields
+    const item = response.data
+    return {
+      id: item.id,
+      application_id: item.l2_id || item.application_id,
+      application_name: item.app_name || item.application_name,
+      business_domain: item.business_domain,
+      business_subdomain: item.business_subdomain,
+      responsible_person: item.responsible_person,
+      responsible_team: item.responsible_team,
+      status: item.status,
+      priority: item.priority,
+      kpi_classification: item.kpi_classification,
+      service_tier: item.service_tier,
+      traffic: item.traffic,
+      size: item.size,
+      public_cloud_vendor: item.public_cloud_vendor,
+      progress_percentage: item.progress_percentage || 0,
+      resource_progress: item.resource_progress || 0,
+      service_progress: item.service_progress || 0,
+      traffic_progress: item.traffic_progress || 0,
+      transformation_target: item.transformation_target,
+      created_at: item.created_at,
+      updated_at: item.updated_at
+    }
   }
 
   // Create new application
@@ -116,7 +169,32 @@ export class ApplicationsAPI {
     }
 
     const response = await api.post('/applications', backendData)
-    return response.data
+
+    // Map backend response to frontend format
+    const item = response.data
+    return {
+      id: item.id,
+      application_id: item.l2_id || item.application_id,
+      application_name: item.app_name || item.application_name,
+      business_domain: item.business_domain,
+      business_subdomain: item.business_subdomain,
+      responsible_person: item.responsible_person,
+      responsible_team: item.responsible_team,
+      status: item.status,
+      priority: item.priority,
+      kpi_classification: item.kpi_classification,
+      service_tier: item.service_tier,
+      traffic: item.traffic,
+      size: item.size,
+      public_cloud_vendor: item.public_cloud_vendor,
+      progress_percentage: item.progress_percentage || 0,
+      resource_progress: item.resource_progress || 0,
+      service_progress: item.service_progress || 0,
+      traffic_progress: item.traffic_progress || 0,
+      transformation_target: item.transformation_target,
+      created_at: item.created_at,
+      updated_at: item.updated_at
+    }
   }
 
   // Update application
@@ -133,7 +211,32 @@ export class ApplicationsAPI {
     }
 
     const response = await api.put(`/applications/${id}`, backendData)
-    return response.data
+
+    // Map backend response to frontend format
+    const item = response.data
+    return {
+      id: item.id,
+      application_id: item.l2_id || item.application_id,
+      application_name: item.app_name || item.application_name,
+      business_domain: item.business_domain,
+      business_subdomain: item.business_subdomain,
+      responsible_person: item.responsible_person,
+      responsible_team: item.responsible_team,
+      status: item.status,
+      priority: item.priority,
+      kpi_classification: item.kpi_classification,
+      service_tier: item.service_tier,
+      traffic: item.traffic,
+      size: item.size,
+      public_cloud_vendor: item.public_cloud_vendor,
+      progress_percentage: item.progress_percentage || 0,
+      resource_progress: item.resource_progress || 0,
+      service_progress: item.service_progress || 0,
+      traffic_progress: item.traffic_progress || 0,
+      transformation_target: item.transformation_target,
+      created_at: item.created_at,
+      updated_at: item.updated_at
+    }
   }
 
   // Delete application

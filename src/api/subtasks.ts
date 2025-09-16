@@ -62,35 +62,97 @@ export interface UpdateSubTaskProgressResponse {
 }
 
 export class SubTasksAPI {
+  // Status mapping utilities
+  private static frontendToBackendStatus: Record<string, string> = {
+    'planning': 'planning',
+    '待启动': 'planning',
+    'in_progress': 'in_progress',
+    '研发进行中': 'in_progress',
+    'testing': 'testing',
+    '业务上线中': 'testing',
+    'completed': 'completed',
+    '已完成': 'completed',
+    'blocked': 'blocked',
+    '存在阻塞': 'blocked'
+  }
+
+  private static backendToFrontendStatus: Record<string, string> = {
+    'planning': '待启动',
+    'in_progress': '研发进行中',
+    'testing': '业务上线中',
+    'completed': '已完成',
+    'blocked': '存在阻塞'
+  }
+
+  private static mapSubTaskData(item: any): SubTask {
+    return {
+      id: item.id,
+      application_id: item.application_id,
+      subtask_name: item.subtask_name || item.module_name || '',
+      responsible_person: item.responsible_person || '',
+      planned_start_date: item.planned_start_date || '',
+      planned_end_date: item.planned_end_date || '',
+      actual_start_date: item.actual_start_date || null,
+      actual_end_date: item.actual_end_date || null,
+      status: this.backendToFrontendStatus[item.status] || item.status || '待启动',
+      progress_percentage: Number(item.progress_percentage) || 0,
+      notes: item.notes || null,
+      created_at: item.created_at || '',
+      updated_at: item.updated_at || ''
+    }
+  }
   // List subtasks with filtering and pagination
   static async getSubTasks(params: SubTaskListParams = {}): Promise<SubTaskListResponse> {
     const queryParams = new URLSearchParams()
-    
+
     if (params.application_id !== undefined) queryParams.append('application_id', params.application_id.toString())
     if (params.status) queryParams.append('status', params.status)
     if (params.skip !== undefined) queryParams.append('skip', params.skip.toString())
     if (params.limit !== undefined) queryParams.append('limit', params.limit.toString())
 
     const response = await api.get(`/subtasks?${queryParams.toString()}`)
+
+    // Ensure data consistency and proper field mapping
+    if (response.data && response.data.items) {
+      response.data.items = response.data.items.map((item: any) => this.mapSubTaskData(item))
+    }
+
     return response.data
   }
 
   // Get single subtask by ID
   static async getSubTask(id: number): Promise<SubTask> {
     const response = await api.get(`/subtasks/${id}`)
-    return response.data
+    return this.mapSubTaskData(response.data)
   }
 
   // Create new subtask
   static async createSubTask(data: CreateSubTaskRequest): Promise<SubTask> {
-    const response = await api.post('/subtasks', data)
-    return response.data
+    // Map frontend fields to backend expected format
+    const backendData = {
+      application_id: data.application_id,
+      subtask_name: data.subtask_name,
+      responsible_person: data.responsible_person,
+      planned_start_date: data.planned_start_date,
+      planned_end_date: data.planned_end_date,
+      status: this.frontendToBackendStatus[data.status] || data.status,
+      notes: data.notes || `Module: ${data.module_name}, Target: ${data.sub_target}`
+    }
+
+    const response = await api.post('/subtasks', backendData)
+    return this.mapSubTaskData(response.data)
   }
 
   // Update subtask
   static async updateSubTask(id: number, data: UpdateSubTaskRequest): Promise<SubTask> {
-    const response = await api.put(`/subtasks/${id}`, data)
-    return response.data
+    // Map status if provided
+    const backendData = {
+      ...data,
+      status: data.status ? (this.frontendToBackendStatus[data.status] || data.status) : undefined
+    }
+
+    const response = await api.put(`/subtasks/${id}`, backendData)
+    return this.mapSubTaskData(response.data)
   }
 
   // Update subtask progress only
