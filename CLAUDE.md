@@ -82,7 +82,7 @@ src/
    - Delay detection and alerts
 
 4. **Data Import/Export**
-   - Excel file import/export
+   - Excel file import/export (✅ 已修复 - 直接文件下载)
    - Batch operations
    - Data validation
    - Import history tracking
@@ -474,8 +474,22 @@ npm run type-check
 - **Batch Import**: 4-step wizard, validation, error reporting
 - **Reports**: Multiple chart types, export options, department comparison
 
+#### Latest Updates (2025-09-16)
+
+**Excel导出功能修复完成**:
+1. **✅ 修复Excel导出下载问题**: 适配后端直接返回Excel文件数据
+2. **✅ API字段映射修复**: 统一前后端字段命名规范
+3. **✅ Blob下载优化**: 使用正确的MIME类型和文件处理
+4. **✅ 移除Mock数据**: 完全使用真实API数据，无fallback
+
+**技术改进**:
+- **ExcelAPI.exportAndDownloadApplications**: 新增直接下载方法
+- **ApplicationsAPI字段映射**: `application_id` → `l2_id`, `application_name` → `app_name`
+- **文件下载优化**: 正确的blob处理和MIME类型设置
+- **错误处理增强**: 改进API错误处理和用户反馈
+
 #### Next Steps for Production
-1. Connect to real API endpoints (currently using mock data)
+1. ✅ ~~Connect to real API endpoints~~ (已完成 - 使用真实API数据)
 2. Add authentication guards and SSO integration
 3. Implement real-time WebSocket updates
 4. Add unit and E2E tests

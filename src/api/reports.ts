@@ -139,12 +139,59 @@ export class ReportsAPI {
   // Download file from URL
   static async downloadFile(fileUrl: string, filename?: string): Promise<void> {
     try {
-      const response = await api.get(fileUrl, {
-        responseType: 'blob'
+      // Build full URL for file download
+      // If fileUrl starts with '/api/v1' or is relative, use API base
+      // If it's absolute URL or starts with '/downloads', use base server URL
+      let fullUrl: string
+      if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+        fullUrl = fileUrl
+      } else if (fileUrl.startsWith('/downloads/')) {
+        // Direct file download from server
+        fullUrl = `http://localhost:8000${fileUrl}`
+      } else if (fileUrl.startsWith('/api/v1/downloads/')) {
+        // API route for file download
+        fullUrl = `http://localhost:8000${fileUrl}`
+      } else {
+        // Relative path, use API
+        fullUrl = fileUrl
+      }
+
+      // Use fetch directly for file downloads to avoid API interceptors
+      const response = await fetch(fullUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer token_1_admin_full_access_test_2024'
+        }
       })
 
-      const blob = new Blob([response.data])
-      const url = window.URL.createObjectURL(blob)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const blob = await response.blob()
+
+      // Determine MIME type based on file extension
+      let mimeType = 'application/octet-stream'
+      if (filename) {
+        const ext = filename.toLowerCase().split('.').pop()
+        switch (ext) {
+          case 'xlsx':
+            mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            break
+          case 'xls':
+            mimeType = 'application/vnd.ms-excel'
+            break
+          case 'pdf':
+            mimeType = 'application/pdf'
+            break
+          case 'csv':
+            mimeType = 'text/csv'
+            break
+        }
+      }
+
+      const finalBlob = new Blob([blob], { type: mimeType })
+      const url = window.URL.createObjectURL(finalBlob)
       const link = document.createElement('a')
       link.href = url
       link.download = filename || 'download'
@@ -181,8 +228,41 @@ export class ExcelAPI {
 
   // Export applications to Excel
   static async exportApplications(params: ExcelExportParams = {}): Promise<ExcelExportResponse> {
-    const response = await api.post('/excel/export/applications', params)
+    const response = await api.post('/excel/export/applications', params, {
+      responseType: 'blob'
+    })
     return response.data
+  }
+
+  // Export and download applications Excel file directly
+  static async exportAndDownloadApplications(params: ExcelExportParams = {}, filename?: string): Promise<void> {
+    try {
+      const response = await api.post('/excel/export/applications', params, {
+        responseType: 'blob'
+      })
+
+      // Generate filename with current timestamp if not provided
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
+      const finalFilename = filename || `applications_export_${timestamp}.xlsx`
+
+      // Create blob with proper MIME type
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = finalFilename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to export and download Excel:', error)
+      throw error
+    }
   }
 
   // Download Excel template

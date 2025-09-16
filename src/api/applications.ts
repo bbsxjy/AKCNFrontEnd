@@ -104,13 +104,35 @@ export class ApplicationsAPI {
 
   // Create new application
   static async createApplication(data: CreateApplicationRequest): Promise<Application> {
-    const response = await api.post('/applications', data)
+    // Map frontend fields to backend fields
+    const backendData = {
+      l2_id: data.application_id,
+      app_name: data.application_name,
+      supervision_year: new Date().getFullYear(),
+      transformation_target: data.business_domain === 'AK' ? 'AK' : '云原生',
+      responsible_team: data.responsible_team,
+      responsible_person: data.responsible_person,
+      notes: `Business Domain: ${data.business_domain}, Subdomain: ${data.business_subdomain}, Size: ${data.size}, Cloud: ${data.public_cloud_vendor}`
+    }
+
+    const response = await api.post('/applications', backendData)
     return response.data
   }
 
   // Update application
   static async updateApplication(id: number, data: UpdateApplicationRequest): Promise<Application> {
-    const response = await api.put(`/applications/${id}`, data)
+    // Map frontend fields to backend fields
+    const backendData: any = {}
+
+    if (data.application_id) backendData.l2_id = data.application_id
+    if (data.application_name) backendData.app_name = data.application_name
+    if (data.responsible_team) backendData.responsible_team = data.responsible_team
+    if (data.responsible_person) backendData.responsible_person = data.responsible_person
+    if (data.business_domain || data.business_subdomain || data.size || data.public_cloud_vendor) {
+      backendData.notes = `Business Domain: ${data.business_domain || ''}, Subdomain: ${data.business_subdomain || ''}, Size: ${data.size || ''}, Cloud: ${data.public_cloud_vendor || ''}`
+    }
+
+    const response = await api.put(`/applications/${id}`, backendData)
     return response.data
   }
 

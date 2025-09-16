@@ -707,18 +707,13 @@ const exportExcel = async () => {
       'public_cloud_vendor'
     ]
 
-    const response = await ExcelAPI.exportApplications({
+    // Use the new direct download method
+    await ExcelAPI.exportAndDownloadApplications({
       filters,
       columns
     })
 
-    // Download the file
-    if (response.file_url) {
-      window.open(response.file_url, '_blank')
-      ElMessage.success(`成功导出 ${response.rows_exported} 条应用数据`)
-    } else {
-      throw new Error('No file URL returned')
-    }
+    ElMessage.success(`Excel文件导出成功`)
   } catch (error) {
     console.error('Failed to export Excel:', error)
     ElMessage.error('导出失败，请稍后重试')
