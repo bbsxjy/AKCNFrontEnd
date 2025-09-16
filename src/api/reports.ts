@@ -19,9 +19,11 @@ export interface TeamPerformanceParams {
 }
 
 export interface ReportExportParams {
-  report_type: 'progress_summary' | 'delayed_projects' | 'team_performance'
-  format: 'excel' | 'pdf' | 'csv'
-  filters: Record<string, any>
+  report_type: 'progress_summary' | 'delayed_projects' | 'department_comparison'
+  export_format: 'pdf' | 'excel' | 'html' | 'csv'
+  report_data: Record<string, any>
+  template_style?: 'standard' | 'minimal' | 'detailed'
+  include_charts?: boolean
 }
 
 export interface ProgressSummaryResponse {
@@ -60,7 +62,11 @@ export interface TeamPerformanceResponse {
 }
 
 export interface ExportResponse {
-  file_url: string
+  success: boolean
+  export_format: string
+  file_name: string
+  file_size_bytes: number
+  download_url: string
   expires_at: string
 }
 
@@ -132,29 +138,41 @@ export class ReportsAPI {
 
   // Export report
   static async exportReport(params: ReportExportParams): Promise<ExportResponse> {
+    console.log('🔍 [ReportsAPI] Export request:', {
+      endpoint: '/reports/export',
+      params
+    })
+
     const response = await api.post('/reports/export', params)
+
+    console.log('📊 [ReportsAPI] Export response:', response.data)
     return response.data
   }
 
   // Download file from URL
-  static async downloadFile(fileUrl: string, filename?: string): Promise<void> {
+  static async downloadFile(downloadUrl: string, filename?: string): Promise<void> {
     try {
+      console.log('🔍 [ReportsAPI] Downloading file:', {
+        downloadUrl,
+        filename
+      })
+
       // Build full URL for file download
-      // If fileUrl starts with '/api/v1' or is relative, use API base
-      // If it's absolute URL or starts with '/downloads', use base server URL
       let fullUrl: string
-      if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-        fullUrl = fileUrl
-      } else if (fileUrl.startsWith('/downloads/')) {
+      if (downloadUrl.startsWith('http://') || downloadUrl.startsWith('https://')) {
+        fullUrl = downloadUrl
+      } else if (downloadUrl.startsWith('/api/v1/reports/download/')) {
+        // API route for report file download
+        fullUrl = `http://localhost:8000${downloadUrl}`
+      } else if (downloadUrl.startsWith('/downloads/')) {
         // Direct file download from server
-        fullUrl = `http://localhost:8000${fileUrl}`
-      } else if (fileUrl.startsWith('/api/v1/downloads/')) {
-        // API route for file download
-        fullUrl = `http://localhost:8000${fileUrl}`
+        fullUrl = `http://localhost:8000${downloadUrl}`
       } else {
-        // Relative path, use API
-        fullUrl = fileUrl
+        // Relative path, use API base
+        fullUrl = `http://localhost:8000/api/v1${downloadUrl}`
       }
+
+      console.log('🔍 [ReportsAPI] Full download URL:', fullUrl)
 
       // Use fetch directly for file downloads to avoid API interceptors
       const response = await fetch(fullUrl, {
@@ -187,6 +205,9 @@ export class ReportsAPI {
           case 'csv':
             mimeType = 'text/csv'
             break
+          case 'html':
+            mimeType = 'text/html'
+            break
         }
       }
 
@@ -199,8 +220,10 @@ export class ReportsAPI {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
+
+      console.log('✅ [ReportsAPI] File downloaded successfully')
     } catch (error) {
-      console.error('Failed to download file:', error)
+      console.error('❌ [ReportsAPI] Failed to download file:', error)
       throw error
     }
   }

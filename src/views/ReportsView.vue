@@ -8,9 +8,17 @@
             <el-button type="primary" @click="generateReport" :loading="generating">
               {{ generating ? '生成中...' : '生成报表' }}
             </el-button>
-            <el-button type="warning" @click="exportPDF" :loading="exporting">
-              {{ exporting ? '导出中...' : '导出PDF' }}
-            </el-button>
+            <el-dropdown split-button type="success" @click="showExportDialog" :loading="exporting">
+              导出报表
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="handleExport('pdf')">📄 导出为PDF</el-dropdown-item>
+                  <el-dropdown-item @click="handleExport('excel')">📥 导出为Excel</el-dropdown-item>
+                  <el-dropdown-item @click="handleExport('html')">🌐 导出为HTML</el-dropdown-item>
+                  <el-dropdown-item @click="handleExport('csv')">📊 导出为CSV</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </div>
       </template>
@@ -150,31 +158,6 @@
         </el-table>
       </div>
 
-      <!-- Export Options -->
-      <el-card class="export-options">
-        <template #header>
-          <h4>导出选项</h4>
-        </template>
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-checkbox v-model="exportOptions.includeCharts" label="包含图表" />
-          </el-col>
-          <el-col :span="8">
-            <el-checkbox v-model="exportOptions.includeDetails" label="包含详细数据" />
-          </el-col>
-          <el-col :span="8">
-            <el-checkbox v-model="exportOptions.includeRawData" label="包含原始数据" />
-          </el-col>
-        </el-row>
-        <div class="export-actions">
-          <el-button type="success" @click="exportExcel" :loading="exporting">
-            📥 {{ exporting ? '导出中...' : '导出为Excel' }}
-          </el-button>
-          <el-button type="primary" @click="exportPDF" :loading="exporting">
-            📄 {{ exporting ? '导出中...' : '导出为PDF' }}
-          </el-button>
-        </div>
-      </el-card>
     </el-card>
   </div>
 </template>
@@ -207,8 +190,7 @@ const delayedProjects = ref<DelayedProjectsResponse | null>(null)
 
 const exportOptions = reactive({
   includeCharts: true,
-  includeDetails: true,
-  includeRawData: false
+  templateStyle: 'standard' as 'standard' | 'minimal' | 'detailed'
 })
 
 // Computed properties
@@ -527,62 +509,82 @@ const viewDelayDetails = (row: any) => {
   )
 }
 
-const exportExcel = async () => {
-  exporting.value = true
-  try {
-    const reportType = activeTab.value === 'summary' ? 'progress_summary' :
-                      activeTab.value === 'delay' ? 'delayed_projects' :
-                      'team_performance'
+// Get current report data for export
+const getCurrentReportData = () => {
+  const reportType = activeTab.value === 'summary' ? 'progress_summary' :
+                    activeTab.value === 'delay' ? 'delayed_projects' :
+                    activeTab.value === 'department' ? 'department_comparison' :
+                    'progress_summary'
 
-    const response = await ReportsAPI.exportReport({
-      report_type: reportType as any,
-      format: 'excel',
-      filters: {
-        start_date: dateRange.value.start,
-        end_date: dateRange.value.end,
-        include_charts: exportOptions.includeCharts,
-        include_details: exportOptions.includeDetails,
-        include_raw_data: exportOptions.includeRawData
-      }
-    })
+  let currentReportData: any = {}
 
-    if (response.file_url) {
-      await ReportsAPI.downloadFile(response.file_url, `report_${activeTab.value}_${Date.now()}.xlsx`)
-      ElMessage.success('Excel导出成功')
+  if (reportType === 'progress_summary' && summaryData.value) {
+    currentReportData = {
+      metadata: summaryData.value.metadata,
+      department_data: reportData.value,
+      time_range: dateRange.value
     }
-  } catch (error) {
-    console.error('Failed to export Excel:', error)
-    ElMessage.error('Excel导出失败')
-  } finally {
-    exporting.value = false
+  } else if (reportType === 'delayed_projects' && delayedProjects.value) {
+    currentReportData = {
+      delayed_projects: delayedProjects.value.data,
+      total_delayed: delayedProjects.value.data.length,
+      time_range: dateRange.value
+    }
+  } else if (reportType === 'department_comparison') {
+    currentReportData = {
+      department_data: reportData.value,
+      time_range: dateRange.value
+    }
   }
+
+  return { reportType, reportData: currentReportData }
 }
 
-const exportPDF = async () => {
+// Show export dialog (for split button main click)
+const showExportDialog = () => {
+  ElMessage.info('请选择导出格式')
+}
+
+// Unified export handler
+const handleExport = async (format: 'pdf' | 'excel' | 'html' | 'csv') => {
   exporting.value = true
   try {
-    const reportType = activeTab.value === 'summary' ? 'progress_summary' :
-                      activeTab.value === 'delay' ? 'delayed_projects' :
-                      'team_performance'
+    const { reportType, reportData } = getCurrentReportData()
+
+    console.log('🔍 [ReportsView] Starting export:', {
+      format,
+      reportType,
+      reportData
+    })
 
     const response = await ReportsAPI.exportReport({
       report_type: reportType as any,
-      format: 'pdf',
-      filters: {
-        start_date: dateRange.value.start,
-        end_date: dateRange.value.end,
-        include_charts: exportOptions.includeCharts,
-        include_details: exportOptions.includeDetails
-      }
+      export_format: format,
+      report_data: reportData,
+      template_style: exportOptions.templateStyle,
+      include_charts: format === 'excel' ? exportOptions.includeCharts : false
     })
 
-    if (response.file_url) {
-      await ReportsAPI.downloadFile(response.file_url, `report_${activeTab.value}_${Date.now()}.pdf`)
-      ElMessage.success('PDF导出成功')
+    console.log('📊 [ReportsView] Export response:', response)
+
+    if (response.success && response.download_url) {
+      const fileExtension = format === 'excel' ? 'xlsx' : format
+      const filename = `${response.file_name || `report_${activeTab.value}_${Date.now()}.${fileExtension}`}`
+
+      await ReportsAPI.downloadFile(response.download_url, filename)
+      ElMessage.success(`${format.toUpperCase()}导出成功`)
+    } else {
+      throw new Error('Export response missing download URL')
     }
-  } catch (error) {
-    console.error('Failed to export PDF:', error)
-    ElMessage.error('PDF导出失败')
+  } catch (error: any) {
+    console.error('❌ [ReportsView] Export failed:', error)
+    if (error?.response?.status === 404) {
+      ElMessage.error('导出功能暂不可用，请稍后重试')
+    } else if (error?.response?.data?.detail) {
+      ElMessage.error(`导出失败: ${error.response.data.detail}`)
+    } else {
+      ElMessage.error(`${format.toUpperCase()}导出失败: ${error?.message || '未知错误'}`)
+    }
   } finally {
     exporting.value = false
   }
@@ -665,18 +667,4 @@ onMounted(() => {
   color: #e53e3e;
 }
 
-.export-options {
-  margin-top: 30px;
-}
-
-.export-options h4 {
-  margin: 0;
-  color: #2d3748;
-}
-
-.export-actions {
-  margin-top: 20px;
-  display: flex;
-  gap: 15px;
-}
 </style>
