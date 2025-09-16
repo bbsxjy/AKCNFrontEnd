@@ -218,28 +218,53 @@ export class ExcelAPI {
       formData.append('validate_only', params.validate_only.toString())
     }
 
+    console.log('🔍 [ExcelAPI] Import request:', {
+      endpoint: '/excel/import/applications',
+      file: params.file.name,
+      size: params.file.size,
+      update_existing: params.update_existing,
+      validate_only: params.validate_only
+    })
+
     const response = await api.post('/excel/import/applications', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     })
+
+    console.log('📊 [ExcelAPI] Import response:', response.data)
     return response.data
   }
 
   // Export applications to Excel
   static async exportApplications(params: ExcelExportParams = {}): Promise<ExcelExportResponse> {
+    console.log('🔍 [ExcelAPI] Export request:', {
+      endpoint: '/excel/export/applications',
+      params
+    })
+
     const response = await api.post('/excel/export/applications', params, {
       responseType: 'blob'
     })
+
+    console.log('📊 [ExcelAPI] Export response:', response)
     return response.data
   }
 
   // Export and download applications Excel file directly
   static async exportAndDownloadApplications(params: ExcelExportParams = {}, filename?: string): Promise<void> {
     try {
+      console.log('🔍 [ExcelAPI] Export and download request:', {
+        endpoint: '/excel/export/applications',
+        params,
+        filename
+      })
+
       const response = await api.post('/excel/export/applications', params, {
         responseType: 'blob'
       })
+
+      console.log('📊 [ExcelAPI] Export and download response:', response)
 
       // Generate filename with current timestamp if not provided
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
@@ -268,9 +293,16 @@ export class ExcelAPI {
   // Download Excel template
   static async downloadTemplate(type: 'applications' | 'subtasks'): Promise<void> {
     try {
+      console.log('🔍 [ExcelAPI] Template download request:', {
+        endpoint: `/excel/template/${type}`,
+        type
+      })
+
       const response = await api.get(`/excel/template/${type}`, {
         responseType: 'blob'
       })
+
+      console.log('📊 [ExcelAPI] Template download response:', response)
 
       const blob = new Blob([response.data])
       const url = window.URL.createObjectURL(blob)
@@ -283,6 +315,89 @@ export class ExcelAPI {
       window.URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Failed to download template:', error)
+      throw error
+    }
+  }
+
+  // Import subtasks from Excel
+  static async importSubTasks(params: ExcelImportParams): Promise<ExcelImportResponse> {
+    const formData = new FormData()
+    formData.append('file', params.file)
+    if (params.update_existing !== undefined) {
+      formData.append('update_existing', params.update_existing.toString())
+    }
+    if (params.validate_only !== undefined) {
+      formData.append('validate_only', params.validate_only.toString())
+    }
+
+    console.log('🔍 [ExcelAPI] SubTasks import request:', {
+      endpoint: '/excel/import/subtasks',
+      file: params.file.name,
+      size: params.file.size,
+      update_existing: params.update_existing,
+      validate_only: params.validate_only
+    })
+
+    const response = await api.post('/excel/import/subtasks', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+
+    console.log('📊 [ExcelAPI] SubTasks import response:', response.data)
+    return response.data
+  }
+
+  // Export subtasks to Excel
+  static async exportSubTasks(params: ExcelExportParams = {}): Promise<ExcelExportResponse> {
+    console.log('🔍 [ExcelAPI] SubTasks export request:', {
+      endpoint: '/excel/export/subtasks',
+      params
+    })
+
+    const response = await api.post('/excel/export/subtasks', params, {
+      responseType: 'blob'
+    })
+
+    console.log('📊 [ExcelAPI] SubTasks export response:', response)
+    return response.data
+  }
+
+  // Export and download subtasks Excel file directly
+  static async exportAndDownloadSubTasks(params: ExcelExportParams = {}, filename?: string): Promise<void> {
+    try {
+      console.log('🔍 [ExcelAPI] SubTasks export and download request:', {
+        endpoint: '/excel/export/subtasks',
+        params,
+        filename
+      })
+
+      const response = await api.post('/excel/export/subtasks', params, {
+        responseType: 'blob'
+      })
+
+      console.log('📊 [ExcelAPI] SubTasks export and download response:', response)
+
+      // Generate filename with current timestamp if not provided
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
+      const finalFilename = filename || `subtasks_export_${timestamp}.xlsx`
+
+      // Create blob with proper MIME type
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = finalFilename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to export and download SubTasks Excel:', error)
       throw error
     }
   }
