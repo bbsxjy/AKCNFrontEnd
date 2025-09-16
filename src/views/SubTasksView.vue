@@ -9,7 +9,7 @@
           </div>
           <div class="actions">
             <el-button @click="goBack">返回列表</el-button>
-            <el-button type="primary">
+            <el-button type="primary" @click="showCreateTaskDialog">
               <el-icon><plus /></el-icon>
               新增子任务
             </el-button>
@@ -21,80 +21,84 @@
       <el-row :gutter="20" class="overview">
         <el-col :span="6">
           <div class="stat-item">
-            <div class="stat-value">{{ statistics.total }}</div>
+            <div class="stat-value">{{ safeStatistics.total }}</div>
             <div class="stat-label">子任务总数</div>
           </div>
         </el-col>
         <el-col :span="6">
           <div class="stat-item">
-            <div class="stat-value success">{{ statistics.completed }}</div>
+            <div class="stat-value success">{{ safeStatistics.completed }}</div>
             <div class="stat-label">已完成</div>
           </div>
         </el-col>
         <el-col :span="6">
           <div class="stat-item">
-            <div class="stat-value primary">{{ statistics.inProgress }}</div>
+            <div class="stat-value primary">{{ safeStatistics.inProgress }}</div>
             <div class="stat-label">进行中</div>
           </div>
         </el-col>
         <el-col :span="6">
           <div class="stat-item">
-            <div class="stat-value danger">{{ statistics.blocked }}</div>
+            <div class="stat-value danger">{{ safeStatistics.blocked }}</div>
             <div class="stat-label">阻塞中</div>
           </div>
         </el-col>
       </el-row>
 
       <!-- SubTasks Table -->
-      <el-table :data="subTasks" style="width: 100%">
-        <el-table-column prop="module_name" label="模块名称" min-width="200">
+      <el-table
+        :data="subTasks"
+        v-loading="loading"
+        style="width: 100%"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="55" />
+        <el-table-column prop="subtask_name" label="子任务名称" min-width="200">
           <template #default="{ row }">
-            <strong>{{ row.module_name }}</strong>
-            <div v-if="row.is_blocked" class="block-warning">⚠️ 阻塞</div>
+            <strong>{{ row.subtask_name }}</strong>
+            <div v-if="row.status === '存在阻塞'" class="block-warning">⚠️ 阻塞</div>
           </template>
         </el-table-column>
-        <el-table-column prop="sub_target" label="子目标" width="100">
+        <el-table-column prop="responsible_person" label="负责人" width="120" />
+        <el-table-column prop="status" label="状态" width="130">
           <template #default="{ row }">
-            <el-tag size="small" :type="row.sub_target === '云原生' ? 'primary' : 'warning'">
-              {{ row.sub_target }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="version_name" label="版本" min-width="120" />
-        <el-table-column prop="task_status" label="状态" width="130">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.task_status)" size="small">
-              {{ row.task_status }}
+            <el-tag :type="getStatusType(row.status)" size="small">
+              {{ row.status }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="progress_percentage" label="进度" min-width="180">
           <template #default="{ row }">
             <el-progress
-              :percentage="row.progress_percentage"
+              :percentage="Number(row.progress_percentage) || 0"
               :stroke-width="6"
               :color="getProgressColor(row)"
             />
           </template>
         </el-table-column>
-        <el-table-column prop="planned_dates" label="计划完成" min-width="140">
+        <el-table-column prop="planned_start_date" label="计划开始" min-width="120">
           <template #default="{ row }">
-            {{ row.planned_dates?.release_date || '-' }}
+            {{ formatDate(row.planned_start_date) }}
           </template>
         </el-table-column>
-        <el-table-column prop="actual_dates" label="实际完成" min-width="140">
+        <el-table-column prop="planned_end_date" label="计划完成" min-width="120">
           <template #default="{ row }">
-            <span v-if="row.actual_dates?.release_date" class="completed-date">
-              {{ row.actual_dates.release_date }} ✓
+            {{ formatDate(row.planned_end_date) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="actual_end_date" label="实际完成" min-width="120">
+          <template #default="{ row }">
+            <span v-if="row.actual_end_date" class="completed-date">
+              {{ formatDate(row.actual_end_date) }} ✓
             </span>
-            <span v-else-if="row.task_status === '阻塞中'" class="blocked-text">延期中</span>
+            <span v-else-if="row.status === '存在阻塞'" class="blocked-text">延期中</span>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="140" fixed="right">
+        <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button
-              v-if="row.is_blocked"
+              v-if="row.status === '存在阻塞'"
               size="small"
               type="danger"
               @click="resolveBlock(row)"
@@ -111,112 +115,307 @@
       <!-- Batch Operations -->
       <div class="batch-operations">
         <strong>批量操作：</strong>
-        <el-button>批量更新状态</el-button>
-        <el-button>批量修改日期</el-button>
-        <el-button type="warning">导出子任务</el-button>
+        <el-button @click="batchUpdateStatus" :disabled="selectedTasks.length === 0">
+          批量更新状态
+        </el-button>
+        <el-button @click="batchUpdateDates" :disabled="selectedTasks.length === 0">
+          批量修改日期
+        </el-button>
+        <el-button type="warning" @click="exportSubTasks">导出子任务</el-button>
       </div>
     </el-card>
+
+    <!-- Create SubTask Dialog -->
+    <el-dialog v-model="showCreateDialog" title="新增子任务" width="600px">
+      <el-form :model="createForm" label-width="120px">
+        <el-form-item label="模块名称" required>
+          <el-input v-model="createForm.module_name" placeholder="请输入模块名称" />
+        </el-form-item>
+        <el-form-item label="改造目标" required>
+          <el-radio-group v-model="createForm.sub_target">
+            <el-radio value="AK">AK</el-radio>
+            <el-radio value="云原生">云原生</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="子任务名称" required>
+          <el-input v-model="createForm.subtask_name" placeholder="请输入子任务名称" />
+        </el-form-item>
+        <el-form-item label="负责人" required>
+          <el-input v-model="createForm.responsible_person" placeholder="请输入负责人" />
+        </el-form-item>
+        <el-form-item label="计划开始日期" required>
+          <el-date-picker
+            v-model="createForm.planned_start_date"
+            type="date"
+            placeholder="选择开始日期"
+            style="width: 100%"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+        <el-form-item label="计划结束日期" required>
+          <el-date-picker
+            v-model="createForm.planned_end_date"
+            type="date"
+            placeholder="选择结束日期"
+            style="width: 100%"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="createForm.status" placeholder="请选择状态">
+            <el-option value="planning" label="待启动" />
+            <el-option value="in_progress" label="研发进行中" />
+            <el-option value="testing" label="业务上线中" />
+            <el-option value="completed" label="已完成" />
+            <el-option value="blocked" label="存在阻塞" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input
+            v-model="createForm.notes"
+            type="textarea"
+            placeholder="请输入备注"
+            :rows="3"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showCreateDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleCreate">确认</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Edit SubTask Dialog -->
+    <el-dialog v-model="showEditDialog" title="编辑子任务" width="600px">
+      <el-form :model="editForm" label-width="120px">
+        <el-form-item label="子任务名称" required>
+          <el-input v-model="editForm.subtask_name" placeholder="请输入子任务名称" />
+        </el-form-item>
+        <el-form-item label="负责人" required>
+          <el-input v-model="editForm.responsible_person" placeholder="请输入负责人" />
+        </el-form-item>
+        <el-form-item label="计划开始日期">
+          <el-date-picker
+            v-model="editForm.planned_start_date"
+            type="date"
+            placeholder="选择开始日期"
+            style="width: 100%"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+        <el-form-item label="计划结束日期">
+          <el-date-picker
+            v-model="editForm.planned_end_date"
+            type="date"
+            placeholder="选择结束日期"
+            style="width: 100%"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+        <el-form-item label="实际开始日期">
+          <el-date-picker
+            v-model="editForm.actual_start_date"
+            type="date"
+            placeholder="选择实际开始日期"
+            style="width: 100%"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+        <el-form-item label="实际结束日期">
+          <el-date-picker
+            v-model="editForm.actual_end_date"
+            type="date"
+            placeholder="选择实际结束日期"
+            style="width: 100%"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="editForm.status" placeholder="请选择状态">
+            <el-option value="planning" label="待启动" />
+            <el-option value="in_progress" label="研发进行中" />
+            <el-option value="testing" label="业务上线中" />
+            <el-option value="completed" label="已完成" />
+            <el-option value="blocked" label="存在阻塞" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="进度百分比">
+          <el-slider v-model="safeProgressPercentage" :max="100" :min="0" show-input />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input
+            v-model="editForm.notes"
+            type="textarea"
+            placeholder="请输入备注"
+            :rows="3"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div style="display: flex; justify-content: space-between; width: 100%;">
+          <el-button type="danger" @click="deleteSubTaskInEdit">删除子任务</el-button>
+          <div>
+            <el-button @click="showEditDialog = false">取消</el-button>
+            <el-button type="primary" @click="handleEdit">保存</el-button>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import type { SubTask } from '@/types'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { ApplicationsAPI, type Application } from '@/api/applications'
+import { SubTasksAPI, type SubTask, type CreateSubTaskRequest, type UpdateSubTaskRequest } from '@/api/subtasks'
 
 const router = useRouter()
 const route = useRoute()
 
-const applicationName = ref('用户管理系统')
-const l2Id = ref('L2_APP_001')
-const responsiblePerson = ref('李四')
+// Get application ID from route params
+const applicationId = parseInt(route.params.id as string)
+
+// Reactive data
+const loading = ref(false)
+const application = ref<Application | null>(null)
+const subTasks = ref<SubTask[]>([])
+const showCreateDialog = ref(false)
+const showEditDialog = ref(false)
+const editingTask = ref<SubTask | null>(null)
+const selectedTasks = ref<SubTask[]>([])
 
 const statistics = reactive({
-  total: 5,
-  completed: 2,
-  inProgress: 2,
-  blocked: 1
+  total: 0,
+  completed: 0,
+  inProgress: 0,
+  blocked: 0
 })
 
-const subTasks = ref<SubTask[]>([
-  {
-    id: 101,
-    application_id: 1,
-    module_name: '用户认证模块',
-    sub_target: '云原生',
-    version_name: 'v1.0',
-    task_status: '已完成',
-    progress_percentage: 100,
-    is_blocked: false,
-    block_reason: null,
-    planned_dates: {
-      requirement_date: '2025-01-05',
-      release_date: '2025-01-10',
-      tech_online_date: null,
-      biz_online_date: null
-    },
-    actual_dates: {
-      requirement_date: '2025-01-05',
-      release_date: '2025-01-08',
-      tech_online_date: null,
-      biz_online_date: null
-    },
-    created_at: '2025-01-01T10:00:00Z',
-    updated_at: '2025-01-08T15:30:00Z'
-  },
-  {
-    id: 102,
-    application_id: 1,
-    module_name: '数据库迁移',
-    sub_target: '云原生',
-    version_name: 'v1.0',
-    task_status: '阻塞中',
-    progress_percentage: 30,
-    is_blocked: true,
-    block_reason: '数据库权限配置问题',
-    planned_dates: {
-      requirement_date: '2025-01-10',
-      release_date: '2025-01-15',
-      tech_online_date: null,
-      biz_online_date: null
-    },
-    actual_dates: {
-      requirement_date: null,
-      release_date: null,
-      tech_online_date: null,
-      biz_online_date: null
-    },
-    created_at: '2025-01-05T10:00:00Z',
-    updated_at: '2025-01-12T09:20:00Z'
-  },
-  {
-    id: 103,
-    application_id: 1,
-    module_name: 'API接口改造',
-    sub_target: '云原生',
-    version_name: 'v2.0',
-    task_status: '研发进行中',
-    progress_percentage: 60,
-    is_blocked: false,
-    block_reason: null,
-    planned_dates: {
-      requirement_date: '2025-01-20',
-      release_date: '2025-02-01',
-      tech_online_date: null,
-      biz_online_date: null
-    },
-    actual_dates: {
-      requirement_date: null,
-      release_date: null,
-      tech_online_date: null,
-      biz_online_date: null
-    },
-    created_at: '2025-01-10T14:00:00Z',
-    updated_at: '2025-01-15T11:10:00Z'
+const createForm = reactive<CreateSubTaskRequest>({
+  application_id: Number(applicationId),
+  module_name: '',
+  sub_target: 'AK',
+  subtask_name: '',
+  responsible_person: '',
+  planned_start_date: '',
+  planned_end_date: '',
+  status: 'planning',
+  notes: ''
+})
+
+const editForm = reactive<UpdateSubTaskRequest>({
+  subtask_name: '',
+  responsible_person: '',
+  planned_start_date: '',
+  planned_end_date: '',
+  actual_start_date: '',
+  actual_end_date: '',
+  status: '',
+  progress_percentage: 0,
+  notes: ''
+})
+
+// Computed properties
+const applicationName = computed(() => application.value?.application_name || 'Loading...')
+const l2Id = computed(() => application.value?.application_id || '')
+const responsiblePerson = computed(() => application.value?.responsible_person || '')
+
+// Computed property to ensure progress percentage is always a number
+const safeProgressPercentage = computed({
+  get: () => Number(editForm.progress_percentage) || 0,
+  set: (val: number) => {
+    editForm.progress_percentage = Number(val) || 0
   }
-])
+})
+
+// Safe computed properties for statistics to prevent Vue attribute errors
+const safeStatistics = computed(() => ({
+  total: Number(statistics.total) || 0,
+  completed: Number(statistics.completed) || 0,
+  inProgress: Number(statistics.inProgress) || 0,
+  blocked: Number(statistics.blocked) || 0
+}))
+
+// Completely isolated message handler to prevent reactive data contamination
+const safeMessage = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+  // Use setTimeout to completely isolate from current reactive context
+  setTimeout(() => {
+    try {
+      ElMessage({
+        message: String(message),
+        type: type,
+        duration: 3000
+      })
+    } catch (error) {
+      // Fallback to console if ElMessage fails
+      console.log(`[${type.toUpperCase()}]: ${message}`)
+    }
+  }, 0)
+}
+
+// Load application data
+const loadApplication = async () => {
+  try {
+    application.value = await ApplicationsAPI.getApplication(applicationId)
+  } catch (error) {
+    console.error('Failed to load application:', error)
+    ElMessage.error('加载应用信息失败')
+  }
+}
+
+// Load subtasks data
+const loadSubTasks = async () => {
+  try {
+    loading.value = true
+    const rawSubTasks = await SubTasksAPI.getSubTasksByApplication(applicationId)
+    // Ensure all data properties are properly formatted
+    subTasks.value = rawSubTasks.map(task => ({
+      ...task,
+      progress_percentage: Number(task.progress_percentage) || 0,
+      subtask_name: task.subtask_name || '',
+      responsible_person: task.responsible_person || '',
+      status: task.status || '',
+      notes: task.notes || null
+    }))
+    await loadStatistics()
+  } catch (error) {
+    console.error('Failed to load subtasks:', error)
+    ElMessage.error('加载子任务失败')
+    subTasks.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+// Load statistics
+const loadStatistics = async () => {
+  try {
+    const stats = await SubTasksAPI.getSubTaskStats(applicationId)
+    statistics.total = stats.total
+    statistics.completed = stats.completed
+    statistics.inProgress = stats.inProgress
+    statistics.blocked = stats.blocked
+  } catch (error) {
+    console.error('Failed to load statistics:', error)
+  }
+}
+
+// Initialize data
+onMounted(async () => {
+  await Promise.all([
+    loadApplication(),
+    loadSubTasks()
+  ])
+})
 
 const getStatusType = (status: string) => {
   const statusMap: Record<string, string> = {
@@ -224,27 +423,273 @@ const getStatusType = (status: string) => {
     '研发进行中': 'primary',
     '业务上线中': 'warning',
     '已完成': 'success',
-    '阻塞中': 'danger'
+    '阻塞中': 'danger',
+    '存在阻塞': 'danger'
   }
   return statusMap[status] || 'info'
 }
 
 const getProgressColor = (row: SubTask) => {
-  if (row.is_blocked) return '#f56565'
+  if (row.status === '存在阻塞') return '#f56565'
   if (row.progress_percentage >= 80) return '#48bb78'
   return '#667eea'
+}
+
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return '-'
+  return new Date(dateString).toLocaleDateString('zh-CN')
 }
 
 const goBack = () => {
   router.push('/applications')
 }
 
-const resolveBlock = (row: SubTask) => {
-  ElMessage.info(`解决阻塞：${row.module_name}`)
+// Create subtask
+const showCreateTaskDialog = () => {
+  // Reset form
+  Object.assign(createForm, {
+    application_id: Number(applicationId),
+    module_name: '',
+    sub_target: 'AK',
+    subtask_name: '',
+    responsible_person: '',
+    planned_start_date: '',
+    planned_end_date: '',
+    status: 'planning',
+    notes: ''
+  })
+  showCreateDialog.value = true
 }
 
-const updateProgress = (row: SubTask) => {
-  ElMessage.info(`更新进度：${row.module_name}`)
+const handleCreate = async () => {
+  if (!createForm.module_name || !createForm.subtask_name || !createForm.responsible_person) {
+    safeMessage('请填写必填字段', 'error')
+    return
+  }
+
+  try {
+    await SubTasksAPI.createSubTask(createForm)
+    safeMessage('子任务创建成功', 'success')
+    showCreateDialog.value = false
+    await loadSubTasks()
+  } catch (error) {
+    console.error('Failed to create subtask:', error)
+    safeMessage('创建子任务失败', 'error')
+  }
+}
+
+// Edit subtask
+const editTask = (task: SubTask) => {
+  editingTask.value = task
+  Object.assign(editForm, {
+    subtask_name: task.subtask_name || '',
+    responsible_person: task.responsible_person || '',
+    planned_start_date: task.planned_start_date || '',
+    planned_end_date: task.planned_end_date || '',
+    actual_start_date: task.actual_start_date || '',
+    actual_end_date: task.actual_end_date || '',
+    status: task.status || '',
+    progress_percentage: Number(task.progress_percentage) || 0,
+    notes: task.notes || ''
+  })
+  showEditDialog.value = true
+}
+
+const handleEdit = async () => {
+  if (!editingTask.value || !editForm.subtask_name) {
+    safeMessage('请填写必填字段', 'error')
+    return
+  }
+
+  try {
+    // Format dates to YYYY-MM-DD strings if they are Date objects
+    const formattedData = {
+      ...editForm,
+      planned_start_date: editForm.planned_start_date instanceof Date
+        ? editForm.planned_start_date.toISOString().split('T')[0]
+        : editForm.planned_start_date,
+      planned_end_date: editForm.planned_end_date instanceof Date
+        ? editForm.planned_end_date.toISOString().split('T')[0]
+        : editForm.planned_end_date,
+      actual_start_date: editForm.actual_start_date instanceof Date
+        ? editForm.actual_start_date.toISOString().split('T')[0]
+        : editForm.actual_start_date,
+      actual_end_date: editForm.actual_end_date instanceof Date
+        ? editForm.actual_end_date.toISOString().split('T')[0]
+        : editForm.actual_end_date,
+      // Ensure progress_percentage is a number
+      progress_percentage: Number(editForm.progress_percentage) || 0
+    }
+
+    await SubTasksAPI.updateSubTask(editingTask.value.id, formattedData)
+    safeMessage('子任务更新成功', 'success')
+    showEditDialog.value = false
+    await loadSubTasks()
+  } catch (error: any) {
+    console.error('Failed to update subtask:', error)
+
+    // Handle specific backend error
+    if (error.response?.status === 500) {
+      if (error.response?.data?.detail?.includes('selectinload')) {
+        safeMessage('后端服务配置错误，请联系系统管理员', 'error')
+      } else {
+        safeMessage('服务器内部错误，请稍后重试', 'error')
+      }
+    } else {
+      safeMessage('更新子任务失败', 'error')
+    }
+  }
+}
+
+// Quick actions
+const resolveBlock = async (task: SubTask) => {
+  try {
+    await ElMessageBox.confirm(`确定要解决阻塞吗？`, '解决阻塞', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    await SubTasksAPI.updateSubTask(task.id, {
+      status: 'in_progress'
+    })
+    safeMessage('阻塞已解决', 'success')
+    await loadSubTasks()
+  } catch (error: any) {
+    console.error('Failed to resolve block:', error)
+
+    // Handle specific backend error
+    if (error.response?.status === 500) {
+      if (error.response?.data?.detail?.includes('selectinload')) {
+        safeMessage('后端服务配置错误，请联系系统管理员', 'error')
+      } else {
+        safeMessage('服务器内部错误，请稍后重试', 'error')
+      }
+    } else {
+      safeMessage('解决阻塞失败', 'error')
+    }
+  }
+}
+
+const updateProgress = (task: SubTask) => {
+  editTask(task)
+}
+
+
+// Table selection
+const handleSelectionChange = (selection: SubTask[]) => {
+  selectedTasks.value = selection
+}
+
+// Batch operations
+const batchUpdateStatus = async () => {
+  if (selectedTasks.value.length === 0) {
+    ElMessage.warning('请选择要操作的子任务')
+    return
+  }
+
+  try {
+    const { value: status } = await ElMessageBox.prompt('请输入新状态', '批量更新状态', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputValidator: (value) => {
+        const validStatus = ['待启动', '研发进行中', '业务上线中', '已完成', '存在阻塞']
+        return validStatus.includes(value) || '请输入有效的状态'
+      }
+    })
+
+    for (const task of selectedTasks.value) {
+      await SubTasksAPI.updateSubTask(task.id, { status })
+    }
+
+    ElMessage({
+      message: `成功更新 ${Number(selectedTasks.value.length)} 个子任务状态`,
+      type: 'success'
+    })
+    await loadSubTasks()
+  } catch (error) {
+    console.error('Failed batch update status:', error)
+    ElMessage({
+      message: '批量更新失败',
+      type: 'error'
+    })
+  }
+}
+
+const batchUpdateDates = async () => {
+  if (selectedTasks.value.length === 0) {
+    ElMessage.warning('请选择要操作的子任务')
+    return
+  }
+
+  try {
+    const { value: endDate } = await ElMessageBox.prompt('请输入新的计划结束日期', '批量修改日期', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputType: 'date'
+    })
+
+    for (const task of selectedTasks.value) {
+      await SubTasksAPI.updateSubTask(task.id, { planned_end_date: endDate })
+    }
+
+    ElMessage({
+      message: `成功更新 ${Number(selectedTasks.value.length)} 个子任务日期`,
+      type: 'success'
+    })
+    await loadSubTasks()
+  } catch (error) {
+    console.error('Failed batch update dates:', error)
+    ElMessage({
+      message: '批量更新失败',
+      type: 'error'
+    })
+  }
+}
+
+// Delete subtask from edit dialog
+const deleteSubTaskInEdit = async () => {
+  if (!editingTask.value) {
+    safeMessage('没有选中的子任务', 'error')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除子任务"${editingTask.value.subtask_name}"吗？此操作不可恢复。`,
+      '确认删除',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+
+    await SubTasksAPI.deleteSubTask(editingTask.value.id)
+    safeMessage('子任务删除成功', 'success')
+    showEditDialog.value = false
+    await loadSubTasks()
+  } catch (error: any) {
+    if (error === 'cancel') {
+      return // User cancelled
+    }
+
+    console.error('Failed to delete subtask:', error)
+    if (error.response?.status === 500) {
+      if (error.response?.data?.detail?.includes('selectinload')) {
+        safeMessage('后端服务配置错误，请联系系统管理员', 'error')
+      } else {
+        safeMessage('服务器内部错误，请稍后重试', 'error')
+      }
+    } else {
+      safeMessage('删除子任务失败', 'error')
+    }
+  }
+}
+
+const exportSubTasks = () => {
+  safeMessage('导出功能开发中', 'info')
 }
 </script>
 

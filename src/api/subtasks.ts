@@ -30,6 +30,8 @@ export interface SubTask {
 
 export interface CreateSubTaskRequest {
   application_id: number
+  module_name: string
+  sub_target: 'AK' | '云原生'
   subtask_name: string
   responsible_person: string
   planned_start_date: string

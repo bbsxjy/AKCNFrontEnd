@@ -83,7 +83,18 @@
         </el-form>
       </div>
 
-      <!-- Data Table -->
+      <!-- Tabs -->
+      <el-tabs v-model="activeTab" class="data-tabs">
+        <el-tab-pane label="应用列表" name="applications">
+          <!-- Applications Data Table -->
+        </el-tab-pane>
+        <el-tab-pane label="子任务状态" name="subtasks">
+          <!-- SubTasks Data Table -->
+        </el-tab-pane>
+      </el-tabs>
+
+      <!-- Applications Data Table -->
+      <div v-show="activeTab === 'applications'">
       <el-table
         :data="applications"
         v-loading="loading"
@@ -109,12 +120,12 @@
           <template #default="{ row }">
             <div class="progress-cell">
               <el-progress
-                :percentage="row.progress_percentage || 0"
+                :percentage="Number(row.progress_percentage) || 0"
                 :stroke-width="8"
                 :show-text="false"
                 :color="getProgressColor(row)"
               />
-              <span class="progress-text">{{ row.progress_percentage || 0 }}%</span>
+              <span class="progress-text">{{ Number(row.progress_percentage) || 0 }}%</span>
             </div>
           </template>
         </el-table-column>
@@ -125,7 +136,7 @@
             {{ formatDate(row.updated_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="editApplication(row)">编辑</el-button>
             <el-button
@@ -150,6 +161,134 @@
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
         />
+        </div>
+      </div>
+
+      <!-- SubTasks Data Table -->
+      <div v-show="activeTab === 'subtasks'">
+        <!-- SubTask Search Bar -->
+        <div class="search-bar">
+          <el-form :model="subtaskSearchForm" inline>
+            <el-form-item>
+              <el-input
+                v-model="subtaskSearchForm.keyword"
+                placeholder="搜索子任务名称或负责人..."
+                style="width: 250px"
+                clearable
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-select
+                v-model="subtaskSearchForm.status"
+                placeholder="全部状态"
+                clearable
+                style="width: 150px"
+              >
+                <el-option label="待启动" value="待启动" />
+                <el-option label="研发进行中" value="研发进行中" />
+                <el-option label="业务上线中" value="业务上线中" />
+                <el-option label="已完成" value="已完成" />
+                <el-option label="存在阻塞" value="存在阻塞" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-select
+                v-model="subtaskSearchForm.application"
+                placeholder="筛选应用"
+                clearable
+                style="width: 200px"
+              >
+                <el-option
+                  v-for="app in allApplications"
+                  :key="app.id"
+                  :label="app.application_name"
+                  :value="app.id"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button @click="resetSubtaskSearch">重置筛选</el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <el-table
+          :data="paginatedSubTasks"
+          v-loading="subtaskLoading"
+          style="width: 100%"
+          @selection-change="handleSubTaskSelectionChange"
+        >
+          <el-table-column type="selection" width="55" />
+          <el-table-column prop="subtask_name" label="子任务名称" min-width="200">
+            <template #default="{ row }">
+              <strong>{{ row.subtask_name }}</strong>
+              <div v-if="row.status === '存在阻塞'" class="block-warning">⚠️ 阻塞</div>
+            </template>
+          </el-table-column>
+          <el-table-column label="应用名称" min-width="150">
+            <template #default="{ row }">
+              {{ getApplicationName(row.application_id) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="responsible_person" label="负责人" width="120" />
+          <el-table-column prop="status" label="状态" width="130">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)" size="small">
+                {{ row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="progress_percentage" label="进度" min-width="180">
+            <template #default="{ row }">
+              <div class="progress-cell">
+                <el-progress
+                  :percentage="Number(row.progress_percentage) || 0"
+                  :stroke-width="8"
+                  :show-text="false"
+                  :color="getSubTaskProgressColor(row)"
+                />
+                <span class="progress-text">{{ Number(row.progress_percentage) || 0 }}%</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="planned_start_date" label="计划开始" min-width="120">
+            <template #default="{ row }">
+              {{ formatDate(row.planned_start_date) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="planned_end_date" label="计划完成" min-width="120">
+            <template #default="{ row }">
+              {{ formatDate(row.planned_end_date) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="actual_end_date" label="实际完成" min-width="120">
+            <template #default="{ row }">
+              <span v-if="row.actual_end_date" class="completed-date">
+                {{ formatDate(row.actual_end_date) }} ✓
+              </span>
+              <span v-else-if="row.status === '存在阻塞'" class="blocked-text">延期中</span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" @click="editSubTask(row)">编辑</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <!-- SubTasks Pagination -->
+        <div class="pagination">
+          <el-pagination
+            v-model:current-page="subtaskCurrentPage"
+            v-model:page-size="subtaskPageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="filteredSubTasks.length"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSubTaskSizeChange"
+            @current-change="handleSubTaskCurrentChange"
+          />
+        </div>
       </div>
     </el-card>
 
@@ -222,10 +361,15 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEditDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleUpdate" :loading="loading">
-          保存
-        </el-button>
+        <div style="display: flex; justify-content: space-between; width: 100%;">
+          <el-button type="danger" @click="deleteApplicationInEdit">删除应用</el-button>
+          <div>
+            <el-button @click="showEditDialog = false">取消</el-button>
+            <el-button type="primary" @click="handleUpdate" :loading="loading">
+              保存
+            </el-button>
+          </div>
+        </div>
       </template>
     </el-dialog>
 
@@ -373,6 +517,7 @@ import { useRouter } from 'vue-router'
 import { Plus, Upload, Download, UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApplicationsAPI, type Application, type CreateApplicationRequest } from '@/api/applications'
+import { SubTasksAPI, type SubTask, type UpdateSubTaskRequest } from '@/api/subtasks'
 import { ExcelAPI } from '@/api/reports'
 
 const router = useRouter()
@@ -383,6 +528,20 @@ const showEditDialog = ref(false)
 const selectedApplications = ref<Application[]>([])
 const importFile = ref<File | null>(null)
 const editingId = ref<number | null>(null)
+
+// Tab and SubTasks states
+const activeTab = ref('applications')
+const allSubTasks = ref<SubTask[]>([])
+const subtaskLoading = ref(false)
+const selectedSubTasks = ref<SubTask[]>([])
+const subtaskCurrentPage = ref(1)
+const subtaskPageSize = ref(10)
+
+const subtaskSearchForm = reactive({
+  keyword: '',
+  status: undefined as string | undefined,
+  application: undefined as number | undefined
+})
 
 // Import related states
 const importStep = ref(0)
@@ -520,6 +679,39 @@ const applications = computed(() => {
 // 总数
 const total = computed(() => filteredApplications.value.length)
 
+// SubTask 相关计算属性
+const filteredSubTasks = computed(() => {
+  let result = [...allSubTasks.value]
+
+  // 关键词搜索
+  if (subtaskSearchForm.keyword) {
+    const keyword = subtaskSearchForm.keyword.toLowerCase()
+    result = result.filter(task =>
+      task.subtask_name.toLowerCase().includes(keyword) ||
+      task.responsible_person.toLowerCase().includes(keyword)
+    )
+  }
+
+  // 状态筛选
+  if (subtaskSearchForm.status) {
+    result = result.filter(task => task.status === subtaskSearchForm.status)
+  }
+
+  // 应用筛选
+  if (subtaskSearchForm.application) {
+    result = result.filter(task => task.application_id === subtaskSearchForm.application)
+  }
+
+  return result
+})
+
+// 分页后的子任务数据
+const paginatedSubTasks = computed(() => {
+  const start = (subtaskCurrentPage.value - 1) * subtaskPageSize.value
+  const end = start + subtaskPageSize.value
+  return filteredSubTasks.value.slice(start, end)
+})
+
 // Load all applications data
 const loadApplications = async () => {
   try {
@@ -539,9 +731,27 @@ const loadApplications = async () => {
   }
 }
 
+// Load all subtasks data
+const loadSubTasks = async () => {
+  try {
+    subtaskLoading.value = true
+    const response = await SubTasksAPI.getSubTasks({ limit: 1000 })
+    allSubTasks.value = response.items || []
+  } catch (error) {
+    console.error('Failed to load subtasks:', error)
+    ElMessage.error('加载子任务列表失败')
+    allSubTasks.value = []
+  } finally {
+    subtaskLoading.value = false
+  }
+}
+
 // Initialize data
-onMounted(() => {
-  loadApplications()
+onMounted(async () => {
+  await Promise.all([
+    loadApplications(),
+    loadSubTasks()
+  ])
 })
 
 // 监听筛选条件变化，重置页码
@@ -643,9 +853,60 @@ const handleUpdate = async () => {
   }
 }
 
+// Delete application from edit dialog
+const deleteApplicationInEdit = async () => {
+  if (!editingId.value) {
+    ElMessage.error('没有选中的应用')
+    return
+  }
+
+  const app = allApplications.value.find(app => app.id === editingId.value)
+  if (!app) {
+    ElMessage.error('应用不存在')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除应用"${app.application_name}"吗？此操作将同时删除所有相关子任务，且不可恢复。`,
+      '确认删除',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+
+    await ApplicationsAPI.deleteApplication(editingId.value)
+    ElMessage.success('应用删除成功')
+    showEditDialog.value = false
+
+    // Remove from local data
+    const index = allApplications.value.findIndex(app => app.id === editingId.value)
+    if (index !== -1) {
+      allApplications.value.splice(index, 1)
+    }
+  } catch (error: any) {
+    if (error === 'cancel') {
+      return // User cancelled
+    }
+
+    console.error('Failed to delete application:', error)
+    if (error.response?.status === 500) {
+      ElMessage.error('服务器内部错误，请稍后重试')
+    } else if (error.response?.status === 404) {
+      ElMessage.error('应用不存在或已被删除')
+    } else {
+      ElMessage.error('删除应用失败')
+    }
+  }
+}
+
 const viewSubTasks = (row: Application) => {
   router.push(`/subtasks/${row.id}`)
 }
+
 
 const handleCreate = async () => {
   if (!createForm.application_id || !createForm.application_name) {
@@ -913,6 +1174,43 @@ const handleSizeChange = (size: number) => {
 const handleCurrentChange = (page: number) => {
   currentPage.value = page
 }
+
+// SubTask related functions
+const getApplicationName = (applicationId: number) => {
+  const app = allApplications.value.find(app => app.id === applicationId)
+  return app ? app.application_name : 'Unknown'
+}
+
+const getSubTaskProgressColor = (row: SubTask) => {
+  if (row.status === '存在阻塞') return '#f56565'
+  if (row.progress_percentage >= 80) return '#48bb78'
+  return '#667eea'
+}
+
+const resetSubtaskSearch = () => {
+  subtaskSearchForm.keyword = ''
+  subtaskSearchForm.status = undefined
+  subtaskSearchForm.application = undefined
+  subtaskCurrentPage.value = 1
+}
+
+const handleSubTaskSelectionChange = (selection: SubTask[]) => {
+  selectedSubTasks.value = selection
+}
+
+const editSubTask = (row: SubTask) => {
+  router.push(`/subtasks/${row.application_id}`)
+}
+
+
+const handleSubTaskSizeChange = (size: number) => {
+  subtaskPageSize.value = size
+  subtaskCurrentPage.value = 1
+}
+
+const handleSubTaskCurrentChange = (page: number) => {
+  subtaskCurrentPage.value = page
+}
 </script>
 
 <style scoped>
@@ -941,6 +1239,28 @@ const handleCurrentChange = (page: number) => {
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 20px;
+}
+
+.data-tabs {
+  margin-bottom: 20px;
+}
+
+.data-tabs .el-tabs__header {
+  margin-bottom: 0;
+}
+
+.block-warning {
+  color: #f56565;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.completed-date {
+  color: #48bb78;
+}
+
+.blocked-text {
+  color: #f56565;
 }
 
 .progress-cell {
