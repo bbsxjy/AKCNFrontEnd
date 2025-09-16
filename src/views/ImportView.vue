@@ -4,7 +4,7 @@
       <template #header>
         <div class="header">
           <h2>Excel批量导入</h2>
-          <el-button>下载模板</el-button>
+          <el-button @click="downloadTemplate" :loading="loading">下载模板</el-button>
         </div>
       </template>
 
@@ -51,9 +51,8 @@
           <el-col :span="12">
             <el-form-item label="表类型">
               <el-select v-model="importOptions.sheetType" placeholder="请选择表类型">
-                <el-option value="main" label="主表（应用表）" />
-                <el-option value="detail" label="子表（任务表）" />
-                <el-option value="both" label="主表和子表" />
+                <el-option value="applications" label="应用表" />
+                <el-option value="subtasks" label="子任务表" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -67,31 +66,56 @@
         </el-checkbox>
 
         <div class="step-actions">
-          <el-button type="primary" @click="nextStep" :disabled="!selectedFile">
-            开始导入
+          <el-button type="primary" @click="nextStep" :disabled="!selectedFile || loading" :loading="loading">
+            开始验证
           </el-button>
         </div>
       </div>
 
-      <!-- Preview Data -->
+      <!-- Validation Results -->
       <div v-if="currentStep === 1" class="preview-section">
-        <h3>数据预览</h3>
-        <el-table :data="previewData" style="width: 100%" max-height="400">
-          <el-table-column prop="l2_id" label="L2 ID" width="120" />
-          <el-table-column prop="app_name" label="应用名称" width="180" />
-          <el-table-column prop="transformation_target" label="改造目标" width="100" />
-          <el-table-column prop="responsible_team" label="负责团队" width="120" />
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-icon v-if="row.hasError" color="red"><warning /></el-icon>
-              <el-icon v-else color="green"><check /></el-icon>
-            </template>
-          </el-table-column>
-        </el-table>
+        <h3>验证结果</h3>
+
+        <el-alert
+          :type="importResult.failed > 0 ? 'warning' : 'success'"
+          :closable="false"
+          class="validation-summary"
+        >
+          <template #title>
+            📊 验证摘要：
+            总记录 <strong>{{ importResult.total }}</strong> 条 |
+            有效记录 <strong>{{ importResult.success }}</strong> 条 |
+            错误记录 <strong>{{ importResult.failed }}</strong> 条
+            <span v-if="importResult.updated > 0"> | 更新记录 <strong>{{ importResult.updated }}</strong> 条</span>
+            <span v-if="importResult.skipped > 0"> | 跳过记录 <strong>{{ importResult.skipped }}</strong> 条</span>
+          </template>
+        </el-alert>
+
+        <div v-if="importResult.errors.length > 0" class="error-preview">
+          <h4>错误详情（前10条）</h4>
+          <el-table :data="importResult.errors.slice(0, 10)" style="width: 100%" max-height="300">
+            <el-table-column prop="row" label="行号" width="80" />
+            <el-table-column prop="error" label="错误信息" />
+            <el-table-column label="数据" width="200">
+              <template #default="{ row }">
+                <el-tooltip :content="JSON.stringify(row.data, null, 2)" placement="top">
+                  <span>{{ Object.keys(row.data).slice(0, 2).join(', ') }}...</span>
+                </el-tooltip>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
 
         <div class="step-actions">
           <el-button @click="prevStep">上一步</el-button>
-          <el-button type="primary" @click="nextStep">确认导入</el-button>
+          <el-button
+            type="primary"
+            @click="nextStep"
+            :disabled="loading"
+            :loading="loading"
+          >
+            {{ importResult.failed > 0 ? '忽略错误并导入' : '确认导入' }}
+          </el-button>
         </div>
       </div>
 
@@ -100,7 +124,7 @@
         <el-result
           icon="success"
           title="导入完成"
-          :sub-title="`成功导入 ${importResult.success} 条记录，失败 ${importResult.failed} 条`"
+          :sub-title="`成功导入 ${importResult.imported} 条记录，更新 ${importResult.updated} 条，跳过 ${importResult.skipped} 条，失败 ${importResult.failed} 条`"
         >
           <template #extra>
             <el-button type="primary" @click="resetImport">重新导入</el-button>
@@ -112,10 +136,18 @@
 
         <div v-if="importResult.errors.length > 0" class="error-list">
           <h4>错误详情</h4>
-          <el-table :data="importResult.errors" style="width: 100%">
+          <el-table :data="importResult.errors" style="width: 100%" max-height="400">
             <el-table-column prop="row" label="行号" width="80" />
-            <el-table-column prop="field" label="字段" width="120" />
-            <el-table-column prop="message" label="错误信息" />
+            <el-table-column prop="error" label="错误信息" />
+            <el-table-column label="数据" width="300">
+              <template #default="{ row }">
+                <el-tooltip :content="JSON.stringify(row.data, null, 2)" placement="top">
+                  <span style="font-family: monospace; font-size: 12px;">
+                    {{ JSON.stringify(row.data).substring(0, 50) }}...
+                  </span>
+                </el-tooltip>
+              </template>
+            </el-table-column>
           </el-table>
         </div>
       </div>
@@ -126,68 +158,163 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { Warning, Check } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElLoading } from 'element-plus'
 import type { UploadFile } from 'element-plus'
+import { ExcelAPI } from '@/api/reports'
 
 const currentStep = ref(0)
 const selectedFile = ref<UploadFile | null>(null)
+const loading = ref(false)
 
 const importOptions = reactive({
   mode: 'append',
-  sheetType: 'main',
+  sheetType: 'applications' as 'applications' | 'subtasks',
   validateOnly: true
 })
 
-const previewData = ref([
-  {
-    l2_id: 'L2_APP_005',
-    app_name: '测试导入系统',
-    transformation_target: '云原生',
-    responsible_team: '研发一部',
-    hasError: false
-  },
-  {
-    l2_id: 'L2_APP_006',
-    app_name: '财务系统',
-    transformation_target: 'AK',
-    responsible_team: '研发二部',
-    hasError: false
-  }
-])
+const previewData = ref<any[]>([])
 
 const importResult = reactive({
   total: 0,
   success: 0,
   failed: 0,
-  errors: [
-    { row: 5, field: 'l2_id', message: 'L2 ID已存在' },
-    { row: 8, field: 'supervision_year', message: '年份格式不正确' }
-  ] as Array<{ row: number; field: string; message: string }>
+  imported: 0,
+  updated: 0,
+  skipped: 0,
+  errors: [] as Array<{ row: number; error: string; data: Record<string, any> }>
 })
 
 const handleFileChange = (file: UploadFile) => {
   selectedFile.value = file
   ElMessage.success(`已选择文件：${file.name}`)
+  console.log('🔍 [ImportView] File selected:', {
+    name: file.name,
+    size: file.size,
+    type: file.raw?.type
+  })
 }
 
-const nextStep = () => {
+const downloadTemplate = async () => {
+  try {
+    const loadingInstance = ElLoading.service({
+      text: '正在下载模板...'
+    })
+
+    console.log('🔍 [ImportView] Downloading template for:', importOptions.sheetType)
+
+    await ExcelAPI.downloadTemplate(importOptions.sheetType)
+    ElMessage.success('模板下载成功')
+
+    loadingInstance.close()
+  } catch (error: any) {
+    console.error('❌ [ImportView] Template download failed:', error)
+    ElMessage.error(`模板下载失败: ${error?.response?.data?.detail || error?.message || '未知错误'}`)
+  }
+}
+
+const nextStep = async () => {
   if (currentStep.value === 0) {
-    // Simulate file parsing
-    currentStep.value = 1
-    ElMessage.success('文件解析成功')
+    // Step 1: Validate file and preview data
+    if (!selectedFile.value?.raw) {
+      ElMessage.error('请先选择文件')
+      return
+    }
+
+    loading.value = true
+    try {
+      console.log('🔍 [ImportView] Starting validation import for:', importOptions.sheetType)
+
+      const importParams = {
+        file: selectedFile.value.raw,
+        update_existing: importOptions.mode === 'update',
+        validate_only: true // Always validate first
+      }
+
+      let response
+      if (importOptions.sheetType === 'applications') {
+        response = await ExcelAPI.importApplications(importParams)
+      } else {
+        response = await ExcelAPI.importSubTasks(importParams)
+      }
+
+      console.log('📊 [ImportView] Validation response:', response)
+
+      // Update import result with validation data
+      importResult.total = response.imported + response.updated + response.skipped + response.errors.length
+      importResult.success = response.imported + response.updated
+      importResult.failed = response.errors.length
+      importResult.imported = response.imported
+      importResult.updated = response.updated
+      importResult.skipped = response.skipped
+      importResult.errors = response.errors
+
+      currentStep.value = 1
+      ElMessage.success('文件验证完成')
+    } catch (error: any) {
+      console.error('❌ [ImportView] Validation failed:', error)
+      ElMessage.error(`文件验证失败: ${error?.response?.data?.detail || error?.message || '未知错误'}`)
+    } finally {
+      loading.value = false
+    }
   } else if (currentStep.value === 1) {
-    // Simulate import process
+    // Step 2: Perform actual import
+    if (importResult.errors.length > 0 && !await confirmImportWithErrors()) {
+      return
+    }
+
     currentStep.value = 2
     ElMessage.info('正在导入数据...')
-    
-    setTimeout(() => {
+
+    loading.value = true
+    try {
+      console.log('🔍 [ImportView] Starting actual import for:', importOptions.sheetType)
+
+      const importParams = {
+        file: selectedFile.value!.raw!,
+        update_existing: importOptions.mode === 'update',
+        validate_only: false // Actual import
+      }
+
+      let response
+      if (importOptions.sheetType === 'applications') {
+        response = await ExcelAPI.importApplications(importParams)
+      } else {
+        response = await ExcelAPI.importSubTasks(importParams)
+      }
+
+      console.log('📊 [ImportView] Import response:', response)
+
+      // Update final results
+      importResult.imported = response.imported
+      importResult.updated = response.updated
+      importResult.skipped = response.skipped
+      importResult.errors = response.errors
+      importResult.success = response.imported + response.updated
+      importResult.failed = response.errors.length
+
       currentStep.value = 3
-      importResult.total = 100
-      importResult.success = 98
-      importResult.failed = 2
       ElMessage.success('导入完成')
-    }, 2000)
+    } catch (error: any) {
+      console.error('❌ [ImportView] Import failed:', error)
+      ElMessage.error(`导入失败: ${error?.response?.data?.detail || error?.message || '未知错误'}`)
+      currentStep.value = 1 // Go back to preview step
+    } finally {
+      loading.value = false
+    }
   }
+}
+
+const confirmImportWithErrors = async (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    ElMessage.warning({
+      message: `检测到 ${importResult.errors.length} 个错误，是否继续导入有效数据？`,
+      duration: 0,
+      showClose: true,
+      type: 'warning'
+    })
+    // For now, allow import with errors
+    resolve(true)
+  })
 }
 
 const prevStep = () => {
@@ -202,10 +329,36 @@ const resetImport = () => {
   importResult.total = 0
   importResult.success = 0
   importResult.failed = 0
+  importResult.imported = 0
+  importResult.updated = 0
+  importResult.skipped = 0
   importResult.errors = []
+  previewData.value = []
 }
 
 const downloadErrorReport = () => {
+  if (importResult.errors.length === 0) {
+    ElMessage.info('无错误数据')
+    return
+  }
+
+  const errorReport = importResult.errors.map(error => ({
+    '行号': error.row,
+    '错误信息': error.error,
+    '数据': JSON.stringify(error.data)
+  }))
+
+  const csv = [
+    Object.keys(errorReport[0]).join(','),
+    ...errorReport.map(row => Object.values(row).join(','))
+  ].join('\n')
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `import_errors_${new Date().toISOString().split('T')[0]}.csv`
+  link.click()
+
   ElMessage.success('错误报告下载成功')
 }
 </script>
@@ -291,6 +444,19 @@ const downloadErrorReport = () => {
 }
 
 .error-list h4 {
+  color: #e53e3e;
+  margin-bottom: 15px;
+}
+
+.validation-summary {
+  margin-bottom: 20px;
+}
+
+.error-preview {
+  margin-top: 20px;
+}
+
+.error-preview h4 {
   color: #e53e3e;
   margin-bottom: 15px;
 }
