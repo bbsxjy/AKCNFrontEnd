@@ -635,13 +635,116 @@ export class ExcelAPI {
     })
   }
 
+  // Transform complete Excel file with both applications and subtasks sheets
+  static async transformCompleteExcelFile(file: File): Promise<File> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          console.log('🔄 [ExcelAPI] Starting complete Excel transformation:', {
+            originalName: file.name,
+            size: file.size
+          })
+
+          const data = e.target?.result as ArrayBuffer
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true })
+
+          // Transform both sheets
+          const newWorkbook = XLSX.utils.book_new()
+
+          // Process applications sheet (总追踪表)
+          const appSheetName = Object.keys(workbook.Sheets).find(name =>
+            name.includes('总追踪表') || name.includes('总') || name.includes('追踪表')
+          )
+
+          if (appSheetName) {
+            console.log('📋 [ExcelAPI] Processing applications sheet:', appSheetName)
+            const appSheet = workbook.Sheets[appSheetName]
+            const appData = XLSX.utils.sheet_to_json(appSheet, { header: 1 }) as any[][]
+
+            if (appData.length > 0) {
+              const headers = appData[0] as string[]
+              const transformedHeaders = headers.map((header: string) =>
+                APPLICATION_FIELD_MAPPING[header] || header
+              )
+
+              const transformedData = [transformedHeaders]
+              for (let i = 1; i < appData.length; i++) {
+                const row = appData[i]
+                const transformedRow = transformApplicationRowToAPI(
+                  Object.fromEntries(headers.map((h, idx) => [h, row[idx]]))
+                )
+                transformedData.push(transformedHeaders.map(h => transformedRow[h]))
+              }
+
+              const newAppSheet = XLSX.utils.aoa_to_sheet(transformedData)
+              XLSX.utils.book_append_sheet(newWorkbook, newAppSheet, 'applications')
+              console.log('✅ [ExcelAPI] Applications sheet transformed:', transformedData.length - 1, 'rows')
+            }
+          }
+
+          // Process subtasks sheet (子追踪表)
+          const subSheetName = Object.keys(workbook.Sheets).find(name =>
+            name.includes('子追踪表') || name.includes('子') || (name.includes('追踪表') && !name.includes('总'))
+          )
+
+          if (subSheetName) {
+            console.log('📋 [ExcelAPI] Processing subtasks sheet:', subSheetName)
+            const subSheet = workbook.Sheets[subSheetName]
+            const subData = XLSX.utils.sheet_to_json(subSheet, { header: 1 }) as any[][]
+
+            if (subData.length > 0) {
+              const headers = subData[0] as string[]
+              const transformedHeaders = headers.map((header: string) =>
+                SUBTASK_FIELD_MAPPING[header] || header
+              )
+
+              const transformedData = [transformedHeaders]
+              for (let i = 1; i < subData.length; i++) {
+                const row = subData[i]
+                const transformedRow = transformSubTaskRowToAPI(
+                  Object.fromEntries(headers.map((h, idx) => [h, row[idx]]))
+                )
+                transformedData.push(transformedHeaders.map(h => transformedRow[h]))
+              }
+
+              const newSubSheet = XLSX.utils.aoa_to_sheet(transformedData)
+              XLSX.utils.book_append_sheet(newWorkbook, newSubSheet, 'subtasks')
+              console.log('✅ [ExcelAPI] Subtasks sheet transformed:', transformedData.length - 1, 'rows')
+            }
+          }
+
+          // Convert workbook to blob and create file
+          const wbout = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'array' })
+          const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+          const transformedFile = new File([blob], `complete_${file.name}`, { type: blob.type })
+
+          console.log('✅ [ExcelAPI] Complete Excel transformation completed:', {
+            originalSize: file.size,
+            transformedSize: transformedFile.size,
+            sheets: Object.keys(newWorkbook.Sheets)
+          })
+
+          resolve(transformedFile)
+        } catch (error) {
+          console.error('❌ [ExcelAPI] Complete Excel transformation failed:', error)
+          reject(error)
+        }
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsArrayBuffer(file)
+    })
+  }
+
   // Import complete Excel file with both applications and subtasks using backend dual-sheet support
   static async importCompleteExcel(params: ExcelImportParams): Promise<ExcelImportResponse> {
-    console.log('🔍 [ExcelAPI] Starting complete import using backend dual-sheet processing')
+    console.log('🔍 [ExcelAPI] Starting complete import with field transformation')
 
-    // Use original file directly - backend now supports dual-sheet processing
+    // Transform the complete Excel file (both sheets) to match backend expectations
+    const transformedFile = await this.transformCompleteExcelFile(params.file)
+
     const formData = new FormData()
-    formData.append('file', params.file)
+    formData.append('file', transformedFile)
     if (params.validate_only !== undefined) {
       formData.append('validate_only', params.validate_only.toString())
     }
@@ -649,9 +752,11 @@ export class ExcelAPI {
     console.log('🔍 [ExcelAPI] Dual-sheet import request:', {
       endpoint: '/excel/import/subtasks',
       originalFile: params.file.name,
-      fileSize: params.file.size,
+      originalSize: params.file.size,
+      transformedFile: transformedFile.name,
+      transformedSize: transformedFile.size,
       validate_only: params.validate_only,
-      note: 'Using backend dual-sheet processing (enhanced subtasks endpoint)'
+      note: 'Using transformed file with both sheets and correct field mappings'
     })
 
     const response = await api.post('/excel/import/subtasks', formData, {
