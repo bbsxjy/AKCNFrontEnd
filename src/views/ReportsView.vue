@@ -167,6 +167,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ReportsAPI, ExcelAPI, type ProgressSummaryResponse, type DelayedProjectsResponse } from '@/api/reports'
 import { ApplicationsAPI } from '@/api/applications'
+import { SubTasksAPI } from '@/api/subtasks'
 import { useChart, getStatusRingOptions, getMonthlyProgressOptions } from '@/composables/useCharts'
 
 // State variables
@@ -376,68 +377,215 @@ const loadSummaryReport = async () => {
 }
 
 const loadProgressReport = async () => {
-  await loadSummaryReport() // Reuse summary report data for progress view
+  try {
+    // 进度报表：显示应用的详细进度信息
+    const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
+    const subtasks = await SubTasksAPI.getSubTasks({ limit: 1000 })
+
+    // 按进度分组统计
+    const progressGroups = [
+      { range: '0-25%', apps: [] as any[], count: 0 },
+      { range: '26-50%', apps: [] as any[], count: 0 },
+      { range: '51-75%', apps: [] as any[], count: 0 },
+      { range: '76-99%', apps: [] as any[], count: 0 },
+      { range: '100%', apps: [] as any[], count: 0 }
+    ]
+
+    applications.items.forEach(app => {
+      const progress = app.progress_percentage || 0
+      const appData = {
+        application_id: app.l2_id || app.application_id,
+        application_name: app.app_name || app.application_name,
+        progress: progress,
+        responsible_team: app.responsible_team
+      }
+
+      if (progress === 100) {
+        progressGroups[4].apps.push(appData)
+        progressGroups[4].count++
+      } else if (progress >= 76) {
+        progressGroups[3].apps.push(appData)
+        progressGroups[3].count++
+      } else if (progress >= 51) {
+        progressGroups[2].apps.push(appData)
+        progressGroups[2].count++
+      } else if (progress >= 26) {
+        progressGroups[1].apps.push(appData)
+        progressGroups[1].count++
+      } else {
+        progressGroups[0].apps.push(appData)
+        progressGroups[0].count++
+      }
+    })
+
+    // 转换为表格数据
+    reportData.value = progressGroups.map(group => ({
+      department: group.range, // 使用进度范围作为分组
+      total: group.count,
+      completed: group.range === '100%' ? group.count : 0,
+      in_progress: group.range !== '100%' && group.range !== '0-25%' ? group.count : 0,
+      not_started: group.range === '0-25%' ? group.count : 0,
+      blocked: 0,
+      completion_rate: group.range === '100%' ? 100 : 0,
+      average_progress: group.range === '100%' ? 100 :
+                       group.range === '76-99%' ? 85 :
+                       group.range === '51-75%' ? 63 :
+                       group.range === '26-50%' ? 38 : 12
+    }))
+
+    // 更新图表显示进度分布
+    const monthlyData = generateMonthlyDataFromApplications(applications.items)
+    updateProgressChart(getMonthlyProgressOptions(monthlyData))
+
+    updateStatusChart(getStatusRingOptions({
+      completed: progressGroups[4].count,
+      inProgress: progressGroups[1].count + progressGroups[2].count + progressGroups[3].count,
+      notStarted: progressGroups[0].count
+    }))
+
+  } catch (error) {
+    console.error('Failed to load progress report:', error)
+    ElMessage.error('加载进度报表失败')
+  }
 }
 
 const loadDelayReport = async () => {
   try {
-    const delayed = await ReportsAPI.getDelayedProjects({
-      format: 'json',
-      threshold_days: 7
+    // 由于延期报表API不可用，使用应用数据计算延期项目
+    const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
+    const subtasks = await SubTasksAPI.getSubTasks({ limit: 1000 })
+
+    // 计算延期的项目
+    const delayedApplications: any[] = []
+    const today = new Date()
+
+    applications.items.forEach(app => {
+      // 查找该应用的子任务
+      const appSubtasks = subtasks.items.filter(task => task.application_id === app.id)
+
+      // 检查是否有延期的子任务
+      const delayedTasks = appSubtasks.filter(task => {
+        if (task.planned_biz_online_date && !task.actual_biz_online_date) {
+          const plannedDate = new Date(task.planned_biz_online_date)
+          return plannedDate < today && task.task_status !== '已完成'
+        }
+        return false
+      })
+
+      if (delayedTasks.length > 0) {
+        const maxDelay = Math.max(...delayedTasks.map(task => {
+          const plannedDate = new Date(task.planned_biz_online_date || '')
+          const diffTime = Math.abs(today.getTime() - plannedDate.getTime())
+          return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        }))
+
+        delayedApplications.push({
+          application_id: app.l2_id || app.application_id,
+          application_name: app.app_name || app.application_name,
+          delay_days: maxDelay,
+          responsible_team: app.responsible_team || '未分配',
+          planned_end_date: delayedTasks[0].planned_biz_online_date || '-',
+          expected_end_date: calculateExpectedDate(delayedTasks[0].planned_biz_online_date, maxDelay),
+          delay_reason: delayedTasks[0].block_reason || '进度延迟'
+        })
+      }
     })
-    delayedProjects.value = delayed
 
-    // Process delayed projects data
-    delayData.value = delayed.data.map(project => ({
-      application_id: project.application_id,
-      application_name: project.application_name,
-      delay_days: project.delay_days,
-      responsible_team: project.delayed_subtasks[0]?.responsible_team || '未分配',
-      planned_end_date: project.delayed_subtasks[0]?.planned_end_date || '-',
-      expected_end_date: calculateExpectedDate(project.delayed_subtasks[0]?.planned_end_date, project.delay_days),
-      delay_reason: project.delayed_subtasks[0]?.delay_reason || '待确认'
-    }))
+    delayData.value = delayedApplications
 
-    // Update charts for delay analysis
+    // 更新图表
     const delayDistribution = {
-      completed: 0,
-      inProgress: delayed.data.length,
-      notStarted: 0
+      completed: applications.items.filter(app => app.overall_status === '全部完成').length,
+      inProgress: delayedApplications.length,
+      notStarted: applications.items.filter(app => app.overall_status === '待启动').length
     }
     updateStatusChart(getStatusRingOptions(delayDistribution))
 
   } catch (error) {
     console.error('Failed to load delay report:', error)
-    throw error
+    ElMessage.error('加载延期报表失败')
   }
 }
 
 const loadDepartmentReport = async () => {
   try {
-    // Get team performance report
-    const performance = await ReportsAPI.getTeamPerformance({
-      format: 'json',
-      period: timeRange.value === 'year' ? 'yearly' : timeRange.value === 'quarter' ? 'quarterly' : 'monthly'
+    // 部门对比报表API不存在，直接使用应用数据按部门分组
+    const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
+    const subtasks = await SubTasksAPI.getSubTasks({ limit: 1000 })
+
+    // 按部门统计
+    const departmentMap = new Map<string, any>()
+
+    applications.items.forEach(app => {
+      const dept = app.responsible_team || '未分配'
+      if (!departmentMap.has(dept)) {
+        departmentMap.set(dept, {
+          department: dept,
+          total: 0,
+          completed: 0,
+          in_progress: 0,
+          not_started: 0,
+          blocked: 0,
+          total_progress: 0,
+          total_subtasks: 0,
+          completed_subtasks: 0
+        })
+      }
+
+      const deptData = departmentMap.get(dept)!
+      deptData.total++
+      deptData.total_progress += app.progress_percentage || 0
+
+      // 统计应用状态
+      const status = app.overall_status || app.status
+      switch (status) {
+        case '全部完成':
+        case 'completed':
+          deptData.completed++
+          break
+        case '研发进行中':
+        case '业务上线中':
+        case 'in_progress':
+          deptData.in_progress++
+          break
+        case '待启动':
+        case 'not_started':
+          deptData.not_started++
+          break
+        case '存在阻塞':
+        case 'blocked':
+          deptData.blocked++
+          break
+      }
+
+      // 统计该部门的子任务
+      const deptSubtasks = subtasks.items.filter(task =>
+        task.application_id === app.id
+      )
+      deptData.total_subtasks += deptSubtasks.length
+      deptData.completed_subtasks += deptSubtasks.filter(task =>
+        task.task_status === '全部完成' || task.task_status === '已完成'
+      ).length
     })
 
-    // Process team performance data
-    if (performance.metadata && performance.metadata.teams) {
-      reportData.value = Object.entries(performance.metadata.teams).map(([team, data]: [string, any]) => ({
-        department: team,
-        total: data.total || 0,
-        completed: data.completed || 0,
-        in_progress: data.in_progress || 0,
-        not_started: data.not_started || 0,
-        blocked: data.blocked || 0,
-        completion_rate: data.completion_rate || 0,
-        average_progress: data.average_progress || 0
-      }))
-    }
+    // 计算完成率和平均进度
+    reportData.value = Array.from(departmentMap.values()).map(dept => ({
+      ...dept,
+      completion_rate: dept.total > 0 ? Math.round((dept.completed / dept.total) * 100) : 0,
+      average_progress: dept.total > 0 ? Math.round(dept.total_progress / dept.total) : 0
+    })).sort((a, b) => b.total - a.total) // 按应用总数排序
+
+    // 更新图表
+    const topDepts = reportData.value.slice(0, 5)
+    updateStatusChart(getStatusRingOptions({
+      completed: topDepts.reduce((sum, d) => sum + d.completed, 0),
+      inProgress: topDepts.reduce((sum, d) => sum + d.in_progress, 0),
+      notStarted: topDepts.reduce((sum, d) => sum + d.not_started, 0)
+    }))
 
   } catch (error) {
     console.error('Failed to load department report:', error)
-    // Fallback to summary report data grouped by department
-    await loadSummaryReport()
+    ElMessage.error('加载部门对比报表失败')
   }
 }
 
