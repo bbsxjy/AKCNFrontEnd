@@ -230,16 +230,65 @@ export class ReportsAPI {
 }
 
 export class ExcelAPI {
+  // Transform user's Excel format to API format
+  static async transformExcelFile(file: File): Promise<File> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const data = e.target?.result
+          if (!data) {
+            reject(new Error('Failed to read file'))
+            return
+          }
+
+          // For now, return the original file as the backend should handle the mapping
+          // In a real implementation, we would use a library like xlsx to transform the data
+          console.log('🔄 [ExcelAPI] File transformation (placeholder):', {
+            originalName: file.name,
+            size: file.size
+          })
+
+          resolve(file)
+        } catch (error) {
+          reject(error)
+        }
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsArrayBuffer(file)
+    })
+  }
+
   // Import applications from Excel
   static async importApplications(params: ExcelImportParams): Promise<ExcelImportResponse> {
+    // Transform the file to match API expectations
+    const transformedFile = await this.transformExcelFile(params.file)
+
     const formData = new FormData()
-    formData.append('file', params.file)
+    formData.append('file', transformedFile)
     if (params.update_existing !== undefined) {
       formData.append('update_existing', params.update_existing.toString())
     }
     if (params.validate_only !== undefined) {
       formData.append('validate_only', params.validate_only.toString())
     }
+
+    // Add field mapping information for backend to understand Chinese column names
+    const fieldMappingJson = JSON.stringify({
+      'L2ID': 'application_id',
+      'L2应用': 'application_name',
+      '所属L1': 'business_domain',
+      '所属项目': 'business_subdomain',
+      '开发负责人': 'responsible_person',
+      '开发团队': 'responsible_team',
+      '改造状态': 'status',
+      '硬件资源保障\n优先级': 'priority',
+      '所属指标': 'kpi_classification',
+      '档位': 'service_tier',
+      '改造目标': 'transformation_target',
+      '监管验收年份': 'supervision_year'
+    })
+    formData.append('field_mapping', fieldMappingJson)
 
     console.log('🔍 [ExcelAPI] Import request:', {
       endpoint: '/excel/import/applications',

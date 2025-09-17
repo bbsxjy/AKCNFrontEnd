@@ -65,6 +65,25 @@
           </div>
         </el-checkbox>
 
+        <!-- Field Mapping Info -->
+        <div v-if="selectedFile" class="field-mapping-info">
+          <h4>🔄 字段映射说明</h4>
+          <p>系统将自动映射您Excel文件中的中文列名到API字段：</p>
+          <el-row :gutter="10" class="mapping-examples">
+            <el-col :span="8" v-for="(apiField, excelField) in Object.fromEntries(Object.entries(EXCEL_FIELD_MAPPING).slice(0, 6))" :key="excelField">
+              <div class="mapping-item">
+                <span class="excel-field">{{ excelField }}</span>
+                <span class="arrow">→</span>
+                <span class="api-field">{{ apiField }}</span>
+              </div>
+            </el-col>
+          </el-row>
+          <p class="mapping-note">
+            <el-icon><Check /></el-icon>
+            支持您现有的Excel格式，无需修改列名
+          </p>
+        </div>
+
         <div class="step-actions">
           <el-button type="primary" @click="nextStep" :disabled="!selectedFile || loading" :loading="loading">
             开始验证
@@ -161,6 +180,7 @@ import { Warning, Check } from '@element-plus/icons-vue'
 import { ElMessage, ElLoading } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import { ExcelAPI } from '@/api/reports'
+import { EXCEL_FIELD_MAPPING, getExcelColumns } from '@/utils/excelFieldMapping'
 
 const currentStep = ref(0)
 const selectedFile = ref<UploadFile | null>(null)
@@ -262,7 +282,11 @@ const nextStep = async () => {
 
       // Check if validation was successful
       if (!mappedResponse.success && mappedResponse.total === 0) {
-        throw new Error('文件验证失败：文件可能为空或格式不正确。请检查：\n1. 文件是否包含有效数据\n2. 文件格式是否正确\n3. 是否使用了正确的模板')
+        // Check if it's a field mapping issue
+        const expectedFields = Object.keys(EXCEL_FIELD_MAPPING)
+        const fieldMappingHint = `\n\n预期的Excel列名：\n${expectedFields.slice(0, 6).join(', ')} 等\n\n您的Excel应包含这些中文列名，系统会自动进行字段映射。`
+
+        throw new Error('文件验证失败：无法识别Excel数据。可能原因：\n1. 文件为空或没有数据行\n2. Excel列名与预期不匹配\n3. 文件编码问题' + fieldMappingHint)
       }
 
       // Update import result with validation data
@@ -501,5 +525,66 @@ const downloadErrorReport = () => {
 .error-preview h4 {
   color: #e53e3e;
   margin-bottom: 15px;
+}
+
+.field-mapping-info {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.field-mapping-info h4 {
+  margin: 0 0 15px 0;
+  color: #0369a1;
+}
+
+.field-mapping-info p {
+  margin: 10px 0;
+  color: #374151;
+}
+
+.mapping-examples {
+  margin: 15px 0;
+}
+
+.mapping-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.excel-field {
+  color: #059669;
+  font-weight: bold;
+  flex: 1;
+}
+
+.arrow {
+  color: #6b7280;
+  margin: 0 8px;
+}
+
+.api-field {
+  color: #7c3aed;
+  font-family: monospace;
+  flex: 1;
+  text-align: right;
+}
+
+.mapping-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #059669;
+  font-weight: bold;
+  margin-top: 15px;
 }
 </style>
