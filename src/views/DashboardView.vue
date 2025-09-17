@@ -5,80 +5,98 @@
       <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
         <el-card class="transformation-card ak-card">
           <div class="transformation-header">
-            <div class="transformation-icon">AK</div>
-            <div class="transformation-info">
-              <div class="transformation-title">AK改造</div>
-              <div class="transformation-subtitle">应用现代化改造进度</div>
+            <div class="transformation-badge ak">
+              <span class="badge-text">AK</span>
+            </div>
+            <div class="transformation-title">AK改造</div>
+            <div class="completion-rate">
+              <span class="rate-number">{{ Math.round(stats.akCompleted / stats.akTotal * 100) || 0 }}</span>
+              <span class="rate-symbol">%</span>
             </div>
           </div>
-          <div class="transformation-metrics">
-            <div class="metric-primary">
-              <div class="metric-value-large">{{ stats.akCompleted }}</div>
-              <div class="metric-label">已完成</div>
+
+          <div class="transformation-body">
+            <div class="metrics-grid">
+              <div class="metric-card primary">
+                <div class="metric-number">{{ stats.akCompleted }}</div>
+                <div class="metric-text">已完成</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-number">{{ stats.akTotal }}</div>
+                <div class="metric-text">总数</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-number highlight">{{ stats.akInProgress }}</div>
+                <div class="metric-text">进行中</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-number">{{ stats.akTotal - stats.akCompleted - stats.akInProgress }}</div>
+                <div class="metric-text">待启动</div>
+              </div>
             </div>
-            <div class="metric-secondary">
-              <div class="metric-item">
-                <div class="metric-value">{{ stats.akTotal }}</div>
-                <div class="metric-label">总数</div>
+
+            <div class="progress-section">
+              <div class="progress-bar">
+                <div
+                  class="progress-fill ak-progress"
+                  :style="{ width: (stats.akCompleted / stats.akTotal * 100) + '%' }"
+                ></div>
               </div>
-              <div class="metric-item">
-                <div class="metric-value in-progress">{{ stats.akInProgress }}</div>
-                <div class="metric-label">进行中</div>
-              </div>
-              <div class="metric-item">
-                <div class="metric-value">{{ stats.akTotal - stats.akCompleted - stats.akInProgress }}</div>
-                <div class="metric-label">待启动</div>
+              <div class="progress-labels">
+                <span>0</span>
+                <span>进度</span>
+                <span>{{ stats.akTotal }}</span>
               </div>
             </div>
-          </div>
-          <div class="transformation-footer">
-            <el-progress
-              :percentage="Math.round(stats.akCompleted / stats.akTotal * 100) || 0"
-              :stroke-width="10"
-              color="#667eea"
-            >
-              <span class="progress-text">完成率 {{ Math.round(stats.akCompleted / stats.akTotal * 100) || 0 }}%</span>
-            </el-progress>
           </div>
         </el-card>
       </el-col>
       <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
         <el-card class="transformation-card cloud-card">
           <div class="transformation-header">
-            <div class="transformation-icon cloud">☁️</div>
-            <div class="transformation-info">
-              <div class="transformation-title">云原生改造</div>
-              <div class="transformation-subtitle">容器化与微服务改造进度</div>
+            <div class="transformation-badge cloud">
+              <span class="badge-text">☁️</span>
+            </div>
+            <div class="transformation-title">云原生改造</div>
+            <div class="completion-rate">
+              <span class="rate-number">{{ Math.round(stats.cloudNativeCompleted / stats.cloudNativeTotal * 100) || 0 }}</span>
+              <span class="rate-symbol">%</span>
             </div>
           </div>
-          <div class="transformation-metrics">
-            <div class="metric-primary">
-              <div class="metric-value-large">{{ stats.cloudNativeCompleted }}</div>
-              <div class="metric-label">已完成</div>
+
+          <div class="transformation-body">
+            <div class="metrics-grid">
+              <div class="metric-card primary">
+                <div class="metric-number">{{ stats.cloudNativeCompleted }}</div>
+                <div class="metric-text">已完成</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-number">{{ stats.cloudNativeTotal }}</div>
+                <div class="metric-text">总数</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-number highlight">{{ stats.cloudNativeInProgress }}</div>
+                <div class="metric-text">进行中</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-number">{{ stats.cloudNativeTotal - stats.cloudNativeCompleted - stats.cloudNativeInProgress }}</div>
+                <div class="metric-text">待启动</div>
+              </div>
             </div>
-            <div class="metric-secondary">
-              <div class="metric-item">
-                <div class="metric-value">{{ stats.cloudNativeTotal }}</div>
-                <div class="metric-label">总数</div>
+
+            <div class="progress-section">
+              <div class="progress-bar">
+                <div
+                  class="progress-fill cloud-progress"
+                  :style="{ width: (stats.cloudNativeCompleted / stats.cloudNativeTotal * 100) + '%' }"
+                ></div>
               </div>
-              <div class="metric-item">
-                <div class="metric-value in-progress">{{ stats.cloudNativeInProgress }}</div>
-                <div class="metric-label">进行中</div>
-              </div>
-              <div class="metric-item">
-                <div class="metric-value">{{ stats.cloudNativeTotal - stats.cloudNativeCompleted - stats.cloudNativeInProgress }}</div>
-                <div class="metric-label">待启动</div>
+              <div class="progress-labels">
+                <span>0</span>
+                <span>进度</span>
+                <span>{{ stats.cloudNativeTotal }}</span>
               </div>
             </div>
-          </div>
-          <div class="transformation-footer">
-            <el-progress
-              :percentage="Math.round(stats.cloudNativeCompleted / stats.cloudNativeTotal * 100) || 0"
-              :stroke-width="10"
-              color="#48bb78"
-            >
-              <span class="progress-text">完成率 {{ Math.round(stats.cloudNativeCompleted / stats.cloudNativeTotal * 100) || 0 }}%</span>
-            </el-progress>
           </div>
         </el-card>
       </el-col>
@@ -457,131 +475,169 @@ onMounted(async () => {
   margin-bottom: 30px;
 }
 
-/* Transformation Cards (AK and Cloud-Native) - Enhanced */
+/* Transformation Cards (AK and Cloud-Native) - Redesigned */
 .transformation-card {
-  height: 260px;
+  height: 240px;
   transition: all 0.3s;
   position: relative;
+  overflow: hidden;
 }
 
 .transformation-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 
 .transformation-card .el-card__body {
-  padding: 24px;
+  padding: 20px;
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
 }
 
 .transformation-header {
   display: flex;
   align-items: center;
-  margin-bottom: 24px;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.transformation-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+.transformation-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  font-size: 18px;
-  margin-right: 16px;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-.transformation-icon.cloud {
+.transformation-badge.ak {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 14px;
+}
+
+.transformation-badge.cloud {
   background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
-  font-size: 28px;
-  box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+  font-size: 20px;
 }
 
-.transformation-info {
-  flex: 1;
+.badge-text {
+  font-weight: 700;
 }
 
 .transformation-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1a202c;
-  margin-bottom: 4px;
+  flex: 1;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-left: 12px;
 }
 
-.transformation-subtitle {
-  font-size: 12px;
-  color: #718096;
-}
-
-.transformation-metrics {
+.completion-rate {
   display: flex;
-  gap: 30px;
-  margin-bottom: 20px;
+  align-items: baseline;
+  gap: 2px;
 }
 
-.metric-primary {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-right: 30px;
-  border-right: 2px solid #e2e8f0;
-}
-
-.metric-value-large {
-  font-size: 48px;
+.rate-number {
+  font-size: 32px;
   font-weight: 700;
   color: #2d3748;
-  line-height: 1;
 }
 
-.metric-label {
-  font-size: 13px;
+.rate-symbol {
+  font-size: 18px;
+  font-weight: 600;
   color: #718096;
-  margin-top: 6px;
 }
 
-.metric-secondary {
+.transformation-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
-  gap: 10px;
-  flex: 1;
+  gap: 20px;
 }
 
-.metric-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
 }
 
-.metric-value {
+.metric-card {
+  background: #f7fafc;
+  border-radius: 8px;
+  padding: 12px 8px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.metric-card:hover {
+  background: #edf2f7;
+}
+
+.metric-card.primary {
+  background: linear-gradient(135deg, #edf2ff 0%, #e9ecff 100%);
+}
+
+.metric-card.primary .metric-number {
+  color: #667eea;
+  font-size: 28px;
+}
+
+.metric-number {
   font-size: 24px;
   font-weight: 600;
-  color: #4a5568;
+  color: #2d3748;
+  line-height: 1.2;
 }
 
-.metric-value.in-progress {
+.metric-number.highlight {
   color: #3182ce;
 }
 
-.transformation-footer {
+.metric-text {
+  font-size: 11px;
+  color: #718096;
+  margin-top: 4px;
+}
+
+.progress-section {
   margin-top: auto;
 }
 
-.transformation-footer .el-progress {
-  margin-top: 10px;
+.progress-bar {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
 }
 
-.progress-text {
-  font-weight: 600;
-  color: #2d3748;
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.ak-progress {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+}
+
+.cloud-progress {
+  background: linear-gradient(90deg, #48bb78 0%, #38a169 100%);
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10px;
+  color: #a0aec0;
 }
 
 /* Compact Stats Cards */
