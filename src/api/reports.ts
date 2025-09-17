@@ -615,37 +615,54 @@ export class ExcelAPI {
 
   // Import complete Excel file with both applications and subtasks
   static async importCompleteExcel(params: ExcelImportParams): Promise<ExcelImportResponse> {
-    // Transform the file to include both applications and subtasks
-    const transformedFile = await this.transformCompleteExcelFile(params.file)
+    console.log('🔍 [ExcelAPI] Starting complete import for both applications and subtasks')
 
-    const formData = new FormData()
-    formData.append('file', transformedFile)
-    if (params.update_existing !== undefined) {
-      formData.append('update_existing', params.update_existing.toString())
-    }
-    if (params.validate_only !== undefined) {
-      formData.append('validate_only', params.validate_only.toString())
-    }
+    // Transform files separately for each endpoint
+    const applicationsFile = await this.transformExcelFile(params.file, 'applications')
+    const subtasksFile = await this.transformExcelFile(params.file, 'subtasks')
 
-    console.log('🔍 [ExcelAPI] Complete import request:', {
-      endpoint: '/excel/import/applications',
-      originalFile: params.file.name,
-      originalSize: params.file.size,
-      transformedFile: transformedFile.name,
-      transformedSize: transformedFile.size,
+    // Import applications first
+    console.log('📋 [ExcelAPI] Step 1: Importing applications')
+    const applicationParams = {
+      file: applicationsFile,
       update_existing: params.update_existing,
-      validate_only: params.validate_only,
-      sheets: ['Applications', 'SubTasks']
+      validate_only: params.validate_only
+    }
+    const appResponse = await this.importApplications(applicationParams)
+
+    // Import subtasks second
+    console.log('📋 [ExcelAPI] Step 2: Importing subtasks')
+    const subtaskParams = {
+      file: subtasksFile,
+      update_existing: params.update_existing,
+      validate_only: params.validate_only
+    }
+    const subtaskResponse = await this.importSubTasks(subtaskParams)
+
+    // Combine results
+    const combinedResponse: ExcelImportResponse = {
+      status: (appResponse.status === 'success' && subtaskResponse.status === 'success') ? 'success' : 'partial',
+      imported: (appResponse.imported || 0) + (subtaskResponse.imported || 0),
+      updated: (appResponse.updated || 0) + (subtaskResponse.updated || 0),
+      skipped: (appResponse.skipped || 0) + (subtaskResponse.skipped || 0),
+      errors: [...(appResponse.errors || []), ...(subtaskResponse.errors || [])]
+    }
+
+    console.log('📊 [ExcelAPI] Complete import summary:', {
+      applications: {
+        imported: appResponse.imported || 0,
+        updated: appResponse.updated || 0,
+        errors: appResponse.errors?.length || 0
+      },
+      subtasks: {
+        imported: subtaskResponse.imported || 0,
+        updated: subtaskResponse.updated || 0,
+        errors: subtaskResponse.errors?.length || 0
+      },
+      combined: combinedResponse
     })
 
-    const response = await api.post('/excel/import/applications', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-
-    console.log('📊 [ExcelAPI] Complete import response:', response.data)
-    return response.data
+    return combinedResponse
   }
 
   // Import applications from Excel
@@ -769,8 +786,11 @@ export class ExcelAPI {
 
   // Import subtasks from Excel
   static async importSubTasks(params: ExcelImportParams): Promise<ExcelImportResponse> {
+    // Transform the file to match API expectations for subtasks
+    const transformedFile = await this.transformExcelFile(params.file, 'subtasks')
+
     const formData = new FormData()
-    formData.append('file', params.file)
+    formData.append('file', transformedFile)
     if (params.update_existing !== undefined) {
       formData.append('update_existing', params.update_existing.toString())
     }
@@ -780,8 +800,10 @@ export class ExcelAPI {
 
     console.log('🔍 [ExcelAPI] SubTasks import request:', {
       endpoint: '/excel/import/subtasks',
-      file: params.file.name,
-      size: params.file.size,
+      originalFile: params.file.name,
+      originalSize: params.file.size,
+      transformedFile: transformedFile.name,
+      transformedSize: transformedFile.size,
       update_existing: params.update_existing,
       validate_only: params.validate_only
     })
