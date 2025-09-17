@@ -317,7 +317,7 @@ export class ExcelAPI {
           console.log('🔄 [ExcelAPI] Mapped headers:', newHeaders)
 
           // Transform data rows
-          const transformedRows = dataRows.map((row: any[]) => {
+          const transformedRows = dataRows.map((row: any[], rowIndex: number) => {
             const newRow: any[] = []
             headerMapping.forEach((originalIndex, newIndex) => {
               let value = row[originalIndex]
@@ -334,13 +334,19 @@ export class ExcelAPI {
                 value = String(value || '')
                 // Ensure application_id is not empty
                 if (!value.trim()) {
-                  value = `APP_${Date.now()}_${newIndex + 1}`
+                  value = `APP_${Date.now()}_${rowIndex + 1}`
                 }
               } else if (fieldName === 'application_name') {
                 value = String(value || '')
                 // Ensure application_name is not empty
                 if (!value.trim()) {
-                  value = `Application_${newIndex + 1}`
+                  value = `Application_${rowIndex + 1}`
+                }
+              } else if (fieldName === 'business_domain') {
+                value = String(value || '')
+                // Provide default business domain if empty
+                if (!value.trim()) {
+                  value = 'Core'
                 }
               }
 

@@ -268,14 +268,17 @@ const nextStep = async () => {
 
       console.log('📊 [ImportView] Validation response:', response)
 
-      // Map backend response fields according to API_INTEGRATION_GUIDE.md
+      // Handle actual backend response format (differs from API_INTEGRATION_GUIDE.md)
+      console.log('🔍 [ImportView] Actual backend response format:', Object.keys(response))
+
+      // Check both documented format and actual format
       const mappedResponse = {
-        total: (response.imported || 0) + (response.updated || 0) + (response.skipped || 0),
-        imported: response.imported || 0,
-        updated: response.updated || 0,
-        skipped: response.skipped || 0,
+        total: response.total_rows || (response.imported || 0) + (response.updated || 0) + (response.skipped || 0),
+        imported: response.processed_rows || response.imported || 0,
+        updated: response.updated_rows || response.updated || 0,
+        skipped: response.skipped_rows || response.skipped || 0,
         errors: response.errors || [],
-        success: response.status === 'success'
+        success: response.success || response.status === 'success'
       }
 
       console.log('🔄 [ImportView] Mapped response:', mappedResponse)
@@ -339,13 +342,13 @@ const nextStep = async () => {
 
       console.log('📊 [ImportView] Import response:', response)
 
-      // Map backend response fields according to API_INTEGRATION_GUIDE.md
+      // Handle actual backend response format
       const mappedImportResponse = {
-        imported: response.imported || 0,
-        updated: response.updated || 0,
-        skipped: response.skipped || 0,
+        imported: response.processed_rows || response.imported || 0,
+        updated: response.updated_rows || response.updated || 0,
+        skipped: response.skipped_rows || response.skipped || 0,
         errors: response.errors || [],
-        success: response.status === 'success'
+        success: response.success || response.status === 'success'
       }
 
       console.log('🔄 [ImportView] Mapped import response:', mappedImportResponse)
