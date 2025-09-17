@@ -102,72 +102,84 @@
       </el-col>
     </el-row>
 
-    <!-- 第二行：整体统计（紧凑布局） -->
-    <el-row :gutter="16" class="stats-row compact-row">
-      <el-col :xs="6" :sm="6" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card-compact">
-          <div class="compact-stat">
-            <span class="compact-value">{{ stats.total }}</span>
-            <span class="compact-label">应用总数</span>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="6" :sm="6" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card-compact">
-          <div class="compact-stat">
-            <span class="compact-value progress">{{ stats.active }}</span>
-            <span class="compact-label">进行中</span>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="6" :sm="6" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card-compact">
-          <div class="compact-stat">
-            <span class="compact-value success">{{ stats.completed }}</span>
-            <span class="compact-label">已完成</span>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="6" :sm="6" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card-compact">
-          <div class="compact-stat">
-            <span class="compact-value danger">{{ stats.blocked }}</span>
-            <span class="compact-label">阻塞</span>
-          </div>
-        </el-card>
-      </el-col>
-      <!-- 第三行合并到第二行右侧 -->
-      <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-        <el-card class="status-bar-card">
-          <div class="status-bar">
-            <div class="status-bar-item">
-              <span class="bar-label">未启动</span>
-              <span class="bar-value">{{ stats.notStarted }}</span>
-            </div>
-            <div class="bar-divider">|</div>
-            <div class="status-bar-item">
-              <span class="bar-label">研发中</span>
-              <span class="bar-value progress">{{ stats.inDevelopment }}</span>
-            </div>
-            <div class="bar-divider">|</div>
-            <div class="status-bar-item">
-              <span class="bar-label">上线中</span>
-              <span class="bar-value warning">{{ stats.inTesting }}</span>
-            </div>
-            <div class="bar-divider">|</div>
-            <div class="status-bar-item">
-              <span class="bar-label">已上线</span>
-              <span class="bar-value success">{{ stats.online }}</span>
-            </div>
-            <div class="bar-divider">|</div>
-            <div class="status-bar-item">
-              <span class="bar-label">已下线</span>
-              <span class="bar-value danger">{{ stats.offline }}</span>
+    <!-- 总体进度统计 -->
+    <el-card class="overall-progress-card">
+      <template #header>
+        <div class="section-header">
+          <span class="section-title">📊 总体进度</span>
+          <span class="section-subtitle">所有应用改造进度统计</span>
+        </div>
+      </template>
+
+      <div class="overall-stats">
+        <!-- 主要统计指标 -->
+        <div class="main-stats">
+          <div class="stat-item total">
+            <div class="stat-icon">📦</div>
+            <div class="stat-content">
+              <div class="stat-value">{{ stats.total }}</div>
+              <div class="stat-label">应用总数</div>
             </div>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+
+          <div class="stat-item active">
+            <div class="stat-icon">🚀</div>
+            <div class="stat-content">
+              <div class="stat-value">{{ stats.active }}</div>
+              <div class="stat-label">进行中</div>
+            </div>
+          </div>
+
+          <div class="stat-item completed">
+            <div class="stat-icon">✅</div>
+            <div class="stat-content">
+              <div class="stat-value">{{ stats.completed }}</div>
+              <div class="stat-label">已完成</div>
+            </div>
+          </div>
+
+          <div class="stat-item blocked">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-content">
+              <div class="stat-value">{{ stats.blocked }}</div>
+              <div class="stat-label">阻塞中</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 详细状态分布 -->
+        <div class="detailed-status">
+          <div class="status-title">详细状态分布</div>
+          <div class="status-grid">
+            <div class="status-item">
+              <span class="status-dot not-started"></span>
+              <span class="status-label">未启动</span>
+              <span class="status-count">{{ stats.notStarted }}</span>
+            </div>
+            <div class="status-item">
+              <span class="status-dot in-dev"></span>
+              <span class="status-label">研发中</span>
+              <span class="status-count">{{ stats.inDevelopment }}</span>
+            </div>
+            <div class="status-item">
+              <span class="status-dot in-test"></span>
+              <span class="status-label">上线中</span>
+              <span class="status-count">{{ stats.inTesting }}</span>
+            </div>
+            <div class="status-item">
+              <span class="status-dot online"></span>
+              <span class="status-label">已上线</span>
+              <span class="status-count">{{ stats.online }}</span>
+            </div>
+            <div class="status-item">
+              <span class="status-dot offline"></span>
+              <span class="status-label">已下线</span>
+              <span class="status-count">{{ stats.offline }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-card>
 
     <!-- Charts Section -->
     <el-row :gutter="20" class="charts-row">
@@ -640,298 +652,164 @@ onMounted(async () => {
   color: #a0aec0;
 }
 
-/* Compact Stats Cards */
-.compact-row {
-  margin-bottom: 16px;
-}
-
-.stat-card-compact {
-  transition: all 0.3s;
-}
-
-.stat-card-compact:hover {
-  transform: translateY(-1px);
+/* Overall Progress Card */
+.overall-progress-card {
+  margin-bottom: 20px;
+  background: white;
+  border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.stat-card-compact .el-card__body {
-  padding: 12px;
-}
-
-.compact-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.compact-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: #4a5568;
-  line-height: 1;
-}
-
-.compact-value.progress {
-  color: #3182ce;
-}
-
-.compact-value.success {
-  color: #38a169;
-}
-
-.compact-value.danger {
-  color: #e53e3e;
-}
-
-.compact-label {
-  font-size: 11px;
-  color: #a0aec0;
-  margin-top: 4px;
-}
-
-/* Status Bar Card */
-.status-bar-card {
-  margin-top: 8px;
-}
-
-.status-bar-card .el-card__body {
-  padding: 10px 16px;
-}
-
-.status-bar {
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-}
-
-.status-bar-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.bar-label {
-  font-size: 12px;
-  color: #718096;
-}
-
-.bar-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: #4a5568;
-}
-
-.bar-value.progress {
-  color: #3182ce;
-}
-
-.bar-value.success {
-  color: #38a169;
-}
-
-.bar-value.warning {
-  color: #ed8936;
-}
-
-.bar-value.danger {
-  color: #e53e3e;
-}
-
-.bar-divider {
-  color: #e2e8f0;
-  font-size: 16px;
-  margin: 0 4px;
-}
-
-.stat-value {
-  font-size: 2em;
-  font-weight: bold;
-  color: #667eea;
-  margin-bottom: 5px;
-}
-
-.stat-value.progress {
-  color: #3182ce;
-}
-
-.stat-value.success {
-  color: #38a169;
-}
-
-.stat-value.danger {
-  color: #e53e3e;
-}
-
-.stat-value.warning {
-  color: #ed8936;
-}
-
-.stat-label {
-  color: #718096;
-  margin-bottom: 10px;
-  font-size: 14px;
-}
-
-.stat-progress {
-  margin-bottom: 5px;
-}
-
-.stat-detail {
-  font-size: 12px;
-  color: #718096;
-}
-
-/* Status Distribution Card */
-.status-distribution-card .el-card__body {
-  padding: 20px;
-}
-
-.status-distribution {
-  display: flex;
-  justify-content: space-evenly;
-  align-items: center;
-}
-
-.status-item {
+.section-header {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.status-icon {
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.section-subtitle {
+  font-size: 14px;
+  color: #718096;
+}
+
+.overall-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Main Stats */
+.main-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.stat-item:hover {
+  background: #edf2f7;
+  transform: translateY(-2px);
+}
+
+.stat-icon {
   font-size: 28px;
 }
 
-.status-content {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+.stat-content {
+  flex: 1;
 }
 
-.status-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: #667eea;
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #2d3748;
   line-height: 1;
+  margin-bottom: 4px;
 }
 
-.status-value.progress {
+.stat-item.total .stat-value {
+  color: #4a5568;
+}
+
+.stat-item.active .stat-value {
   color: #3182ce;
 }
 
-.status-value.success {
+.stat-item.completed .stat-value {
   color: #38a169;
 }
 
-.status-value.danger {
+.stat-item.blocked .stat-value {
   color: #e53e3e;
 }
 
-.status-value.warning {
-  color: #ed8936;
-}
-
-.status-label {
+.stat-label {
+  font-size: 13px;
   color: #718096;
-  font-size: 12px;
-  margin-top: 2px;
 }
 
-.status-divider {
-  width: 1px;
-  height: 40px;
-  background: #e2e8f0;
+/* Detailed Status */
+.detailed-status {
+  padding: 20px;
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  border-radius: 8px;
 }
 
-.target-title {
-  font-size: 16px;
-  font-weight: bold;
-  color: #2d3748;
+.status-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a5568;
   margin-bottom: 12px;
 }
 
-.target-items {
-  display: flex;
-  justify-content: space-around;
-  gap: 10px;
-}
-
-.target-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.target-value {
-  font-size: 20px;
-  font-weight: bold;
-  color: #667eea;
-  line-height: 1.2;
-}
-
-.target-value.success {
-  color: #38a169;
-}
-
-.target-value.progress {
-  color: #3182ce;
-}
-
-.target-label {
-  font-size: 12px;
-  color: #718096;
-  margin-top: 2px;
-}
-
-.target-divider {
-  width: 1px;
-  height: 50px;
-  background: #e2e8f0;
-  margin: 0 20px;
-}
-
-.status-stats {
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  padding: 10px 0;
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
 }
 
 .status-item {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.status-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: #667eea;
-  line-height: 1.2;
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
-.status-value.progress {
-  color: #3182ce;
+.status-dot.not-started {
+  background: #cbd5e0;
 }
 
-.status-value.success {
-  color: #38a169;
+.status-dot.in-dev {
+  background: #3182ce;
 }
 
-.status-value.danger {
-  color: #e53e3e;
+.status-dot.in-test {
+  background: #ed8936;
 }
 
-.status-value.warning {
-  color: #ed8936;
+.status-dot.online {
+  background: #38a169;
+}
+
+.status-dot.offline {
+  background: #e53e3e;
 }
 
 .status-label {
   font-size: 12px;
-  color: #718096;
-  margin-top: 4px;
+  color: #4a5568;
+  flex: 1;
 }
+
+.status-count {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
 
 .charts-row {
   margin-bottom: 20px;
@@ -1021,14 +899,6 @@ onMounted(async () => {
     padding: 20px 15px;
   }
   
-  .stat-value {
-    font-size: 2em;
-  }
-  
-  .stat-label {
-    font-size: 14px;
-  }
-  
   .charts-row {
     margin-bottom: 15px;
   }
@@ -1058,73 +928,46 @@ onMounted(async () => {
     font-size: 13px;
   }
 
-  /* 新增统计卡片响应式 */
-  .stat-card-horizontal .el-card__body {
+  /* 总体进度响应式 */
+  .overall-progress-card .el-card__body {
+    padding: 16px;
+  }
+
+  .main-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .stat-item {
     padding: 12px;
   }
 
-  .target-stats {
-    flex-direction: column;
-    gap: 15px;
+  .stat-icon {
+    font-size: 24px;
   }
 
-  .target-divider {
-    width: 100%;
-    height: 1px;
-    margin: 15px 0;
+  .stat-value {
+    font-size: 24px;
   }
 
-  .target-title {
-    font-size: 14px;
-  }
-
-  .target-items {
-    flex-wrap: wrap;
-  }
-
-  .target-value {
-    font-size: 16px;
-  }
-
-  .target-label {
-    font-size: 11px;
-  }
-
-  .status-stats {
-    flex-wrap: wrap;
+  .status-grid {
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
 
-  .status-value {
-    font-size: 20px;
+  .detailed-status {
+    padding: 16px;
   }
 
-  .status-label {
-    font-size: 11px;
-  }
 }
 
 @media (max-width: 480px) {
   .dashboard {
     padding: 8px;
   }
-  
+
   .stat-card .el-card__body {
     padding: 15px 10px;
-  }
-  
-  .stat-value {
-    font-size: 1.8em;
-    margin-bottom: 8px;
-  }
-  
-  .stat-label {
-    font-size: 13px;
-    margin-bottom: 10px;
-  }
-  
-  .stat-icon {
-    font-size: 20px;
   }
   
   .chart-placeholder {
@@ -1153,63 +996,59 @@ onMounted(async () => {
     padding: 8px 16px;
   }
 
-  /* 新增统计卡片响应式 - 小屏幕 */
-  .stat-card-horizontal .el-card__body {
-    padding: 10px 8px;
+  /* 总体进度响应式 - 小屏幕 */
+  .overall-progress-card .el-card__body {
+    padding: 12px;
   }
 
-  .target-stats {
+  .section-header {
     flex-direction: column;
-    gap: 12px;
+    align-items: flex-start;
+    gap: 4px;
   }
 
-  .target-section {
-    width: 100%;
+  .section-title {
+    font-size: 16px;
   }
 
-  .target-divider {
-    width: 100%;
-    height: 1px;
-    margin: 12px 0;
+  .section-subtitle {
+    font-size: 12px;
   }
 
-  .target-title {
+  .main-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .stat-item {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .stat-icon {
+    font-size: 20px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+  }
+
+  .status-grid {
+    grid-template-columns: repeat(1, 1fr);
+    gap: 8px;
+  }
+
+  .detailed-status {
+    padding: 12px;
+  }
+
+  .status-title {
     font-size: 13px;
-    margin-bottom: 8px;
   }
 
-  .target-items {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-
-  .target-value {
-    font-size: 14px;
-  }
-
-  .target-label {
-    font-size: 10px;
-  }
-
-  .status-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 8px 0;
-  }
-
-  .status-item {
-    padding: 5px;
-  }
-
-  .status-value {
-    font-size: 18px;
-  }
-
-  .status-label {
-    font-size: 10px;
-    margin-top: 2px;
-  }
 }
 </style>
