@@ -617,47 +617,87 @@ export class ExcelAPI {
   static async importCompleteExcel(params: ExcelImportParams): Promise<ExcelImportResponse> {
     console.log('🔍 [ExcelAPI] Starting complete import for both applications and subtasks')
 
-    // Transform files separately for each endpoint
+    // Create separate single-worksheet files for each endpoint
     const applicationsFile = await this.transformExcelFile(params.file, 'applications')
     const subtasksFile = await this.transformExcelFile(params.file, 'subtasks')
 
     // Import applications first
     console.log('📋 [ExcelAPI] Step 1: Importing applications')
-    const applicationParams = {
-      file: applicationsFile,
-      update_existing: params.update_existing,
-      validate_only: params.validate_only
-    }
-    const appResponse = await this.importApplications(applicationParams)
 
-    // Import subtasks second
-    console.log('📋 [ExcelAPI] Step 2: Importing subtasks')
-    const subtaskParams = {
-      file: subtasksFile,
+    const formData1 = new FormData()
+    formData1.append('file', applicationsFile)
+    if (params.update_existing !== undefined) {
+      formData1.append('update_existing', params.update_existing.toString())
+    }
+    if (params.validate_only !== undefined) {
+      formData1.append('validate_only', params.validate_only.toString())
+    }
+
+    console.log('🔍 [ExcelAPI] Applications import request:', {
+      endpoint: '/excel/import/applications',
+      originalFile: params.file.name,
+      transformedFile: applicationsFile.name,
+      transformedSize: applicationsFile.size,
       update_existing: params.update_existing,
       validate_only: params.validate_only
+    })
+
+    const appResponse = await api.post('/excel/import/applications', formData1, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+
+    console.log('📊 [ExcelAPI] Applications import response:', appResponse.data)
+
+    // Import subtasks second - use separate subtasks file
+    console.log('📋 [ExcelAPI] Step 2: Importing subtasks')
+
+    const formData2 = new FormData()
+    formData2.append('file', subtasksFile)
+    if (params.update_existing !== undefined) {
+      formData2.append('update_existing', params.update_existing.toString())
     }
-    const subtaskResponse = await this.importSubTasks(subtaskParams)
+    if (params.validate_only !== undefined) {
+      formData2.append('validate_only', params.validate_only.toString())
+    }
+
+    console.log('🔍 [ExcelAPI] SubTasks import request:', {
+      endpoint: '/excel/import/subtasks',
+      originalFile: params.file.name,
+      transformedFile: subtasksFile.name,
+      transformedSize: subtasksFile.size,
+      update_existing: params.update_existing,
+      validate_only: params.validate_only
+    })
+
+    const subtaskResponse = await api.post('/excel/import/subtasks', formData2, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+
+    console.log('📊 [ExcelAPI] SubTasks import response:', subtaskResponse.data)
 
     // Combine results
     const combinedResponse: ExcelImportResponse = {
-      status: (appResponse.status === 'success' && subtaskResponse.status === 'success') ? 'success' : 'partial',
-      imported: (appResponse.imported || 0) + (subtaskResponse.imported || 0),
-      updated: (appResponse.updated || 0) + (subtaskResponse.updated || 0),
-      skipped: (appResponse.skipped || 0) + (subtaskResponse.skipped || 0),
-      errors: [...(appResponse.errors || []), ...(subtaskResponse.errors || [])]
+      status: (appResponse.data.status === 'success' && subtaskResponse.data.status === 'success') ? 'success' : 'partial',
+      imported: (appResponse.data.imported || 0) + (subtaskResponse.data.imported || 0),
+      updated: (appResponse.data.updated || 0) + (subtaskResponse.data.updated || 0),
+      skipped: (appResponse.data.skipped || 0) + (subtaskResponse.data.skipped || 0),
+      errors: [...(appResponse.data.errors || []), ...(subtaskResponse.data.errors || [])]
     }
 
     console.log('📊 [ExcelAPI] Complete import summary:', {
       applications: {
-        imported: appResponse.imported || 0,
-        updated: appResponse.updated || 0,
-        errors: appResponse.errors?.length || 0
+        imported: appResponse.data.imported || 0,
+        updated: appResponse.data.updated || 0,
+        errors: appResponse.data.errors?.length || 0
       },
       subtasks: {
-        imported: subtaskResponse.imported || 0,
-        updated: subtaskResponse.updated || 0,
-        errors: subtaskResponse.errors?.length || 0
+        imported: subtaskResponse.data.imported || 0,
+        updated: subtaskResponse.data.updated || 0,
+        errors: subtaskResponse.data.errors?.length || 0
       },
       combined: combinedResponse
     })
