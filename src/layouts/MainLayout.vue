@@ -10,11 +10,8 @@
         />
         <h1 class="title">
           <span v-if="!isMobile">AK云原生改造管理系统</span>
-          <span v-else>AK管理系统</span>
+          <span v-else>AK云原生改造管理系统</span>
         </h1>
-        <div v-if="!isMobile" class="user-info">
-          欢迎回来，{{ authStore.user?.full_name }} | {{ authStore.user?.department }}
-        </div>
       </div>
       <div class="header-right">
         <el-button v-if="!isMobile" class="date-btn" type="info" plain>
@@ -54,8 +51,6 @@
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="profile">个人信息</el-dropdown-item>
-              <el-dropdown-item command="settings">设置</el-dropdown-item>
               <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -179,14 +174,10 @@ router.afterEach(() => {
 
 const handleUserCommand = (command: string) => {
   switch (command) {
-    case 'profile':
-      ElMessage.info('个人信息功能开发中')
-      break
-    case 'settings':
-      ElMessage.info('设置功能开发中')
-      break
     case 'logout':
       ElMessage.info('测试模式下无需登出')
+      break
+    default:
       break
   }
 }
