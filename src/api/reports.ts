@@ -230,8 +230,8 @@ export class ReportsAPI {
 }
 
 export class ExcelAPI {
-  // Transform user's Excel format to API format
-  static async transformExcelFile(file: File): Promise<File> {
+  // Transform user's Excel format to API format with sheet selection
+  static async transformExcelFile(file: File, sheetType: 'applications' | 'subtasks' = 'applications'): Promise<File> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = async (e) => {
@@ -244,7 +244,8 @@ export class ExcelAPI {
 
           console.log('🔄 [ExcelAPI] Starting Excel transformation:', {
             originalName: file.name,
-            size: file.size
+            size: file.size,
+            sheetType
           })
 
           // Import xlsx dynamically to handle Excel files
@@ -252,7 +253,16 @@ export class ExcelAPI {
 
           // Read the workbook
           const workbook = XLSX.read(data, { type: 'array' })
-          const sheetName = workbook.SheetNames[0]
+
+          // Select appropriate sheet based on type
+          let sheetName: string
+          if (sheetType === 'applications') {
+            sheetName = workbook.SheetNames.find(name => name.includes('总追踪表')) || workbook.SheetNames[0]
+          } else {
+            sheetName = workbook.SheetNames.find(name => name.includes('子追踪表')) || workbook.SheetNames[1] || workbook.SheetNames[0]
+          }
+
+          console.log(`📋 [ExcelAPI] Using sheet: "${sheetName}" for ${sheetType}`)
           const worksheet = workbook.Sheets[sheetName]
 
           // Convert to JSON to process data
@@ -270,37 +280,18 @@ export class ExcelAPI {
           console.log('📋 [ExcelAPI] Original headers:', originalHeaders)
           console.log('📊 [ExcelAPI] Data rows count:', dataRows.length)
 
-          // Define field mapping
-          const fieldMapping: Record<string, string> = {
-            'L2ID': 'application_id',
-            'L2应用': 'application_name',
-            '所属L1': 'business_domain',
-            '所属项目': 'business_subdomain',
-            '开发负责人': 'responsible_person',
-            '开发团队': 'responsible_team',
-            '改造状态': 'status',
-            '硬件资源保障\n优先级': 'priority',
-            '所属指标': 'kpi_classification',
-            '档位': 'service_tier',
-            '改造目标': 'transformation_target',
-            '监管验收年份': 'supervision_year'
-          }
+          // Import field mapping based on sheet type
+          const {
+            APPLICATION_FIELD_MAPPING,
+            SUBTASK_FIELD_MAPPING,
+            APPLICATION_STATUS_MAPPING,
+            SUBTASK_STATUS_MAPPING,
+            PRIORITY_VALUE_MAPPING,
+            TARGET_VALUE_MAPPING
+          } = await import('@/utils/excelFieldMapping')
 
-          // Status value mapping
-          const statusMapping: Record<string, string> = {
-            '研发进行中': 'in_progress',
-            '待启动': 'pending',
-            '业务上线中': 'deploying',
-            '全部完成': 'completed',
-            '存在阻塞': 'blocked'
-          }
-
-          // Priority mapping
-          const priorityMapping: Record<string, string> = {
-            'P0': 'high',
-            'P1': 'medium',
-            'P2': 'low'
-          }
+          const fieldMapping = sheetType === 'applications' ? APPLICATION_FIELD_MAPPING : SUBTASK_FIELD_MAPPING
+          const statusMapping = sheetType === 'applications' ? APPLICATION_STATUS_MAPPING : SUBTASK_STATUS_MAPPING
 
           // Create new headers by mapping original headers
           const newHeaders: string[] = []
@@ -323,11 +314,13 @@ export class ExcelAPI {
               let value = row[originalIndex]
               const fieldName = newHeaders[newIndex]
 
-              // Apply value transformations
+              // Apply value transformations based on field type and sheet type
               if (fieldName === 'status' && value && statusMapping[value]) {
                 value = statusMapping[value]
-              } else if (fieldName === 'priority' && value && priorityMapping[value]) {
-                value = priorityMapping[value]
+              } else if (fieldName === 'priority' && value && PRIORITY_VALUE_MAPPING[value]) {
+                value = PRIORITY_VALUE_MAPPING[value]
+              } else if (fieldName === 'transformation_target' && value && TARGET_VALUE_MAPPING[value]) {
+                value = TARGET_VALUE_MAPPING[value]
               } else if (fieldName === 'supervision_year' && typeof value === 'string' && value.includes('年')) {
                 value = parseInt(value.replace('年', ''))
               } else if (fieldName === 'application_id') {
@@ -338,8 +331,8 @@ export class ExcelAPI {
                 }
               } else if (fieldName === 'application_name') {
                 value = String(value || '')
-                // Ensure application_name is not empty
-                if (!value.trim()) {
+                // For applications sheet, generate name if empty; for subtasks, use actual data
+                if (!value.trim() && sheetType === 'applications') {
                   value = `Application_${rowIndex + 1}`
                 }
               } else if (fieldName === 'business_domain') {
@@ -348,6 +341,20 @@ export class ExcelAPI {
                 if (!value.trim()) {
                   value = 'Core'
                 }
+              } else if (sheetType === 'subtasks' && (
+                fieldName.includes('_date') ||
+                fieldName === 'planned_start_date' ||
+                fieldName === 'actual_start_date' ||
+                fieldName === 'planned_end_date' ||
+                fieldName === 'actual_end_date'
+              )) {
+                // Handle Excel date serial numbers for subtask dates
+                if (typeof value === 'number' && value > 25569) {
+                  const excelDate = new Date((value - 25569) * 86400 * 1000)
+                  value = excelDate.toISOString().split('T')[0]
+                } else if (value instanceof Date) {
+                  value = value.toISOString().split('T')[0]
+                }
               }
 
               newRow.push(value || '')
@@ -355,22 +362,13 @@ export class ExcelAPI {
             return newRow
           })
 
-          // Add required API fields that might be missing
-          const requiredFields = ['traffic', 'size', 'public_cloud_vendor']
-          const defaultValues: Record<string, any> = {
-            'traffic': 0,
-            'size': 'medium',
-            'public_cloud_vendor': 'AWS'
+          // Set default values for required fields that might be missing
+          if (!newHeaders.includes('business_domain') && sheetType === 'applications') {
+            newHeaders.push('business_domain')
+            transformedRows.forEach(row => {
+              row.push('Core')
+            })
           }
-
-          requiredFields.forEach(field => {
-            if (!newHeaders.includes(field)) {
-              newHeaders.push(field)
-              transformedRows.forEach(row => {
-                row.push(defaultValues[field] || '')
-              })
-            }
-          })
 
           console.log('🔧 [ExcelAPI] Final headers with defaults:', newHeaders)
 

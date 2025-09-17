@@ -83,8 +83,10 @@ src/
 
 4. **Data Import/Export**
    - Excel file import/export (✅ 已修复 - 直接文件下载)
-   - Batch operations
-   - Data validation
+   - Sample.xlsx format support with client-side transformation
+   - Two-sheet processing: 总追踪表（勿动）for applications, 子追踪表 for subtasks
+   - Chinese field mapping with automatic transformation
+   - Batch operations with validation
    - Import history tracking
 
 5. **Audit System**
@@ -474,7 +476,14 @@ npm run type-check
 - **Batch Import**: 4-step wizard, validation, error reporting
 - **Reports**: Multiple chart types, export options, department comparison
 
-#### Latest Updates (2025-09-16)
+#### Latest Updates (2025-09-17)
+
+**Excel导入功能优化完成**:
+1. **✅ 基于Sample.xlsx重新设计字段映射**: 移除不必要字段，精确匹配业务需求
+2. **✅ 双表支持**: 分别处理总追踪表（勿动）应用数据和子追踪表子任务数据
+3. **✅ 客户端文件转换**: 使用xlsx库进行中文字段到英文API字段的映射转换
+4. **✅ 智能表选择**: 自动识别工作表类型并应用对应字段映射规则
+5. **✅ 日期处理优化**: 正确处理Excel序列号日期格式到ISO日期字符串的转换
 
 **Excel导出功能修复完成**:
 1. **✅ 修复Excel导出下载问题**: 适配后端直接返回Excel文件数据
@@ -485,6 +494,7 @@ npm run type-check
 **技术改进**:
 - **ExcelAPI.exportAndDownloadApplications**: 新增直接下载方法
 - **ApplicationsAPI字段映射**: `application_id` → `l2_id`, `application_name` → `app_name`
+- **Excel字段映射优化**: 基于Sample.xlsx实际结构重新设计映射规则
 - **文件下载优化**: 正确的blob处理和MIME类型设置
 - **错误处理增强**: 改进API错误处理和用户反馈
 
