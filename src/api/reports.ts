@@ -339,6 +339,25 @@ export class ExcelAPI {
             return newRow
           })
 
+          // Add required API fields that might be missing
+          const requiredFields = ['traffic', 'size', 'public_cloud_vendor']
+          const defaultValues: Record<string, any> = {
+            'traffic': 0,
+            'size': 'medium',
+            'public_cloud_vendor': 'AWS'
+          }
+
+          requiredFields.forEach(field => {
+            if (!newHeaders.includes(field)) {
+              newHeaders.push(field)
+              transformedRows.forEach(row => {
+                row.push(defaultValues[field] || '')
+              })
+            }
+          })
+
+          console.log('🔧 [ExcelAPI] Final headers with defaults:', newHeaders)
+
           // Create new workbook with transformed data
           const newWorksheet = XLSX.utils.aoa_to_sheet([newHeaders, ...transformedRows])
           const newWorkbook = XLSX.utils.book_new()
@@ -389,8 +408,10 @@ export class ExcelAPI {
 
     console.log('🔍 [ExcelAPI] Import request:', {
       endpoint: '/excel/import/applications',
-      file: params.file.name,
-      size: params.file.size,
+      originalFile: params.file.name,
+      originalSize: params.file.size,
+      transformedFile: transformedFile.name,
+      transformedSize: transformedFile.size,
       update_existing: params.update_existing,
       validate_only: params.validate_only
     })
