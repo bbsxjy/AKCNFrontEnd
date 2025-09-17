@@ -237,11 +237,11 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { Warning, Check } from '@element-plus/icons-vue'
+import { Check } from '@element-plus/icons-vue'
 import { ElMessage, ElLoading } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import { ExcelAPI } from '@/api/reports'
-import { EXCEL_FIELD_MAPPING, getExcelColumns } from '@/utils/excelFieldMapping'
+import { EXCEL_FIELD_MAPPING } from '@/utils/excelFieldMapping'
 
 const currentStep = ref(0)
 const selectedFile = ref<UploadFile | null>(null)
@@ -289,11 +289,11 @@ const handleFileChange = (file: UploadFile) => {
 }
 
 const downloadTemplate = async () => {
-  try {
-    const loadingInstance = ElLoading.service({
-      text: '正在下载模板...'
-    })
+  const loadingInstance = ElLoading.service({
+    text: '正在下载模板...'
+  })
 
+  try {
     console.log('🔍 [ImportView] Downloading template for:', importOptions.importType)
 
     // For complete import, download applications template
@@ -306,6 +306,7 @@ const downloadTemplate = async () => {
 
     loadingInstance.close()
   } catch (error: any) {
+    loadingInstance.close()
     console.error('❌ [ImportView] Template download failed:', error)
 
     if (error?.response?.status === 404) {
@@ -315,8 +316,6 @@ const downloadTemplate = async () => {
     } else {
       ElMessage.error(`模板下载失败: ${error?.response?.data?.detail || error?.message || '未知错误'}`)
     }
-
-    loadingInstance.close()
   }
 }
 
@@ -353,10 +352,10 @@ const nextStep = async () => {
       console.log('🔍 [ImportView] Actual backend response format:', Object.keys(response))
 
       // Check for additional debug information
-      if (response.warnings && response.warnings.length > 0) {
+      if (response && 'warnings' in response && Array.isArray(response.warnings) && response.warnings.length > 0) {
         console.log('⚠️ [ImportView] Backend warnings:', response.warnings)
       }
-      if (response.preview_data) {
+      if (response && 'preview_data' in response && response.preview_data) {
         console.log('👁️ [ImportView] Backend preview data:', response.preview_data)
       }
       if (response.processing_time_ms) {
@@ -383,7 +382,7 @@ const nextStep = async () => {
 
       // Handle enhanced response format with dual-sheet support
       const mappedResponse = {
-        total: response.total_rows || response.total || (response.imported || 0) + (response.updated || 0) + (response.skipped || 0),
+        total: response.total_rows || 0,
         imported: response.processed_rows || response.imported || 0,
         updated: response.updated_rows || response.updated || 0,
         skipped: response.skipped_rows || response.skipped || 0,
@@ -399,8 +398,8 @@ const nextStep = async () => {
       // Check if validation was successful
       if (!mappedResponse.success && mappedResponse.total === 0) {
         // For dual-sheet imports, check if either table has data
-        const hasApplicationsData = mappedResponse.applications?.total_rows > 0
-        const hasSubtasksData = mappedResponse.subtasks?.total_rows > 0
+        const hasApplicationsData = mappedResponse.applications && typeof mappedResponse.applications.total_rows === 'number' && mappedResponse.applications.total_rows > 0
+        const hasSubtasksData = mappedResponse.subtasks && typeof mappedResponse.subtasks.total_rows === 'number' && mappedResponse.subtasks.total_rows > 0
 
         if (!hasApplicationsData && !hasSubtasksData) {
           const expectedFields = Object.keys(EXCEL_FIELD_MAPPING)
@@ -541,7 +540,7 @@ const downloadErrorReport = () => {
   }))
 
   const csv = [
-    Object.keys(errorReport[0]).join(','),
+    Object.keys(errorReport[0] || {}).join(','),
     ...errorReport.map(row => Object.values(row).join(','))
   ].join('\n')
 

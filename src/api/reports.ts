@@ -252,8 +252,8 @@ export class ReportsAPI {
 }
 
 export class ExcelAPI {
-  // Transform complete Excel file with both applications and subtasks
-  static async transformCompleteExcelFile(file: File): Promise<File> {
+  // Transform complete Excel file with both applications and subtasks (DEPRECATED - kept for future use)
+  private static async transformCompleteExcelFileDeprecated(file: File): Promise<File> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = async (e) => {
@@ -459,15 +459,19 @@ export class ExcelAPI {
           const workbook = XLSX.read(data, { type: 'array' })
 
           // Select appropriate sheet based on type
-          let sheetName: string
+          let selectedSheetName: string
           if (sheetType === 'applications') {
-            sheetName = workbook.SheetNames.find(name => name.includes('总追踪表')) || workbook.SheetNames[0]
+            selectedSheetName = workbook.SheetNames.find(name => name.includes('总追踪表')) || workbook.SheetNames[0]
           } else {
-            sheetName = workbook.SheetNames.find(name => name.includes('子追踪表')) || workbook.SheetNames[1] || workbook.SheetNames[0]
+            selectedSheetName = workbook.SheetNames.find(name => name.includes('子追踪表')) || workbook.SheetNames[1] || workbook.SheetNames[0]
           }
 
-          console.log(`📋 [ExcelAPI] Using sheet: "${sheetName}" for ${sheetType}`)
-          const worksheet = workbook.Sheets[sheetName]
+          console.log(`📋 [ExcelAPI] Using sheet: "${selectedSheetName}" for ${sheetType}`)
+          const worksheet = workbook.Sheets[selectedSheetName]
+          if (!worksheet) {
+            reject(new Error(`无法找到工作表: ${selectedSheetName}`))
+            return
+          }
 
           // Convert to JSON to process data
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
@@ -512,14 +516,14 @@ export class ExcelAPI {
           console.log('🔄 [ExcelAPI] Mapped headers:', newHeaders)
 
           // Transform data rows
-          const transformedRows = dataRows.map((row: any[], rowIndex: number) => {
+          const transformedRows = (dataRows as any[][]).map((row: any[], rowIndex: number) => {
             const newRow: any[] = []
             headerMapping.forEach((originalIndex, newIndex) => {
               let value = row[originalIndex]
               const fieldName = newHeaders[newIndex]
 
               // Apply value transformations based on field type and sheet type
-              if (fieldName === 'status' && value && statusMapping[value]) {
+              if (fieldName && fieldName === 'status' && value && statusMapping[value]) {
                 value = statusMapping[value]
               } else if (fieldName === 'priority' && value && PRIORITY_VALUE_MAPPING[value]) {
                 value = PRIORITY_VALUE_MAPPING[value]
@@ -614,7 +618,8 @@ export class ExcelAPI {
           })
 
           // Debug: Save transformed file to downloads for inspection
-          if (process.env.NODE_ENV === 'development') {
+          // Disabled for production
+          if (false) {
             const downloadUrl = URL.createObjectURL(transformedFile)
             const link = document.createElement('a')
             link.href = downloadUrl
@@ -637,7 +642,7 @@ export class ExcelAPI {
     })
   }
 
-  // Transform complete Excel file with both applications and subtasks sheets
+  // Transform complete Excel file with both applications and subtasks sheets (Main implementation)
   static async transformCompleteExcelFile(file: File): Promise<File> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -649,6 +654,7 @@ export class ExcelAPI {
           })
 
           const data = e.target?.result as ArrayBuffer
+          const XLSX = await import('xlsx')
           const workbook = XLSX.read(data, { type: 'array', cellDates: true })
 
           // Transform both sheets
@@ -666,6 +672,7 @@ export class ExcelAPI {
 
             if (appData.length > 0) {
               const headers = appData[0] as string[]
+              const { APPLICATION_FIELD_MAPPING, transformApplicationRowToAPI } = await import('@/utils/excelFieldMapping')
               const transformedHeaders = headers.map((header: string) =>
                 APPLICATION_FIELD_MAPPING[header] || header
               )
@@ -697,6 +704,7 @@ export class ExcelAPI {
 
             if (subData.length > 0) {
               const headers = subData[0] as string[]
+              const { SUBTASK_FIELD_MAPPING, transformSubTaskRowToAPI } = await import('@/utils/excelFieldMapping')
               const transformedHeaders = headers.map((header: string) =>
                 SUBTASK_FIELD_MAPPING[header] || header
               )
