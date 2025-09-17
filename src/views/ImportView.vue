@@ -268,14 +268,14 @@ const nextStep = async () => {
 
       console.log('📊 [ImportView] Validation response:', response)
 
-      // Map backend response fields to frontend expected fields
+      // Map backend response fields according to API_INTEGRATION_GUIDE.md
       const mappedResponse = {
-        total: response.total_rows || 0,
-        imported: response.processed_rows || 0,
-        updated: response.updated_rows || 0,
-        skipped: response.skipped_rows || 0,
+        total: (response.imported || 0) + (response.updated || 0) + (response.skipped || 0),
+        imported: response.imported || 0,
+        updated: response.updated || 0,
+        skipped: response.skipped || 0,
         errors: response.errors || [],
-        success: response.success || false
+        success: response.status === 'success'
       }
 
       console.log('🔄 [ImportView] Mapped response:', mappedResponse)
@@ -339,13 +339,13 @@ const nextStep = async () => {
 
       console.log('📊 [ImportView] Import response:', response)
 
-      // Map backend response fields to frontend expected fields
+      // Map backend response fields according to API_INTEGRATION_GUIDE.md
       const mappedImportResponse = {
-        imported: response.processed_rows || 0,
-        updated: response.updated_rows || 0,
-        skipped: response.skipped_rows || 0,
+        imported: response.imported || 0,
+        updated: response.updated || 0,
+        skipped: response.skipped || 0,
         errors: response.errors || [],
-        success: response.success || false
+        success: response.status === 'success'
       }
 
       console.log('🔄 [ImportView] Mapped import response:', mappedImportResponse)

@@ -332,6 +332,16 @@ export class ExcelAPI {
                 value = parseInt(value.replace('年', ''))
               } else if (fieldName === 'application_id') {
                 value = String(value || '')
+                // Ensure application_id is not empty
+                if (!value.trim()) {
+                  value = `APP_${Date.now()}_${newIndex + 1}`
+                }
+              } else if (fieldName === 'application_name') {
+                value = String(value || '')
+                // Ensure application_name is not empty
+                if (!value.trim()) {
+                  value = `Application_${newIndex + 1}`
+                }
               }
 
               newRow.push(value || '')
@@ -371,12 +381,23 @@ export class ExcelAPI {
             type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
           })
 
+          // Debug: Check first few rows of transformed data
+          console.log('🔍 [ExcelAPI] Sample transformed data:')
+          console.log('Headers:', newHeaders)
+          if (transformedRows.length > 0) {
+            console.log('Row 1:', transformedRows[0])
+            if (transformedRows.length > 1) {
+              console.log('Row 2:', transformedRows[1])
+            }
+          }
+
           console.log('✅ [ExcelAPI] Excel transformation completed:', {
             originalHeaders: originalHeaders.length,
             mappedHeaders: newHeaders.length,
             dataRows: transformedRows.length,
             newFileName: transformedFile.name,
-            newSize: transformedFile.size
+            newSize: transformedFile.size,
+            hasValidData: transformedRows.length > 0 && transformedRows[0].some(cell => cell !== '')
           })
 
           resolve(transformedFile)
