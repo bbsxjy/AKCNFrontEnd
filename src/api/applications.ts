@@ -99,7 +99,9 @@ export class ApplicationsAPI {
         // 兼容字段映射
         application_id: item.l2_id,
         application_name: item.app_name,
-        status: item.overall_status
+        status: item.overall_status,
+        // 确保进度字段存在
+        progress_percentage: item.progress_percentage || 0
       }))
     }
 
