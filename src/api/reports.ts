@@ -768,7 +768,8 @@ export class ExcelAPI {
     const response = await api.post('/excel/import/subtasks', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
-      }
+      },
+      timeout: 120000 // 120 seconds timeout for large files
     })
 
     console.log('📊 [ExcelAPI] Dual-sheet import response:', response.data)
@@ -860,7 +861,8 @@ export class ExcelAPI {
     const response = await api.post('/excel/import/applications', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
-      }
+      },
+      timeout: 120000 // 120 seconds timeout for large files
     })
 
     console.log('📊 [ExcelAPI] Import response:', response.data)
@@ -972,7 +974,8 @@ export class ExcelAPI {
     const response = await api.post('/excel/import/subtasks', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
-      }
+      },
+      timeout: 120000 // 120 seconds timeout for large files
     })
 
     console.log('📊 [ExcelAPI] SubTasks import response:', response.data)

@@ -328,6 +328,11 @@ const nextStep = async () => {
     }
 
     loading.value = true
+    // Show warning for large files
+    if (selectedFile.value?.size && selectedFile.value.size > 1048576) { // > 1MB
+      const sizeMB = (selectedFile.value.size / 1048576).toFixed(1)
+      ElMessage.info(`文件较大 (${sizeMB}MB)，处理可能需要较长时间，请耐心等待...`)
+    }
     try {
       console.log('🔍 [ImportView] Starting validation import for:', importOptions.importType)
 
@@ -430,7 +435,12 @@ const nextStep = async () => {
       }
     } catch (error: any) {
       console.error('❌ [ImportView] Validation failed:', error)
-      ElMessage.error(`文件验证失败: ${error?.response?.data?.detail || error?.message || '未知错误'}`)
+      // Check if it's a timeout error
+      if (error?.code === 'ECONNABORTED' && error?.message?.includes('timeout')) {
+        ElMessage.error(`文件太大，处理超时。请稍后重试或联系管理员增加服务器处理能力。`)
+      } else {
+        ElMessage.error(`文件验证失败: ${error?.response?.data?.detail || error?.message || '未知错误'}`)
+      }
     } finally {
       loading.value = false
     }
