@@ -49,10 +49,11 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="表类型">
-              <el-select v-model="importOptions.sheetType" placeholder="请选择表类型">
-                <el-option value="applications" label="应用表" />
-                <el-option value="subtasks" label="子任务表" />
+            <el-form-item label="导入类型">
+              <el-select v-model="importOptions.importType" placeholder="请选择导入类型">
+                <el-option value="complete" label="完整导入（应用+子任务）" />
+                <el-option value="applications" label="仅导入应用表" />
+                <el-option value="subtasks" label="仅导入子任务表" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -188,7 +189,7 @@ const loading = ref(false)
 
 const importOptions = reactive({
   mode: 'append',
-  sheetType: 'applications' as 'applications' | 'subtasks',
+  importType: 'complete' as 'complete' | 'applications' | 'subtasks',
   validateOnly: true
 })
 
@@ -220,10 +221,15 @@ const downloadTemplate = async () => {
       text: '正在下载模板...'
     })
 
-    console.log('🔍 [ImportView] Downloading template for:', importOptions.sheetType)
+    console.log('🔍 [ImportView] Downloading template for:', importOptions.importType)
 
-    await ExcelAPI.downloadTemplate(importOptions.sheetType)
-    ElMessage.success(`${importOptions.sheetType === 'applications' ? '应用' : '子任务'}模板下载成功`)
+    // For complete import, download applications template
+    const templateType = importOptions.importType === 'complete' ? 'applications' : importOptions.importType
+    await ExcelAPI.downloadTemplate(templateType as 'applications' | 'subtasks')
+
+    const templateName = importOptions.importType === 'complete' ? '完整导入' :
+                        importOptions.importType === 'applications' ? '应用' : '子任务'
+    ElMessage.success(`${templateName}模板下载成功`)
 
     loadingInstance.close()
   } catch (error: any) {
@@ -251,7 +257,7 @@ const nextStep = async () => {
 
     loading.value = true
     try {
-      console.log('🔍 [ImportView] Starting validation import for:', importOptions.sheetType)
+      console.log('🔍 [ImportView] Starting validation import for:', importOptions.importType)
 
       const importParams = {
         file: selectedFile.value.raw,
@@ -260,7 +266,9 @@ const nextStep = async () => {
       }
 
       let response
-      if (importOptions.sheetType === 'applications') {
+      if (importOptions.importType === 'complete') {
+        response = await ExcelAPI.importCompleteExcel(importParams)
+      } else if (importOptions.importType === 'applications') {
         response = await ExcelAPI.importApplications(importParams)
       } else {
         response = await ExcelAPI.importSubTasks(importParams)
@@ -336,7 +344,7 @@ const nextStep = async () => {
 
     loading.value = true
     try {
-      console.log('🔍 [ImportView] Starting actual import for:', importOptions.sheetType)
+      console.log('🔍 [ImportView] Starting actual import for:', importOptions.importType)
 
       const importParams = {
         file: selectedFile.value!.raw!,
@@ -345,7 +353,9 @@ const nextStep = async () => {
       }
 
       let response
-      if (importOptions.sheetType === 'applications') {
+      if (importOptions.importType === 'complete') {
+        response = await ExcelAPI.importCompleteExcel(importParams)
+      } else if (importOptions.importType === 'applications') {
         response = await ExcelAPI.importApplications(importParams)
       } else {
         response = await ExcelAPI.importSubTasks(importParams)

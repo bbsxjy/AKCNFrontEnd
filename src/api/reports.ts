@@ -230,6 +230,188 @@ export class ReportsAPI {
 }
 
 export class ExcelAPI {
+  // Transform complete Excel file with both applications and subtasks
+  static async transformCompleteExcelFile(file: File): Promise<File> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const data = e.target?.result as ArrayBuffer
+          if (!data) {
+            reject(new Error('Failed to read file'))
+            return
+          }
+
+          console.log('🔄 [ExcelAPI] Starting complete Excel transformation:', {
+            originalName: file.name,
+            size: file.size,
+            type: 'complete_import'
+          })
+
+          // Import xlsx dynamically to handle Excel files
+          const XLSX = await import('xlsx')
+
+          // Read the workbook
+          const workbook = XLSX.read(data, { type: 'array' })
+          console.log('📋 [ExcelAPI] Available sheets:', workbook.SheetNames)
+
+          // Find both sheets
+          const appSheetName = workbook.SheetNames.find(name => name.includes('总追踪表')) || workbook.SheetNames[0]
+          const subtaskSheetName = workbook.SheetNames.find(name => name.includes('子追踪表')) || workbook.SheetNames[1]
+
+          console.log(`📋 [ExcelAPI] Using application sheet: "${appSheetName}"`)
+          console.log(`📋 [ExcelAPI] Using subtask sheet: "${subtaskSheetName}"`)
+
+          // Process both sheets and combine into a single workbook
+          const newWorkbook = XLSX.utils.book_new()
+
+          // Process application sheet
+          if (appSheetName && workbook.Sheets[appSheetName]) {
+            const transformedAppSheet = await this.transformSingleSheet(workbook.Sheets[appSheetName], 'applications')
+            XLSX.utils.book_append_sheet(newWorkbook, transformedAppSheet, 'Applications')
+          }
+
+          // Process subtask sheet
+          if (subtaskSheetName && workbook.Sheets[subtaskSheetName]) {
+            const transformedSubtaskSheet = await this.transformSingleSheet(workbook.Sheets[subtaskSheetName], 'subtasks')
+            XLSX.utils.book_append_sheet(newWorkbook, transformedSubtaskSheet, 'SubTasks')
+          }
+
+          // Convert to buffer
+          const newExcelBuffer = XLSX.write(newWorkbook, { type: 'array', bookType: 'xlsx' })
+
+          // Create new file
+          const transformedFile = new File([newExcelBuffer], `complete_transformed_${file.name}`, {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          })
+
+          console.log('✅ [ExcelAPI] Complete Excel transformation completed:', {
+            originalSize: file.size,
+            newSize: transformedFile.size,
+            newFileName: transformedFile.name,
+            sheets: ['Applications', 'SubTasks']
+          })
+
+          resolve(transformedFile)
+        } catch (error) {
+          console.error('❌ [ExcelAPI] Complete Excel transformation failed:', error)
+          reject(error)
+        }
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsArrayBuffer(file)
+    })
+  }
+
+  // Helper method to transform a single sheet
+  static async transformSingleSheet(worksheet: any, sheetType: 'applications' | 'subtasks'): Promise<any> {
+    const XLSX = await import('xlsx')
+
+    // Convert to JSON to process data
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+
+    if (!jsonData.length) {
+      throw new Error(`Excel文件中的${sheetType}表为空`)
+    }
+
+    // Get headers and data rows
+    const originalHeaders = jsonData[0] as string[]
+    const dataRows = jsonData.slice(1)
+
+    console.log(`📋 [ExcelAPI] Processing ${sheetType} sheet:`, {
+      headers: originalHeaders.length,
+      dataRows: dataRows.length
+    })
+
+    // Import field mapping
+    const {
+      APPLICATION_FIELD_MAPPING,
+      SUBTASK_FIELD_MAPPING,
+      APPLICATION_STATUS_MAPPING,
+      SUBTASK_STATUS_MAPPING,
+      PRIORITY_VALUE_MAPPING,
+      TARGET_VALUE_MAPPING
+    } = await import('@/utils/excelFieldMapping')
+
+    const fieldMapping = sheetType === 'applications' ? APPLICATION_FIELD_MAPPING : SUBTASK_FIELD_MAPPING
+    const statusMapping = sheetType === 'applications' ? APPLICATION_STATUS_MAPPING : SUBTASK_STATUS_MAPPING
+
+    // Create new headers by mapping original headers
+    const newHeaders: string[] = []
+    const headerMapping: number[] = []
+
+    originalHeaders.forEach((header, index) => {
+      const mappedField = fieldMapping[header]
+      if (mappedField) {
+        newHeaders.push(mappedField)
+        headerMapping.push(index)
+      }
+    })
+
+    console.log(`🔄 [ExcelAPI] ${sheetType} mapped headers:`, newHeaders)
+
+    // Transform data rows
+    const transformedRows = dataRows.map((row: any[], rowIndex: number) => {
+      const newRow: any[] = []
+      headerMapping.forEach((originalIndex, newIndex) => {
+        let value = row[originalIndex]
+        const fieldName = newHeaders[newIndex]
+
+        // Apply value transformations
+        if (fieldName === 'status' && value && statusMapping[value]) {
+          value = statusMapping[value]
+        } else if (fieldName === 'priority' && value && PRIORITY_VALUE_MAPPING[value]) {
+          value = PRIORITY_VALUE_MAPPING[value]
+        } else if (fieldName === 'transformation_target' && value && TARGET_VALUE_MAPPING[value]) {
+          value = TARGET_VALUE_MAPPING[value]
+        } else if (fieldName === 'supervision_year' && typeof value === 'string' && value.includes('年')) {
+          value = parseInt(value.replace('年', ''))
+        } else if (fieldName === 'application_id') {
+          value = String(value || '')
+          if (!value.trim()) {
+            value = `APP_${Date.now()}_${rowIndex + 1}`
+          }
+        } else if (fieldName === 'application_name') {
+          value = String(value || '')
+          if (!value.trim() && sheetType === 'applications') {
+            value = `Application_${rowIndex + 1}`
+          }
+        } else if (sheetType === 'subtasks' && (
+          fieldName.includes('_date') ||
+          fieldName === 'planned_start_date' ||
+          fieldName === 'actual_start_date' ||
+          fieldName === 'planned_end_date' ||
+          fieldName === 'actual_end_date'
+        )) {
+          // Handle Excel date serial numbers for subtask dates
+          if (typeof value === 'number' && value > 25569) {
+            const excelDate = new Date((value - 25569) * 86400 * 1000)
+            value = excelDate.toISOString().split('T')[0]
+          } else if (value instanceof Date) {
+            value = value.toISOString().split('T')[0]
+          }
+        } else {
+          // Ensure all other fields are strings to avoid type issues
+          value = String(value || '')
+        }
+
+        newRow.push(value || '')
+      })
+      return newRow
+    })
+
+    // Add default fields if needed
+    if (sheetType === 'applications' && !newHeaders.includes('business_domain')) {
+      newHeaders.push('business_domain')
+      transformedRows.forEach(row => {
+        row.push('Core')
+      })
+    }
+
+    // Create new worksheet with transformed data
+    return XLSX.utils.aoa_to_sheet([newHeaders, ...transformedRows])
+  }
+
   // Transform user's Excel format to API format with sheet selection
   static async transformExcelFile(file: File, sheetType: 'applications' | 'subtasks' = 'applications'): Promise<File> {
     return new Promise((resolve, reject) => {
@@ -429,6 +611,41 @@ export class ExcelAPI {
       reader.onerror = () => reject(new Error('Failed to read file'))
       reader.readAsArrayBuffer(file)
     })
+  }
+
+  // Import complete Excel file with both applications and subtasks
+  static async importCompleteExcel(params: ExcelImportParams): Promise<ExcelImportResponse> {
+    // Transform the file to include both applications and subtasks
+    const transformedFile = await this.transformCompleteExcelFile(params.file)
+
+    const formData = new FormData()
+    formData.append('file', transformedFile)
+    if (params.update_existing !== undefined) {
+      formData.append('update_existing', params.update_existing.toString())
+    }
+    if (params.validate_only !== undefined) {
+      formData.append('validate_only', params.validate_only.toString())
+    }
+
+    console.log('🔍 [ExcelAPI] Complete import request:', {
+      endpoint: '/excel/import/applications',
+      originalFile: params.file.name,
+      originalSize: params.file.size,
+      transformedFile: transformedFile.name,
+      transformedSize: transformedFile.size,
+      update_existing: params.update_existing,
+      validate_only: params.validate_only,
+      sheets: ['Applications', 'SubTasks']
+    })
+
+    const response = await api.post('/excel/import/applications', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+
+    console.log('📊 [ExcelAPI] Complete import response:', response.data)
+    return response.data
   }
 
   // Import applications from Excel
