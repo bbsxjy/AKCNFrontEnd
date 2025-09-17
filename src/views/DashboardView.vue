@@ -102,84 +102,82 @@
       </el-col>
     </el-row>
 
-    <!-- 总体进度统计 -->
-    <el-card class="overall-progress-card">
-      <template #header>
-        <div class="section-header">
-          <span class="section-title">📊 总体进度</span>
-          <span class="section-subtitle">所有应用改造进度统计</span>
-        </div>
-      </template>
-
-      <div class="overall-stats">
-        <!-- 主要统计指标 -->
-        <div class="main-stats">
-          <div class="stat-item total">
-            <div class="stat-icon">📦</div>
-            <div class="stat-content">
-              <div class="stat-value">{{ stats.total }}</div>
-              <div class="stat-label">应用总数</div>
-            </div>
-          </div>
-
-          <div class="stat-item active">
-            <div class="stat-icon">🚀</div>
-            <div class="stat-content">
-              <div class="stat-value">{{ stats.active }}</div>
-              <div class="stat-label">进行中</div>
-            </div>
-          </div>
-
-          <div class="stat-item completed">
-            <div class="stat-icon">✅</div>
-            <div class="stat-content">
-              <div class="stat-value">{{ stats.completed }}</div>
-              <div class="stat-label">已完成</div>
-            </div>
-          </div>
-
-          <div class="stat-item blocked">
-            <div class="stat-icon">⚠️</div>
-            <div class="stat-content">
-              <div class="stat-value">{{ stats.blocked }}</div>
-              <div class="stat-label">阻塞中</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 详细状态分布 -->
-        <div class="detailed-status">
-          <div class="status-title">详细状态分布</div>
-          <div class="status-grid">
-            <div class="status-item">
-              <span class="status-dot not-started"></span>
-              <span class="status-label">未启动</span>
-              <span class="status-count">{{ stats.notStarted }}</span>
-            </div>
-            <div class="status-item">
-              <span class="status-dot in-dev"></span>
-              <span class="status-label">研发中</span>
-              <span class="status-count">{{ stats.inDevelopment }}</span>
-            </div>
-            <div class="status-item">
-              <span class="status-dot in-test"></span>
-              <span class="status-label">上线中</span>
-              <span class="status-count">{{ stats.inTesting }}</span>
-            </div>
-            <div class="status-item">
-              <span class="status-dot online"></span>
-              <span class="status-label">已上线</span>
-              <span class="status-count">{{ stats.online }}</span>
-            </div>
-            <div class="status-item">
-              <span class="status-dot offline"></span>
-              <span class="status-label">已下线</span>
-              <span class="status-count">{{ stats.offline }}</span>
-            </div>
-          </div>
+    <!-- 总体统计 -->
+    <div class="overall-summary">
+      <div class="summary-header">
+        <span class="summary-title">总体统计</span>
+        <div class="summary-pills">
+          <span class="pill total">
+            <span class="pill-label">总数</span>
+            <span class="pill-value">{{ stats.total }}</span>
+          </span>
+          <span class="pill active">
+            <span class="pill-label">进行中</span>
+            <span class="pill-value">{{ stats.active }}</span>
+          </span>
+          <span class="pill completed">
+            <span class="pill-label">已完成</span>
+            <span class="pill-value">{{ stats.completed }}</span>
+          </span>
+          <span class="pill blocked">
+            <span class="pill-label">阻塞</span>
+            <span class="pill-value">{{ stats.blocked }}</span>
+          </span>
         </div>
       </div>
-    </el-card>
+
+      <div class="status-bar-container">
+        <div class="status-bar-track">
+          <div
+            class="status-segment not-started"
+            :style="{ width: ((stats.notStarted / stats.total) * 100) + '%' }"
+            :title="`未启动: ${stats.notStarted}`"
+          ></div>
+          <div
+            class="status-segment in-dev"
+            :style="{ width: ((stats.inDevelopment / stats.total) * 100) + '%' }"
+            :title="`研发中: ${stats.inDevelopment}`"
+          ></div>
+          <div
+            class="status-segment in-test"
+            :style="{ width: ((stats.inTesting / stats.total) * 100) + '%' }"
+            :title="`上线中: ${stats.inTesting}`"
+          ></div>
+          <div
+            class="status-segment online"
+            :style="{ width: ((stats.online / stats.total) * 100) + '%' }"
+            :title="`已上线: ${stats.online}`"
+          ></div>
+          <div
+            class="status-segment offline"
+            :style="{ width: ((stats.offline / stats.total) * 100) + '%' }"
+            :title="`已下线: ${stats.offline}`"
+          ></div>
+        </div>
+        <div class="status-legend">
+          <span class="legend-item">
+            <span class="legend-dot not-started"></span>
+            <span class="legend-text">未启动 {{ stats.notStarted }}</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-dot in-dev"></span>
+            <span class="legend-text">研发中 {{ stats.inDevelopment }}</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-dot in-test"></span>
+            <span class="legend-text">上线中 {{ stats.inTesting }}</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-dot online"></span>
+            <span class="legend-text">已上线 {{ stats.online }}</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-dot offline"></span>
+            <span class="legend-text">已下线 {{ stats.offline }}</span>
+          </span>
+        </div>
+      </div>
+    </div>
 
     <!-- Charts Section -->
     <el-row :gutter="20" class="charts-row">
@@ -652,162 +650,163 @@ onMounted(async () => {
   color: #a0aec0;
 }
 
-/* Overall Progress Card */
-.overall-progress-card {
+/* Overall Summary - Minimalist Style */
+.overall-summary {
   margin-bottom: 20px;
+  padding: 16px 20px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #2d3748;
-}
-
-.section-subtitle {
-  font-size: 14px;
-  color: #718096;
-}
-
-.overall-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-/* Main Stats */
-.main-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: #f8fafc;
   border-radius: 8px;
-  transition: all 0.3s;
+  border: 1px solid #e2e8f0;
 }
 
-.stat-item:hover {
+.summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.summary-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-pills {
+  display: flex;
+  gap: 12px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #f7fafc;
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.pill:hover {
   background: #edf2f7;
-  transform: translateY(-2px);
 }
 
-.stat-icon {
-  font-size: 28px;
+.pill-label {
+  font-size: 11px;
+  color: #a0aec0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
-.stat-content {
-  flex: 1;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #2d3748;
-  line-height: 1;
-  margin-bottom: 4px;
-}
-
-.stat-item.total .stat-value {
+.pill-value {
+  font-size: 14px;
+  font-weight: 600;
   color: #4a5568;
 }
 
-.stat-item.active .stat-value {
+.pill.total .pill-value {
+  color: #4a5568;
+}
+
+.pill.active .pill-value {
   color: #3182ce;
 }
 
-.stat-item.completed .stat-value {
+.pill.completed .pill-value {
   color: #38a169;
 }
 
-.stat-item.blocked .stat-value {
+.pill.blocked .pill-value {
   color: #e53e3e;
 }
 
-.stat-label {
-  font-size: 13px;
-  color: #718096;
-}
-
-/* Detailed Status */
-.detailed-status {
-  padding: 20px;
-  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-  border-radius: 8px;
-}
-
-.status-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #4a5568;
-  margin-bottom: 12px;
-}
-
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 16px;
-}
-
-.status-item {
+/* Status Bar */
+.status-bar-container {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: white;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  flex-direction: column;
+  gap: 10px;
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.status-bar-track {
+  height: 6px;
+  background: #f7fafc;
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
 }
 
-.status-dot.not-started {
+.status-segment {
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.status-segment:hover {
+  opacity: 0.8;
+}
+
+.status-segment.not-started {
   background: #cbd5e0;
 }
 
-.status-dot.in-dev {
+.status-segment.in-dev {
   background: #3182ce;
 }
 
-.status-dot.in-test {
+.status-segment.in-test {
   background: #ed8936;
 }
 
-.status-dot.online {
+.status-segment.online {
   background: #38a169;
 }
 
-.status-dot.offline {
+.status-segment.offline {
   background: #e53e3e;
 }
 
-.status-label {
-  font-size: 12px;
-  color: #4a5568;
-  flex: 1;
+.status-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.status-count {
-  font-size: 16px;
-  font-weight: 600;
-  color: #2d3748;
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.legend-dot.not-started {
+  background: #cbd5e0;
+}
+
+.legend-dot.in-dev {
+  background: #3182ce;
+}
+
+.legend-dot.in-test {
+  background: #ed8936;
+}
+
+.legend-dot.online {
+  background: #38a169;
+}
+
+.legend-dot.offline {
+  background: #e53e3e;
+}
+
+.legend-text {
+  font-size: 11px;
+  color: #718096;
 }
 
 
@@ -928,35 +927,28 @@ onMounted(async () => {
     font-size: 13px;
   }
 
-  /* 总体进度响应式 */
-  .overall-progress-card .el-card__body {
-    padding: 16px;
+  /* 总体统计响应式 */
+  .overall-summary {
+    padding: 12px 15px;
   }
 
-  .main-stats {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-
-  .stat-item {
-    padding: 12px;
-  }
-
-  .stat-icon {
-    font-size: 24px;
-  }
-
-  .stat-value {
-    font-size: 24px;
-  }
-
-  .status-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .summary-header {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 10px;
   }
 
-  .detailed-status {
-    padding: 16px;
+  .summary-pills {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .pill {
+    padding: 3px 8px;
+  }
+
+  .status-legend {
+    gap: 10px;
   }
 
 }
@@ -996,58 +988,37 @@ onMounted(async () => {
     padding: 8px 16px;
   }
 
-  /* 总体进度响应式 - 小屏幕 */
-  .overall-progress-card .el-card__body {
-    padding: 12px;
+  /* 总体统计响应式 - 小屏幕 */
+  .overall-summary {
+    padding: 10px 12px;
   }
 
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .section-title {
-    font-size: 16px;
-  }
-
-  .section-subtitle {
+  .summary-title {
     font-size: 12px;
   }
 
-  .main-stats {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+  .summary-pills {
+    gap: 6px;
   }
 
-  .stat-item {
-    padding: 10px;
+  .pill {
+    padding: 2px 6px;
+  }
+
+  .pill-label {
+    font-size: 10px;
+  }
+
+  .pill-value {
+    font-size: 12px;
+  }
+
+  .status-legend {
     gap: 8px;
   }
 
-  .stat-icon {
-    font-size: 20px;
-  }
-
-  .stat-value {
-    font-size: 20px;
-  }
-
-  .stat-label {
-    font-size: 11px;
-  }
-
-  .status-grid {
-    grid-template-columns: repeat(1, 1fr);
-    gap: 8px;
-  }
-
-  .detailed-status {
-    padding: 12px;
-  }
-
-  .status-title {
-    font-size: 13px;
+  .legend-text {
+    font-size: 10px;
   }
 
 }
