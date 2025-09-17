@@ -111,6 +111,66 @@
           </template>
         </el-alert>
 
+        <!-- Enhanced dual-sheet statistics for complete import -->
+        <div v-if="importOptions.importType === 'complete' && (importResult.applications || importResult.subtasks)" class="dual-sheet-summary">
+          <el-row :gutter="20">
+            <el-col :span="12" v-if="importResult.applications">
+              <el-card shadow="hover">
+                <template #header>
+                  <div class="card-header">
+                    <span>📋 总追踪表（应用数据）</span>
+                  </div>
+                </template>
+                <div class="stats-content">
+                  <div class="stat-item">
+                    <span class="stat-label">总行数：</span>
+                    <span class="stat-value">{{ importResult.applications.total_rows }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">导入成功：</span>
+                    <span class="stat-value success">{{ importResult.applications.imported }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">更新记录：</span>
+                    <span class="stat-value info">{{ importResult.applications.updated }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">跳过记录：</span>
+                    <span class="stat-value warning">{{ importResult.applications.skipped }}</span>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+            <el-col :span="12" v-if="importResult.subtasks">
+              <el-card shadow="hover">
+                <template #header>
+                  <div class="card-header">
+                    <span>📝 子追踪表（子任务数据）</span>
+                  </div>
+                </template>
+                <div class="stats-content">
+                  <div class="stat-item">
+                    <span class="stat-label">总行数：</span>
+                    <span class="stat-value">{{ importResult.subtasks.total_rows }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">导入成功：</span>
+                    <span class="stat-value success">{{ importResult.subtasks.imported }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">更新记录：</span>
+                    <span class="stat-value info">{{ importResult.subtasks.updated }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">跳过记录：</span>
+                    <span class="stat-value warning">{{ importResult.subtasks.skipped }}</span>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+
         <div v-if="importResult.errors.length > 0" class="error-preview">
           <h4>错误详情（前10条）</h4>
           <el-table :data="importResult.errors.slice(0, 10)" style="width: 100%" max-height="300">
@@ -202,7 +262,20 @@ const importResult = reactive({
   imported: 0,
   updated: 0,
   skipped: 0,
-  errors: [] as Array<{ row: number; error: string; data: Record<string, any> }>
+  processing_time_ms: 0,
+  applications: null as {
+    total_rows: number
+    imported: number
+    updated: number
+    skipped: number
+  } | null,
+  subtasks: null as {
+    total_rows: number
+    imported: number
+    updated: number
+    skipped: number
+  } | null,
+  errors: [] as Array<{ row: number; error?: string; message?: string; column?: string; value?: any; sheet?: string; data?: Record<string, any> }>
 })
 
 const handleFileChange = (file: UploadFile) => {
@@ -290,25 +363,33 @@ const nextStep = async () => {
         console.log('⏱️ [ImportView] Backend processing time:', response.processing_time_ms, 'ms')
       }
 
-      // Check both documented format and actual format
+      // Handle enhanced response format with dual-sheet support
       const mappedResponse = {
-        total: response.total_rows || (response.imported || 0) + (response.updated || 0) + (response.skipped || 0),
+        total: response.total_rows || response.total || (response.imported || 0) + (response.updated || 0) + (response.skipped || 0),
         imported: response.processed_rows || response.imported || 0,
         updated: response.updated_rows || response.updated || 0,
         skipped: response.skipped_rows || response.skipped || 0,
+        processing_time_ms: response.processing_time_ms || 0,
+        applications: response.applications || null,
+        subtasks: response.subtasks || null,
         errors: response.errors || [],
         success: response.success || response.status === 'success'
       }
 
-      console.log('🔄 [ImportView] Mapped response:', mappedResponse)
+      console.log('🔄 [ImportView] Mapped response with dual-sheet support:', mappedResponse)
 
       // Check if validation was successful
       if (!mappedResponse.success && mappedResponse.total === 0) {
-        // Check if it's a field mapping issue
-        const expectedFields = Object.keys(EXCEL_FIELD_MAPPING)
-        const fieldMappingHint = `\n\n预期的Excel列名：\n${expectedFields.slice(0, 6).join(', ')} 等\n\n您的Excel应包含这些中文列名，系统会自动进行字段映射。`
+        // For dual-sheet imports, check if either table has data
+        const hasApplicationsData = mappedResponse.applications?.total_rows > 0
+        const hasSubtasksData = mappedResponse.subtasks?.total_rows > 0
 
-        throw new Error('文件验证失败：无法识别Excel数据。可能原因：\n1. 文件为空或没有数据行\n2. Excel列名与预期不匹配\n3. 文件编码问题' + fieldMappingHint)
+        if (!hasApplicationsData && !hasSubtasksData) {
+          const expectedFields = Object.keys(EXCEL_FIELD_MAPPING)
+          const fieldMappingHint = `\n\n预期的Excel列名：\n${expectedFields.slice(0, 6).join(', ')} 等\n\n您的Excel应包含这些中文列名，系统会自动进行字段映射。`
+
+          throw new Error('文件验证失败：无法识别Excel数据。可能原因：\n1. 文件为空或没有数据行\n2. Excel列名与预期不匹配\n3. 文件编码问题' + fieldMappingHint)
+        }
       }
 
       // Update import result with validation data
@@ -318,6 +399,9 @@ const nextStep = async () => {
       importResult.imported = mappedResponse.imported
       importResult.updated = mappedResponse.updated
       importResult.skipped = mappedResponse.skipped
+      importResult.processing_time_ms = mappedResponse.processing_time_ms
+      importResult.applications = mappedResponse.applications
+      importResult.subtasks = mappedResponse.subtasks
       importResult.errors = mappedResponse.errors
 
       currentStep.value = 1
@@ -610,5 +694,54 @@ const downloadErrorReport = () => {
   color: #059669;
   font-weight: bold;
   margin-top: 15px;
+}
+
+/* Dual-sheet statistics styles */
+.dual-sheet-summary {
+  margin: 20px 0;
+}
+
+.dual-sheet-summary .card-header {
+  font-weight: bold;
+  color: #2d3748;
+}
+
+.stats-content {
+  padding: 10px 0;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #718096;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: bold;
+  color: #2d3748;
+}
+
+.stat-value.success {
+  color: #48bb78;
+}
+
+.stat-value.info {
+  color: #4299e1;
+}
+
+.stat-value.warning {
+  color: #ed8936;
 }
 </style>

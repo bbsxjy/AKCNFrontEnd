@@ -367,21 +367,113 @@ Headers: {
 }
 Body: FormData {
   file: File (Excel file),
-  update_existing: true,
   validate_only: false
 }
 Response: {
-  "status": "success",
-  "imported": 50,
-  "updated": 10,
-  "skipped": 5,
+  "success": true,
+  "total_rows": 50,
+  "processed_rows": 45,
+  "updated_rows": 10,
+  "skipped_rows": 5,
+  "processing_time_ms": 2500,
   "errors": [
     {
       "row": 15,
-      "error": "Invalid status value",
-      "data": { /* Row data */ }
+      "column": "应用名称",
+      "message": "Invalid status value",
+      "value": "invalid_status"
     }
   ]
+}
+```
+
+### 2. Import SubTasks from Excel (Enhanced - Supports Dual Sheet Processing)
+```javascript
+POST /api/v1/excel/import/subtasks
+Headers: {
+  Authorization: "Bearer {token}",
+  Content-Type: "multipart/form-data"
+}
+Body: FormData {
+  file: File (Excel file with dual sheets supported),
+  validate_only: false
+}
+Response: {
+  "success": true,
+  "total_rows": 16,
+  "processed_rows": 14,
+  "updated_rows": 3,
+  "skipped_rows": 2,
+  "processing_time_ms": 3200,
+  "applications": {
+    "total_rows": 5,
+    "imported": 2,
+    "updated": 3,
+    "skipped": 0
+  },
+  "subtasks": {
+    "total_rows": 11,
+    "imported": 9,
+    "updated": 0,
+    "skipped": 2
+  },
+  "errors": [
+    {
+      "row": 15,
+      "column": "应用L2 ID",
+      "message": "应用L2 ID不存在: L2_APP_999",
+      "value": "L2_APP_999",
+      "sheet": "子追踪表"
+    }
+  ]
+}
+```
+
+### 3. Excel Preview (New)
+```javascript
+POST /api/v1/excel/preview
+Headers: {
+  Authorization: "Bearer {token}",
+  Content-Type: "multipart/form-data"
+}
+Body: FormData {
+  file: File (Excel file)
+}
+Response: {
+  "sheet_names": ["总追踪表（勿动）", "子追踪表"],
+  "detected_entity_type": "subtask",
+  "column_analysis": [
+    {
+      "column_name": "L2ID",
+      "data_type": "string",
+      "sample_values": ["123", "321"],
+      "quality_score": 0.95
+    }
+  ],
+  "data_quality_score": 0.92,
+  "sample_rows": [
+    { "L2ID": "123", "L2应用": "APP1" }
+  ],
+  "recommendations": ["数据质量良好", "建议使用双表导入"]
+}
+```
+
+### 4. Excel Validation (New)
+```javascript
+POST /api/v1/excel/validate
+Headers: {
+  Authorization: "Bearer {token}",
+  Content-Type: "multipart/form-data"
+}
+Body: FormData {
+  file: File (Excel file),
+  entity_type: "application" | "subtask"
+}
+Response: {
+  // Same format as import endpoints but without actual data processing
+  "success": true,
+  "total_rows": 16,
+  "validation_errors": [...]
 }
 ```
 

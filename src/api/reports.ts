@@ -77,14 +77,36 @@ export interface ExcelImportParams {
 }
 
 export interface ExcelImportResponse {
-  status: string
-  imported: number
-  updated: number
-  skipped: number
+  success: boolean
+  status?: string
+  total_rows?: number
+  processed_rows?: number
+  updated_rows?: number
+  skipped_rows?: number
+  processing_time_ms?: number
+  imported?: number  // Legacy compatibility
+  updated?: number   // Legacy compatibility
+  skipped?: number   // Legacy compatibility
+  applications?: {
+    total_rows: number
+    imported: number
+    updated: number
+    skipped: number
+  }
+  subtasks?: {
+    total_rows: number
+    imported: number
+    updated: number
+    skipped: number
+  }
   errors: Array<{
     row: number
-    error: string
-    data: Record<string, any>
+    column?: string
+    message?: string
+    error?: string  // Legacy compatibility
+    value?: any
+    sheet?: string
+    data?: Record<string, any>  // Legacy compatibility
   }>
 }
 
@@ -613,96 +635,71 @@ export class ExcelAPI {
     })
   }
 
-  // Import complete Excel file with both applications and subtasks
+  // Import complete Excel file with both applications and subtasks using backend dual-sheet support
   static async importCompleteExcel(params: ExcelImportParams): Promise<ExcelImportResponse> {
-    console.log('🔍 [ExcelAPI] Starting complete import for both applications and subtasks')
+    console.log('🔍 [ExcelAPI] Starting complete import using backend dual-sheet processing')
 
-    // Create separate single-worksheet files for each endpoint
-    const applicationsFile = await this.transformExcelFile(params.file, 'applications')
-    const subtasksFile = await this.transformExcelFile(params.file, 'subtasks')
-
-    // Import applications first
-    console.log('📋 [ExcelAPI] Step 1: Importing applications')
-
-    const formData1 = new FormData()
-    formData1.append('file', applicationsFile)
-    if (params.update_existing !== undefined) {
-      formData1.append('update_existing', params.update_existing.toString())
-    }
+    // Use original file directly - backend now supports dual-sheet processing
+    const formData = new FormData()
+    formData.append('file', params.file)
     if (params.validate_only !== undefined) {
-      formData1.append('validate_only', params.validate_only.toString())
+      formData.append('validate_only', params.validate_only.toString())
     }
 
-    console.log('🔍 [ExcelAPI] Applications import request:', {
-      endpoint: '/excel/import/applications',
-      originalFile: params.file.name,
-      transformedFile: applicationsFile.name,
-      transformedSize: applicationsFile.size,
-      update_existing: params.update_existing,
-      validate_only: params.validate_only
-    })
-
-    const appResponse = await api.post('/excel/import/applications', formData1, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-
-    console.log('📊 [ExcelAPI] Applications import response:', appResponse.data)
-
-    // Import subtasks second - use separate subtasks file
-    console.log('📋 [ExcelAPI] Step 2: Importing subtasks')
-
-    const formData2 = new FormData()
-    formData2.append('file', subtasksFile)
-    if (params.update_existing !== undefined) {
-      formData2.append('update_existing', params.update_existing.toString())
-    }
-    if (params.validate_only !== undefined) {
-      formData2.append('validate_only', params.validate_only.toString())
-    }
-
-    console.log('🔍 [ExcelAPI] SubTasks import request:', {
+    console.log('🔍 [ExcelAPI] Dual-sheet import request:', {
       endpoint: '/excel/import/subtasks',
       originalFile: params.file.name,
-      transformedFile: subtasksFile.name,
-      transformedSize: subtasksFile.size,
-      update_existing: params.update_existing,
-      validate_only: params.validate_only
+      fileSize: params.file.size,
+      validate_only: params.validate_only,
+      note: 'Using backend dual-sheet processing (enhanced subtasks endpoint)'
     })
 
-    const subtaskResponse = await api.post('/excel/import/subtasks', formData2, {
+    const response = await api.post('/excel/import/subtasks', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     })
 
-    console.log('📊 [ExcelAPI] SubTasks import response:', subtaskResponse.data)
+    console.log('📊 [ExcelAPI] Dual-sheet import response:', response.data)
 
-    // Combine results
-    const combinedResponse: ExcelImportResponse = {
-      status: (appResponse.data.status === 'success' && subtaskResponse.data.status === 'success') ? 'success' : 'partial',
-      imported: (appResponse.data.imported || 0) + (subtaskResponse.data.imported || 0),
-      updated: (appResponse.data.updated || 0) + (subtaskResponse.data.updated || 0),
-      skipped: (appResponse.data.skipped || 0) + (subtaskResponse.data.skipped || 0),
-      errors: [...(appResponse.data.errors || []), ...(subtaskResponse.data.errors || [])]
+    // Handle enhanced response format with dual-sheet statistics
+    const enhancedResponse: ExcelImportResponse = {
+      success: response.data.success || false,
+      total_rows: response.data.total_rows || 0,
+      processed_rows: response.data.processed_rows || 0,
+      updated_rows: response.data.updated_rows || 0,
+      skipped_rows: response.data.skipped_rows || 0,
+      processing_time_ms: response.data.processing_time_ms || 0,
+      applications: response.data.applications || {
+        total_rows: 0,
+        imported: 0,
+        updated: 0,
+        skipped: 0
+      },
+      subtasks: response.data.subtasks || {
+        total_rows: 0,
+        imported: 0,
+        updated: 0,
+        skipped: 0
+      },
+      errors: response.data.errors || [],
+      // Legacy compatibility fields
+      imported: (response.data.applications?.imported || 0) + (response.data.subtasks?.imported || 0),
+      updated: (response.data.applications?.updated || 0) + (response.data.subtasks?.updated || 0),
+      skipped: (response.data.applications?.skipped || 0) + (response.data.subtasks?.skipped || 0),
+      status: response.data.success ? 'success' : 'error'
     }
 
-    console.log('📊 [ExcelAPI] Complete import summary:', {
-      applications: {
-        imported: appResponse.data.imported || 0,
-        updated: appResponse.data.updated || 0,
-        errors: appResponse.data.errors?.length || 0
-      },
-      subtasks: {
-        imported: subtaskResponse.data.imported || 0,
-        updated: subtaskResponse.data.updated || 0,
-        errors: subtaskResponse.data.errors?.length || 0
-      },
-      combined: combinedResponse
+    console.log('📊 [ExcelAPI] Enhanced dual-sheet summary:', {
+      success: enhancedResponse.success,
+      processing_time: enhancedResponse.processing_time_ms + 'ms',
+      applications: enhancedResponse.applications,
+      subtasks: enhancedResponse.subtasks,
+      total_imported: enhancedResponse.imported,
+      total_errors: enhancedResponse.errors.length
     })
 
-    return combinedResponse
+    return enhancedResponse
   }
 
   // Import applications from Excel
