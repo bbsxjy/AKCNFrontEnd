@@ -29,11 +29,11 @@ export const APPLICATION_FIELD_MAPPING: ExcelFieldMapping = {
 
 // Map user's Excel column names to API field names for SubTasks (子追踪表)
 export const SUBTASK_FIELD_MAPPING: ExcelFieldMapping = {
-  'L2ID': 'application_id',
+  'L2ID': 'application_l2_id',
   'L2应用名': 'application_name',
-  '子目标': 'subtask_target',
-  '版本名': 'subtask_name',
-  '改造状态': 'status',
+  '子目标': 'sub_target',
+  '版本名': 'version_name',
+  '改造状态': 'task_status',
   '【计划】\n需求完成时间': 'planned_start_date',
   '【实际】\n需求到达时间': 'actual_start_date',
   '【计划】\n发版时间': 'planned_release_date',
@@ -44,7 +44,7 @@ export const SUBTASK_FIELD_MAPPING: ExcelFieldMapping = {
   '【实际】\n业务上线时间': 'actual_end_date',
   '验收年份': 'supervision_year',
   '所属指标': 'kpi_classification',
-  '主表同步备注': 'notes'
+  '主表同步备注': 'technical_notes'
 }
 
 // Legacy mapping for backward compatibility
@@ -151,7 +151,7 @@ export function transformSubTaskRowToAPI(excelRow: Record<string, any>): Record<
 
       // Apply value mappings based on field type
       switch (apiField) {
-        case 'status':
+        case 'task_status':
           mappedValue = SUBTASK_STATUS_MAPPING[excelValue] || excelValue
           break
         case 'supervision_year':
@@ -160,8 +160,8 @@ export function transformSubTaskRowToAPI(excelRow: Record<string, any>): Record<
             mappedValue = parseInt(excelValue.replace('年', ''))
           }
           break
-        case 'application_id':
-          // Ensure application_id is string
+        case 'application_l2_id':
+          // Ensure application_l2_id is string
           mappedValue = String(excelValue)
           break
         // Handle date fields - Excel dates might be in serial format
@@ -188,8 +188,8 @@ export function transformSubTaskRowToAPI(excelRow: Record<string, any>): Record<
   }
 
   // Set default values for required fields
-  if (!apiRow.status) {
-    apiRow.status = 'pending'
+  if (!apiRow.task_status) {
+    apiRow.task_status = 'pending'
   }
 
   return apiRow

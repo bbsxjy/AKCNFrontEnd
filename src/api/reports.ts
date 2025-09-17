@@ -662,6 +662,24 @@ export class ExcelAPI {
 
     console.log('📊 [ExcelAPI] Dual-sheet import response:', response.data)
 
+    // Log detailed error information for debugging
+    if (!response.data.success) {
+      console.error('❌ [ExcelAPI] Import validation failed:')
+      console.error('❌ Success:', response.data.success)
+      console.error('❌ Total rows:', response.data.total_rows)
+      console.error('❌ Processed rows:', response.data.processed_rows)
+      console.error('❌ Error count:', response.data.errors?.length || 0)
+      if (response.data.errors && response.data.errors.length > 0) {
+        console.error('❌ First 5 errors:', response.data.errors.slice(0, 5))
+      }
+      if (response.data.applications) {
+        console.error('❌ Applications result:', response.data.applications)
+      }
+      if (response.data.subtasks) {
+        console.error('❌ Subtasks result:', response.data.subtasks)
+      }
+    }
+
     // Handle enhanced response format with dual-sheet statistics
     const enhancedResponse: ExcelImportResponse = {
       success: response.data.success || false,

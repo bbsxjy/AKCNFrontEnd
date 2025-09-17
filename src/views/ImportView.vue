@@ -71,7 +71,7 @@
           <h4>🔄 字段映射说明</h4>
           <p>系统将自动映射您Excel文件中的中文列名到API字段：</p>
           <el-row :gutter="10" class="mapping-examples">
-            <el-col :span="8" v-for="(apiField, excelField) in Object.fromEntries(Object.entries(EXCEL_FIELD_MAPPING).slice(0, 6))" :key="excelField">
+            <el-col :span="8" v-for="(apiField, excelField) in Object.fromEntries(Object.entries(EXCEL_FIELD_MAPPING || {}).slice(0, 6))" :key="excelField">
               <div class="mapping-item">
                 <span class="excel-field">{{ excelField }}</span>
                 <span class="arrow">→</span>
@@ -178,8 +178,8 @@
             <el-table-column prop="error" label="错误信息" />
             <el-table-column label="数据" width="200">
               <template #default="{ row }">
-                <el-tooltip :content="JSON.stringify(row.data, null, 2)" placement="top">
-                  <span>{{ Object.keys(row.data).slice(0, 2).join(', ') }}...</span>
+                <el-tooltip :content="JSON.stringify(row.data || {}, null, 2)" placement="top">
+                  <span>{{ row.data ? Object.keys(row.data).slice(0, 2).join(', ') + '...' : 'No data' }}</span>
                 </el-tooltip>
               </template>
             </el-table-column>
@@ -221,9 +221,9 @@
             <el-table-column prop="error" label="错误信息" />
             <el-table-column label="数据" width="300">
               <template #default="{ row }">
-                <el-tooltip :content="JSON.stringify(row.data, null, 2)" placement="top">
+                <el-tooltip :content="JSON.stringify(row.data || {}, null, 2)" placement="top">
                   <span style="font-family: monospace; font-size: 12px;">
-                    {{ JSON.stringify(row.data).substring(0, 50) }}...
+                    {{ row.data ? JSON.stringify(row.data).substring(0, 50) + '...' : 'No data' }}
                   </span>
                 </el-tooltip>
               </template>
