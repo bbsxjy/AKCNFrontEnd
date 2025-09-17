@@ -20,11 +20,14 @@ export const EXCEL_FIELD_MAPPING: ExcelFieldMapping = {
   '开发负责人': 'responsible_person',
   '开发团队': 'responsible_team',
   '改造状态': 'status',
-  '硬件资源保障\n优先级': 'priority', // Handle multiline column header
+  '硬件资源保障\n优先级': 'priority', // Exact column name with newline
   '所属指标': 'kpi_classification',
   '档位': 'service_tier',
   '改造目标': 'transformation_target',
-  '监管验收年份': 'supervision_year'
+  '监管验收年份': 'supervision_year',
+  '延误状态': 'delay_status',
+  '当前改造阶段': 'current_stage',
+  '验收状态': 'acceptance_status'
 }
 
 // Map Chinese status values to API status values

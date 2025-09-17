@@ -236,21 +236,133 @@ export class ExcelAPI {
       const reader = new FileReader()
       reader.onload = async (e) => {
         try {
-          const data = e.target?.result
+          const data = e.target?.result as ArrayBuffer
           if (!data) {
             reject(new Error('Failed to read file'))
             return
           }
 
-          // For now, return the original file as the backend should handle the mapping
-          // In a real implementation, we would use a library like xlsx to transform the data
-          console.log('🔄 [ExcelAPI] File transformation (placeholder):', {
+          console.log('🔄 [ExcelAPI] Starting Excel transformation:', {
             originalName: file.name,
             size: file.size
           })
 
-          resolve(file)
+          // Import xlsx dynamically to handle Excel files
+          const XLSX = await import('xlsx')
+
+          // Read the workbook
+          const workbook = XLSX.read(data, { type: 'array' })
+          const sheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[sheetName]
+
+          // Convert to JSON to process data
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+
+          if (!jsonData.length) {
+            reject(new Error('Excel文件为空'))
+            return
+          }
+
+          // Get headers and data rows
+          const originalHeaders = jsonData[0] as string[]
+          const dataRows = jsonData.slice(1)
+
+          console.log('📋 [ExcelAPI] Original headers:', originalHeaders)
+          console.log('📊 [ExcelAPI] Data rows count:', dataRows.length)
+
+          // Define field mapping
+          const fieldMapping: Record<string, string> = {
+            'L2ID': 'application_id',
+            'L2应用': 'application_name',
+            '所属L1': 'business_domain',
+            '所属项目': 'business_subdomain',
+            '开发负责人': 'responsible_person',
+            '开发团队': 'responsible_team',
+            '改造状态': 'status',
+            '硬件资源保障\n优先级': 'priority',
+            '所属指标': 'kpi_classification',
+            '档位': 'service_tier',
+            '改造目标': 'transformation_target',
+            '监管验收年份': 'supervision_year'
+          }
+
+          // Status value mapping
+          const statusMapping: Record<string, string> = {
+            '研发进行中': 'in_progress',
+            '待启动': 'pending',
+            '业务上线中': 'deploying',
+            '全部完成': 'completed',
+            '存在阻塞': 'blocked'
+          }
+
+          // Priority mapping
+          const priorityMapping: Record<string, string> = {
+            'P0': 'high',
+            'P1': 'medium',
+            'P2': 'low'
+          }
+
+          // Create new headers by mapping original headers
+          const newHeaders: string[] = []
+          const headerMapping: number[] = []
+
+          originalHeaders.forEach((header, index) => {
+            const mappedField = fieldMapping[header]
+            if (mappedField) {
+              newHeaders.push(mappedField)
+              headerMapping.push(index)
+            }
+          })
+
+          console.log('🔄 [ExcelAPI] Mapped headers:', newHeaders)
+
+          // Transform data rows
+          const transformedRows = dataRows.map((row: any[]) => {
+            const newRow: any[] = []
+            headerMapping.forEach((originalIndex, newIndex) => {
+              let value = row[originalIndex]
+              const fieldName = newHeaders[newIndex]
+
+              // Apply value transformations
+              if (fieldName === 'status' && value && statusMapping[value]) {
+                value = statusMapping[value]
+              } else if (fieldName === 'priority' && value && priorityMapping[value]) {
+                value = priorityMapping[value]
+              } else if (fieldName === 'supervision_year' && typeof value === 'string' && value.includes('年')) {
+                value = parseInt(value.replace('年', ''))
+              } else if (fieldName === 'application_id') {
+                value = String(value || '')
+              }
+
+              newRow.push(value || '')
+            })
+            return newRow
+          })
+
+          // Create new workbook with transformed data
+          const newWorksheet = XLSX.utils.aoa_to_sheet([newHeaders, ...transformedRows])
+          const newWorkbook = XLSX.utils.book_new()
+          XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, 'Applications')
+
+          // Convert to buffer
+          const newExcelBuffer = XLSX.write(newWorkbook, { type: 'array', bookType: 'xlsx' })
+
+          // Create new file
+          const transformedFile = new File([newExcelBuffer], `transformed_${file.name}`, {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          })
+
+          console.log('✅ [ExcelAPI] Excel transformation completed:', {
+            originalHeaders: originalHeaders.length,
+            mappedHeaders: newHeaders.length,
+            dataRows: transformedRows.length,
+            newFileName: transformedFile.name,
+            newSize: transformedFile.size
+          })
+
+          resolve(transformedFile)
         } catch (error) {
+          console.error('❌ [ExcelAPI] Excel transformation failed:', error)
           reject(error)
         }
       }
@@ -273,22 +385,7 @@ export class ExcelAPI {
       formData.append('validate_only', params.validate_only.toString())
     }
 
-    // Add field mapping information for backend to understand Chinese column names
-    const fieldMappingJson = JSON.stringify({
-      'L2ID': 'application_id',
-      'L2应用': 'application_name',
-      '所属L1': 'business_domain',
-      '所属项目': 'business_subdomain',
-      '开发负责人': 'responsible_person',
-      '开发团队': 'responsible_team',
-      '改造状态': 'status',
-      '硬件资源保障\n优先级': 'priority',
-      '所属指标': 'kpi_classification',
-      '档位': 'service_tier',
-      '改造目标': 'transformation_target',
-      '监管验收年份': 'supervision_year'
-    })
-    formData.append('field_mapping', fieldMappingJson)
+    // Note: Excel file has been transformed to use English column names that the API expects
 
     console.log('🔍 [ExcelAPI] Import request:', {
       endpoint: '/excel/import/applications',

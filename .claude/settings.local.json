@@ -20,7 +20,10 @@
       "Bash(curl:*)",
       "Read(//c/Users/**)",
       "Bash(python3:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(tskill:*)"
     ],
     "deny": [],
     "ask": []
