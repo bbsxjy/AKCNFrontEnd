@@ -370,6 +370,15 @@ const nextStep = async () => {
       console.log('🔍 Total errors:', response.errors?.length || 0)
       if (response.errors && response.errors.length > 0) {
         console.log('🔍 First 3 errors:', response.errors.slice(0, 3))
+        // Show detailed error content
+        console.log('🔍 [ImportView] Detailed error analysis:')
+        response.errors.slice(0, 3).forEach((error: any, index: number) => {
+          console.log(`   Error ${index + 1}:`, error)
+          if (typeof error === 'object') {
+            console.log('     Error properties:', Object.keys(error))
+            console.log('     Error content:', JSON.stringify(error, null, 2))
+          }
+        })
       }
 
       // Handle enhanced response format with dual-sheet support

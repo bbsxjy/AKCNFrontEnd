@@ -842,13 +842,15 @@ export class ExcelAPI {
     }
   }
 
-  // Import subtasks from Excel (Enhanced - Uses dual-sheet processing like complete import)
+  // Import subtasks from Excel (Using transformation to match backend expectations)
   static async importSubTasks(params: ExcelImportParams): Promise<ExcelImportResponse> {
-    console.log('🔍 [ExcelAPI] Starting subtasks import - trying dual-sheet processing first')
+    console.log('🔍 [ExcelAPI] Starting subtasks import with field transformation')
 
-    // First attempt: Use original file directly for dual-sheet processing
-    let formData = new FormData()
-    formData.append('file', params.file)
+    // Transform the Excel file to match backend expectations
+    const transformedFile = await this.transformExcelFile(params.file, 'subtasks')
+
+    const formData = new FormData()
+    formData.append('file', transformedFile)
     if (params.validate_only !== undefined) {
       formData.append('validate_only', params.validate_only.toString())
     }
@@ -856,9 +858,11 @@ export class ExcelAPI {
     console.log('🔍 [ExcelAPI] SubTasks import request:', {
       endpoint: '/excel/import/subtasks',
       originalFile: params.file.name,
-      fileSize: params.file.size,
+      originalSize: params.file.size,
+      transformedFile: transformedFile.name,
+      transformedSize: transformedFile.size,
       validate_only: params.validate_only,
-      note: 'Using backend dual-sheet processing (enhanced subtasks endpoint)'
+      note: 'Using transformed file with correct field mappings'
     })
 
     const response = await api.post('/excel/import/subtasks', formData, {
@@ -881,6 +885,21 @@ export class ExcelAPI {
       console.error('❌ Error count:', response.data.errors?.length || 0)
       if (response.data.errors && response.data.errors.length > 0) {
         console.error('❌ First 5 errors:', response.data.errors.slice(0, 5))
+        // Log detailed error information to understand validation failures
+        console.error('❌ [ExcelAPI] Detailed validation errors:')
+        response.data.errors.slice(0, 3).forEach((error: any, index: number) => {
+          console.error(`❌ Error ${index + 1}:`)
+          console.error('   Full error object:', error)
+          if (error.data) {
+            console.error('   Data that failed:', error.data)
+          }
+          if (error.error) {
+            console.error('   Error message:', error.error)
+          }
+          if (error.row) {
+            console.error('   Row number:', error.row)
+          }
+        })
       }
       if (response.data.applications) {
         console.error('❌ Applications result:', response.data.applications)
