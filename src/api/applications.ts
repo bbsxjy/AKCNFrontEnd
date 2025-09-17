@@ -15,26 +15,36 @@ export interface ApplicationListResponse {
 
 export interface Application {
   id: number
-  application_id: string
-  application_name: string
-  business_domain: string
-  business_subdomain: string
-  responsible_person: string
+  l2_id: string  // 后端字段名
+  app_name: string  // 后端字段名
+  supervision_year: number
+  transformation_target: string  // AK或云原生
+  is_ak_completed: boolean
+  is_cloud_native_completed: boolean
+  current_stage: string
+  overall_status: string  // 研发进行中、全部完成等
   responsible_team: string
-  status: string
-  priority: string
-  kpi_classification: string
-  service_tier: string
-  traffic: number
-  size: string
-  public_cloud_vendor: string
+  responsible_person: string
   progress_percentage: number
-  resource_progress: number
-  service_progress: number
-  traffic_progress: number
-  transformation_target?: string  // 添加改造目标字段
+  planned_requirement_date?: string
+  planned_release_date?: string
+  planned_tech_online_date?: string
+  planned_biz_online_date?: string
+  actual_requirement_date?: string
+  actual_release_date?: string
+  actual_tech_online_date?: string
+  actual_biz_online_date?: string
+  is_delayed: boolean
+  delay_days: number
+  notes?: string
+  created_by?: number
+  updated_by?: number
   created_at: string
   updated_at: string
+  // 前端兼容字段
+  application_id?: string  // 映射自l2_id
+  application_name?: string  // 映射自app_name
+  status?: string  // 映射自overall_status
 }
 
 export interface CreateApplicationRequest {
@@ -44,12 +54,6 @@ export interface CreateApplicationRequest {
   responsible_person: string
   responsible_team: string
   status: string
-  priority: string
-  kpi_classification: string
-  service_tier: string
-  traffic: number
-  size: string
-  public_cloud_vendor: string
   supervision_year?: number
 }
 
@@ -60,12 +64,6 @@ export interface UpdateApplicationRequest {
   responsible_person?: string
   responsible_team?: string
   status?: string
-  priority?: string
-  kpi_classification?: string
-  service_tier?: string
-  traffic?: number
-  size?: string
-  public_cloud_vendor?: string
   supervision_year?: number
 }
 
@@ -97,27 +95,11 @@ export class ApplicationsAPI {
     // Map backend fields to frontend fields
     if (response.data && response.data.items) {
       response.data.items = response.data.items.map((item: any) => ({
-        id: item.id,
-        application_id: item.l2_id || item.application_id,
-        application_name: item.app_name || item.application_name,
-        business_domain: item.business_domain,
-        business_subdomain: item.business_subdomain,
-        responsible_person: item.responsible_person,
-        responsible_team: item.responsible_team,
-        status: item.status,
-        priority: item.priority,
-        kpi_classification: item.kpi_classification,
-        service_tier: item.service_tier,
-        traffic: item.traffic,
-        size: item.size,
-        public_cloud_vendor: item.public_cloud_vendor,
-        progress_percentage: item.progress_percentage || 0,
-        resource_progress: item.resource_progress || 0,
-        service_progress: item.service_progress || 0,
-        traffic_progress: item.traffic_progress || 0,
-        transformation_target: item.transformation_target,
-        created_at: item.created_at,
-        updated_at: item.updated_at
+        ...item,
+        // 兼容字段映射
+        application_id: item.l2_id,
+        application_name: item.app_name,
+        status: item.overall_status
       }))
     }
 
@@ -164,8 +146,7 @@ export class ApplicationsAPI {
       supervision_year: data.supervision_year || new Date().getFullYear(),
       transformation_target: data.transformation_target || 'AK',
       responsible_team: data.responsible_team,
-      responsible_person: data.responsible_person,
-      notes: `Size: ${data.size}, Cloud: ${data.public_cloud_vendor}`
+      responsible_person: data.responsible_person
     }
 
     const response = await api.post('/applications', backendData)
@@ -173,27 +154,11 @@ export class ApplicationsAPI {
     // Map backend response to frontend format
     const item = response.data
     return {
-      id: item.id,
-      application_id: item.l2_id || item.application_id,
-      application_name: item.app_name || item.application_name,
-      business_domain: item.business_domain,
-      business_subdomain: item.business_subdomain,
-      responsible_person: item.responsible_person,
-      responsible_team: item.responsible_team,
-      status: item.status,
-      priority: item.priority,
-      kpi_classification: item.kpi_classification,
-      service_tier: item.service_tier,
-      traffic: item.traffic,
-      size: item.size,
-      public_cloud_vendor: item.public_cloud_vendor,
-      progress_percentage: item.progress_percentage || 0,
-      resource_progress: item.resource_progress || 0,
-      service_progress: item.service_progress || 0,
-      traffic_progress: item.traffic_progress || 0,
-      transformation_target: item.transformation_target,
-      created_at: item.created_at,
-      updated_at: item.updated_at
+      ...item,
+      // 兼容字段映射
+      application_id: item.l2_id,
+      application_name: item.app_name,
+      status: item.overall_status
     }
   }
 
@@ -208,36 +173,17 @@ export class ApplicationsAPI {
     if (data.responsible_team) backendData.responsible_team = data.responsible_team
     if (data.responsible_person) backendData.responsible_person = data.responsible_person
     if (data.supervision_year) backendData.supervision_year = data.supervision_year
-    if (data.size || data.public_cloud_vendor) {
-      backendData.notes = `Size: ${data.size || ''}, Cloud: ${data.public_cloud_vendor || ''}`
-    }
 
     const response = await api.put(`/applications/${id}`, backendData)
 
     // Map backend response to frontend format
     const item = response.data
     return {
-      id: item.id,
-      application_id: item.l2_id || item.application_id,
-      application_name: item.app_name || item.application_name,
-      business_domain: item.business_domain,
-      business_subdomain: item.business_subdomain,
-      responsible_person: item.responsible_person,
-      responsible_team: item.responsible_team,
-      status: item.status,
-      priority: item.priority,
-      kpi_classification: item.kpi_classification,
-      service_tier: item.service_tier,
-      traffic: item.traffic,
-      size: item.size,
-      public_cloud_vendor: item.public_cloud_vendor,
-      progress_percentage: item.progress_percentage || 0,
-      resource_progress: item.resource_progress || 0,
-      service_progress: item.service_progress || 0,
-      traffic_progress: item.traffic_progress || 0,
-      transformation_target: item.transformation_target,
-      created_at: item.created_at,
-      updated_at: item.updated_at
+      ...item,
+      // 兼容字段映射
+      application_id: item.l2_id,
+      application_name: item.app_name,
+      status: item.overall_status
     }
   }
 

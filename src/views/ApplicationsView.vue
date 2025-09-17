@@ -102,12 +102,21 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="application_id" label="L2 ID" min-width="130">
+        <el-table-column prop="l2_id" label="L2 ID" min-width="130">
           <template #default="{ row }">
-            <strong>{{ row.application_id }}</strong>
+            <strong>{{ row.l2_id || row.application_id }}</strong>
           </template>
         </el-table-column>
-        <el-table-column prop="application_name" label="应用名称" min-width="200" />
+        <el-table-column prop="app_name" label="应用名称" min-width="200">
+          <template #default="{ row }">
+            {{ row.app_name || row.application_name }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="supervision_year" label="监管年份" width="100">
+          <template #default="{ row }">
+            {{ row.supervision_year || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="transformation_target" label="改造目标" min-width="100">
           <template #default="{ row }">
             <el-tag size="small" :type="row.transformation_target === 'AK' ? 'primary' : 'success'">
@@ -115,10 +124,15 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="当前状态" min-width="120">
+        <el-table-column prop="current_stage" label="当前阶段" min-width="100">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
-              {{ row.status }}
+            {{ row.current_stage || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="overall_status" label="整体状态" min-width="120">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.overall_status || row.status)" size="small">
+              {{ row.overall_status || row.status || '待启动' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -235,18 +249,34 @@
               {{ getApplicationName(row.application_id) }}
             </template>
           </el-table-column>
-          <el-table-column prop="subtask_name" label="子任务名称" min-width="200">
+          <el-table-column prop="module_name" label="模块名称" min-width="120">
             <template #default="{ row }">
-              <strong>{{ row.subtask_name }}</strong>
-              <div v-if="row.status === '存在阻塞'" class="block-warning">⚠️ 阻塞</div>
+              {{ row.module_name || '默认模块' }}
             </template>
           </el-table-column>
-          <el-table-column prop="responsible_person" label="负责人" width="120" />
-          <el-table-column prop="status" label="状态" width="130">
+          <el-table-column prop="version_name" label="子任务名称" min-width="150">
             <template #default="{ row }">
-              <el-tag :type="getStatusType(row.status)" size="small">
-                {{ row.status }}
+              <strong>{{ row.version_name || row.subtask_name || '-' }}</strong>
+            </template>
+          </el-table-column>
+          <el-table-column prop="sub_target" label="改造目标" width="100">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.sub_target === 'AK' ? 'primary' : 'success'">
+                {{ row.sub_target || 'AK' }}
               </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="assigned_to" label="负责人" width="100">
+            <template #default="{ row }">
+              {{ row.assigned_to || row.responsible_person || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="task_status" label="状态" width="130">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.task_status || row.status)" size="small">
+                {{ row.task_status || row.status || '待启动' }}
+              </el-tag>
+              <div v-if="row.is_blocked" class="block-warning">⚠️ 阻塞: {{ row.block_reason }}</div>
             </template>
           </el-table-column>
           <el-table-column prop="progress_percentage" label="进度" min-width="180">
@@ -262,22 +292,22 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="planned_start_date" label="计划开始" min-width="120">
+          <el-table-column prop="planned_requirement_date" label="需求" min-width="100">
             <template #default="{ row }">
-              {{ formatDate(row.planned_start_date) }}
+              {{ formatDate(row.planned_requirement_date || row.planned_start_date) }}
             </template>
           </el-table-column>
-          <el-table-column prop="planned_end_date" label="计划完成" min-width="120">
+          <el-table-column prop="planned_biz_online_date" label="上线" min-width="100">
             <template #default="{ row }">
-              {{ formatDate(row.planned_end_date) }}
+              {{ formatDate(row.planned_biz_online_date || row.planned_end_date) }}
             </template>
           </el-table-column>
-          <el-table-column prop="actual_end_date" label="实际完成" min-width="120">
+          <el-table-column prop="actual_biz_online_date" label="实际" min-width="100">
             <template #default="{ row }">
-              <span v-if="row.actual_end_date" class="completed-date">
-                {{ formatDate(row.actual_end_date) }} ✓
+              <span v-if="row.actual_biz_online_date || row.actual_end_date" class="completed-date">
+                {{ formatDate(row.actual_biz_online_date || row.actual_end_date) }} ✓
               </span>
-              <span v-else-if="row.status === '存在阻塞'" class="blocked-text">延期中</span>
+              <span v-else-if="row.is_blocked" class="blocked-text">延期</span>
               <span v-else>-</span>
             </template>
           </el-table-column>
@@ -461,12 +491,6 @@ const createForm = reactive({
   responsible_person: '',
   responsible_team: '',
   status: '待启动',
-  priority: 'medium',
-  kpi_classification: 'P1',
-  service_tier: 'Tier 1',
-  traffic: 0,
-  size: 'medium',
-  public_cloud_vendor: 'AWS',
   supervision_year: 2025,
   transformation_target: 'AK'
 })
@@ -478,13 +502,7 @@ const editForm = reactive({
   responsible_person: '',
   responsible_team: '',
   status: '待启动',
-  supervision_year: 2025,
-  priority: 'medium',
-  kpi_classification: 'P1',
-  service_tier: 'Tier 1',
-  traffic: 0,
-  size: 'medium',
-  public_cloud_vendor: 'AWS'
+  supervision_year: 2025
 })
 
 // 前端筛选后的数据
@@ -494,10 +512,11 @@ const filteredApplications = computed(() => {
   // 关键词搜索（使用防抖后的值）
   if (debouncedKeyword.value) {
     const keyword = debouncedKeyword.value.toLowerCase()
-    result = result.filter(app =>
-      app.application_id.toLowerCase().includes(keyword) ||
-      app.application_name.toLowerCase().includes(keyword)
-    )
+    result = result.filter(app => {
+      const id = app.l2_id || app.application_id || ''
+      const name = app.app_name || app.application_name || ''
+      return id.toLowerCase().includes(keyword) || name.toLowerCase().includes(keyword)
+    })
   }
 
   // 状态筛选
@@ -535,10 +554,11 @@ const filteredSubTasks = computed(() => {
   // 关键词搜索
   if (subtaskSearchForm.keyword) {
     const keyword = subtaskSearchForm.keyword.toLowerCase()
-    result = result.filter(task =>
-      task.subtask_name.toLowerCase().includes(keyword) ||
-      task.responsible_person.toLowerCase().includes(keyword)
-    )
+    result = result.filter(task => {
+      const name = task.version_name || task.subtask_name || ''
+      const person = task.assigned_to || task.responsible_person || ''
+      return name.toLowerCase().includes(keyword) || person.toLowerCase().includes(keyword)
+    })
   }
 
   // 状态筛选
@@ -688,19 +708,13 @@ const editApplication = (row: Application) => {
   editingId.value = row.id
   // Copy data to edit form
   Object.assign(editForm, {
-    application_id: row.application_id,
-    application_name: row.application_name,
+    application_id: row.l2_id || row.application_id,
+    application_name: row.app_name || row.application_name,
     transformation_target: row.transformation_target || 'AK',
     responsible_person: row.responsible_person,
     responsible_team: row.responsible_team,
-    status: row.status || '待启动',
-    supervision_year: 2025,
-    priority: row.priority || 'medium',
-    kpi_classification: row.kpi_classification || 'P1',
-    service_tier: row.service_tier || 'Tier 1',
-    traffic: row.traffic || 0,
-    size: row.size || 'medium',
-    public_cloud_vendor: row.public_cloud_vendor || 'AWS'
+    status: row.overall_status || row.status || '待启动',
+    supervision_year: row.supervision_year || 2025
   })
   showEditDialog.value = true
 }
@@ -803,12 +817,6 @@ const handleCreate = async () => {
       responsible_person: '',
       responsible_team: '',
       status: '待启动',
-      priority: 'medium',
-      kpi_classification: 'P1',
-      service_tier: 'Tier 1',
-      traffic: 0,
-      size: 'medium',
-      public_cloud_vendor: 'AWS',
       supervision_year: 2025,
       transformation_target: 'AK'
     })
@@ -872,12 +880,12 @@ const handleCurrentChange = (page: number) => {
 // SubTask related functions
 const getApplicationName = (applicationId: number) => {
   const app = allApplications.value.find(app => app.id === applicationId)
-  return app ? app.application_name : '-'
+  return app ? (app.app_name || app.application_name) : '-'
 }
 
 const getApplicationL2Id = (applicationId: number) => {
   const app = allApplications.value.find(app => app.id === applicationId)
-  return app ? app.application_id : '-'
+  return app ? (app.l2_id || app.application_id) : '-'
 }
 
 const getSubTaskProgressColor = (row: SubTask) => {

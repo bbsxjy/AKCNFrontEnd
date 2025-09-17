@@ -53,18 +53,34 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="subtask_name" label="子任务名称" min-width="200">
+        <el-table-column prop="module_name" label="模块名称" min-width="120">
           <template #default="{ row }">
-            <strong>{{ row.subtask_name }}</strong>
-            <div v-if="row.status === '存在阻塞'" class="block-warning">⚠️ 阻塞</div>
+            {{ row.module_name || '默认模块' }}
           </template>
         </el-table-column>
-        <el-table-column prop="responsible_person" label="负责人" width="120" />
-        <el-table-column prop="status" label="状态" width="130">
+        <el-table-column prop="version_name" label="子任务名称" min-width="180">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
-              {{ row.status }}
+            <strong>{{ row.version_name || row.subtask_name || '-' }}</strong>
+          </template>
+        </el-table-column>
+        <el-table-column prop="sub_target" label="改造目标" width="100">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.sub_target === 'AK' ? 'primary' : 'success'">
+              {{ row.sub_target || 'AK' }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="assigned_to" label="负责人" width="100">
+          <template #default="{ row }">
+            {{ row.assigned_to || row.responsible_person || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="task_status" label="状态" width="130">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.task_status || row.status)" size="small">
+              {{ row.task_status || row.status || '待启动' }}
+            </el-tag>
+            <div v-if="row.is_blocked" class="block-warning">⚠️ {{ row.block_reason }}</div>
           </template>
         </el-table-column>
         <el-table-column prop="progress_percentage" label="进度" min-width="180">
@@ -76,29 +92,29 @@
             />
           </template>
         </el-table-column>
-        <el-table-column prop="planned_start_date" label="计划开始" min-width="120">
+        <el-table-column prop="planned_requirement_date" label="需求" min-width="100">
           <template #default="{ row }">
-            {{ formatDate(row.planned_start_date) }}
+            {{ formatDate(row.planned_requirement_date || row.planned_start_date) }}
           </template>
         </el-table-column>
-        <el-table-column prop="planned_end_date" label="计划完成" min-width="120">
+        <el-table-column prop="planned_biz_online_date" label="上线" min-width="100">
           <template #default="{ row }">
-            {{ formatDate(row.planned_end_date) }}
+            {{ formatDate(row.planned_biz_online_date || row.planned_end_date) }}
           </template>
         </el-table-column>
-        <el-table-column prop="actual_end_date" label="实际完成" min-width="120">
+        <el-table-column prop="actual_biz_online_date" label="实际" min-width="100">
           <template #default="{ row }">
-            <span v-if="row.actual_end_date" class="completed-date">
-              {{ formatDate(row.actual_end_date) }} ✓
+            <span v-if="row.actual_biz_online_date || row.actual_end_date" class="completed-date">
+              {{ formatDate(row.actual_biz_online_date || row.actual_end_date) }} ✓
             </span>
-            <span v-else-if="row.status === '存在阻塞'" class="blocked-text">延期中</span>
+            <span v-else-if="row.is_blocked" class="blocked-text">延期</span>
             <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button
-              v-if="row.status === '存在阻塞'"
+              v-if="row.is_blocked"
               size="small"
               type="danger"
               @click="resolveBlock(row)"
