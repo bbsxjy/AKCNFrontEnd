@@ -661,6 +661,9 @@ export class ExcelAPI {
     })
 
     console.log('📊 [ExcelAPI] Dual-sheet import response:', response.data)
+    console.log('🔍 [ExcelAPI] Complete - Applications breakdown:', response.data.applications)
+    console.log('🔍 [ExcelAPI] Complete - Subtasks breakdown:', response.data.subtasks)
+    console.log('🔍 [ExcelAPI] Complete - Errors array:', response.data.errors)
 
     // Log detailed error information for debugging
     if (!response.data.success) {
@@ -841,10 +844,10 @@ export class ExcelAPI {
 
   // Import subtasks from Excel (Enhanced - Uses dual-sheet processing like complete import)
   static async importSubTasks(params: ExcelImportParams): Promise<ExcelImportResponse> {
-    console.log('🔍 [ExcelAPI] Starting subtasks import using backend dual-sheet processing')
+    console.log('🔍 [ExcelAPI] Starting subtasks import - trying dual-sheet processing first')
 
-    // Use original file directly - backend now supports dual-sheet processing
-    const formData = new FormData()
+    // First attempt: Use original file directly for dual-sheet processing
+    let formData = new FormData()
     formData.append('file', params.file)
     if (params.validate_only !== undefined) {
       formData.append('validate_only', params.validate_only.toString())
@@ -865,6 +868,9 @@ export class ExcelAPI {
     })
 
     console.log('📊 [ExcelAPI] SubTasks import response:', response.data)
+    console.log('🔍 [ExcelAPI] Applications breakdown:', response.data.applications)
+    console.log('🔍 [ExcelAPI] Subtasks breakdown:', response.data.subtasks)
+    console.log('🔍 [ExcelAPI] Errors array:', response.data.errors)
 
     // Log detailed error information for debugging
     if (!response.data.success) {

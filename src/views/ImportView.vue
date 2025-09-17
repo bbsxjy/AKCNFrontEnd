@@ -363,6 +363,15 @@ const nextStep = async () => {
         console.log('⏱️ [ImportView] Backend processing time:', response.processing_time_ms, 'ms')
       }
 
+      // Log detailed breakdown to understand why total_rows is 0
+      console.log('🔍 [ImportView] Detailed breakdown analysis:')
+      console.log('🔍 Applications result:', response.applications)
+      console.log('🔍 Subtasks result:', response.subtasks)
+      console.log('🔍 Total errors:', response.errors?.length || 0)
+      if (response.errors && response.errors.length > 0) {
+        console.log('🔍 First 3 errors:', response.errors.slice(0, 3))
+      }
+
       // Handle enhanced response format with dual-sheet support
       const mappedResponse = {
         total: response.total_rows || response.total || (response.imported || 0) + (response.updated || 0) + (response.skipped || 0),
