@@ -239,76 +239,114 @@
           @selection-change="handleSubTaskSelectionChange"
         >
           <el-table-column type="selection" width="55" />
-          <el-table-column label="L2 ID" min-width="120">
+          <el-table-column label="L2 ID" width="100" fixed="left">
             <template #default="{ row }">
               <strong>{{ getApplicationL2Id(row.application_id) }}</strong>
             </template>
           </el-table-column>
-          <el-table-column label="应用名称" min-width="150">
+          <el-table-column label="应用名称" min-width="120">
             <template #default="{ row }">
               {{ getApplicationName(row.application_id) }}
             </template>
           </el-table-column>
-          <el-table-column prop="module_name" label="模块名称" min-width="120">
+          <el-table-column prop="module_name" label="模块名称" min-width="150">
             <template #default="{ row }">
-              {{ row.module_name || '默认模块' }}
+              <strong>{{ row.module_name || '默认模块' }}</strong>
             </template>
           </el-table-column>
-          <el-table-column prop="version_name" label="子任务名称" min-width="150">
-            <template #default="{ row }">
-              <strong>{{ row.version_name || row.subtask_name || '-' }}</strong>
-            </template>
-          </el-table-column>
-          <el-table-column prop="sub_target" label="改造目标" width="100">
+          <el-table-column prop="sub_target" label="改造目标" width="80">
             <template #default="{ row }">
               <el-tag size="small" :type="row.sub_target === 'AK' ? 'primary' : 'success'">
                 {{ row.sub_target || 'AK' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="assigned_to" label="负责人" width="100">
+          <!-- 负责人信息 -->
+          <el-table-column label="开发负责人" width="90">
             <template #default="{ row }">
-              {{ row.assigned_to || row.responsible_person || '-' }}
+              {{ row.dev_owner || '-' }}
             </template>
           </el-table-column>
-          <el-table-column prop="task_status" label="状态" width="130">
+          <el-table-column label="开发团队" width="90">
+            <template #default="{ row }">
+              {{ row.dev_team || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="运维负责人" width="90">
+            <template #default="{ row }">
+              {{ row.ops_owner || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="运维团队" width="90">
+            <template #default="{ row }">
+              {{ row.ops_team || '-' }}
+            </template>
+          </el-table-column>
+          <!-- 状态和进度 -->
+          <el-table-column prop="task_status" label="状态" width="100">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.task_status || row.status)" size="small">
                 {{ row.task_status || row.status || '待启动' }}
               </el-tag>
-              <div v-if="row.is_blocked" class="block-warning">⚠️ 阻塞: {{ row.block_reason }}</div>
             </template>
           </el-table-column>
-          <el-table-column prop="progress_percentage" label="进度" min-width="180">
+          <el-table-column prop="progress_percentage" label="进度" width="80">
             <template #default="{ row }">
-              <div class="progress-cell">
-                <el-progress
-                  :percentage="Number(row.progress_percentage) || 0"
-                  :stroke-width="8"
-                  :show-text="false"
-                  :color="getSubTaskProgressColor(row)"
-                />
-                <span class="progress-text">{{ Number(row.progress_percentage) || 0 }}%</span>
-              </div>
+              <el-progress
+                :percentage="Number(row.progress_percentage) || 0"
+                :stroke-width="6"
+                :color="getSubTaskProgressColor(row)"
+              />
             </template>
           </el-table-column>
-          <el-table-column prop="planned_requirement_date" label="需求" min-width="100">
+          <!-- 计划时间 -->
+          <el-table-column label="计划需求" width="95">
             <template #default="{ row }">
-              {{ formatDate(row.planned_requirement_date || row.planned_start_date) }}
+              {{ formatShortDate(row.planned_requirement_date) }}
             </template>
           </el-table-column>
-          <el-table-column prop="planned_biz_online_date" label="上线" min-width="100">
+          <el-table-column label="计划发版" width="95">
             <template #default="{ row }">
-              {{ formatDate(row.planned_biz_online_date || row.planned_end_date) }}
+              {{ formatShortDate(row.planned_release_date) }}
             </template>
           </el-table-column>
-          <el-table-column prop="actual_biz_online_date" label="实际" min-width="100">
+          <el-table-column label="计划技术上线" width="95">
             <template #default="{ row }">
-              <span v-if="row.actual_biz_online_date || row.actual_end_date" class="completed-date">
-                {{ formatDate(row.actual_biz_online_date || row.actual_end_date) }} ✓
+              {{ formatShortDate(row.planned_tech_online_date) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="计划业务上线" width="95">
+            <template #default="{ row }">
+              {{ formatShortDate(row.planned_biz_online_date) }}
+            </template>
+          </el-table-column>
+          <!-- 实际时间 -->
+          <el-table-column label="实际需求" width="95">
+            <template #default="{ row }">
+              <span :class="{ 'completed-date': row.actual_requirement_date }">
+                {{ formatShortDate(row.actual_requirement_date) }}
               </span>
-              <span v-else-if="row.is_blocked" class="blocked-text">延期</span>
-              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="实际发版" width="95">
+            <template #default="{ row }">
+              <span :class="{ 'completed-date': row.actual_release_date }">
+                {{ formatShortDate(row.actual_release_date) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="实际技术上线" width="95">
+            <template #default="{ row }">
+              <span :class="{ 'completed-date': row.actual_tech_online_date }">
+                {{ formatShortDate(row.actual_tech_online_date) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="实际业务上线" width="95">
+            <template #default="{ row }">
+              <span :class="{ 'completed-date': row.actual_biz_online_date }">
+                {{ formatShortDate(row.actual_biz_online_date) }}
+              </span>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="100" fixed="right">
@@ -685,6 +723,22 @@ const formatDate = (dateString: string | null | undefined) => {
     }
   } catch (error) {
     console.error('Date formatting error:', error, 'Input:', dateString)
+    return '-'
+  }
+}
+
+const formatShortDate = (dateString: string | null | undefined) => {
+  if (!dateString) return '-'
+
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return '-'
+
+    // Format as MM-DD
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${month}-${day}`
+  } catch (error) {
     return '-'
   }
 }

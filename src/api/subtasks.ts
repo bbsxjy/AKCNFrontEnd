@@ -22,14 +22,22 @@ export interface SubTask {
   progress_percentage: number
   is_blocked: boolean
   block_reason?: string
+  // 计划时间
   planned_requirement_date?: string
   planned_release_date?: string
   planned_tech_online_date?: string
   planned_biz_online_date?: string
+  // 实际时间
   actual_requirement_date?: string
   actual_release_date?: string
   actual_tech_online_date?: string
   actual_biz_online_date?: string
+  // 负责人信息
+  dev_owner?: string  // 开发负责人
+  dev_team?: string  // 开发团队
+  ops_owner?: string  // 运维负责人
+  ops_team?: string  // 运维团队
+  // 其他字段
   requirements?: string
   technical_notes?: string
   test_notes?: string
@@ -37,7 +45,7 @@ export interface SubTask {
   priority?: number
   estimated_hours?: number
   actual_hours?: number
-  assigned_to?: string  // 负责人
+  assigned_to?: string  // 旧负责人字段
   reviewer?: string
   created_by?: number
   updated_by?: number
@@ -122,6 +130,11 @@ export class SubTasksAPI {
 
     return {
       ...item,
+      // 负责人信息 - 如果后端没有这些字段，使用assigned_to作为开发负责人
+      dev_owner: item.dev_owner || item.assigned_to || '-',
+      dev_team: item.dev_team || item.responsible_team || '-',
+      ops_owner: item.ops_owner || '-',
+      ops_team: item.ops_team || '-',
       // 兼容字段映射
       subtask_name: item.version_name || item.module_name || '未命名任务',
       responsible_person: item.assigned_to || '未分配',
