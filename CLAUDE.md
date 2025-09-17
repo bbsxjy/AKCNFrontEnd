@@ -97,15 +97,73 @@ src/
 
 ### API Integration
 
-- **Base URL**: `https://ak-transform.company.com/api/v1`
-- **Authentication**: SSO Token (Bearer Token)
-- **Key Endpoints**:
-  - `/sso/verify` - SSO authentication
-  - `/applications` - Application management
-  - `/subtasks` - Sub-task operations
-  - `/audit/logs` - Audit trail
-  - `/reports/export` - Excel export
-  - `/batch/import` - Bulk import
+- **Base URL**: Configured via environment variables (default: `http://localhost:8000/api/v1`)
+- **Authentication**: Fixed test token for development: `Bearer token_1_admin_full_access_test_2024`
+- **Content-Type**: `application/json` (except for file uploads: `multipart/form-data`)
+
+#### Authentication Endpoints
+- `POST /auth/login` - User login (currently bypassed in test mode)
+- `POST /auth/sso/callback` - SSO callback handler
+- `POST /auth/refresh` - Refresh authentication token
+- `GET /auth/me` - Get current user information
+- `GET /auth/permissions` - Get user permissions
+- `POST /auth/logout` - User logout
+
+#### Application Management
+- `GET /applications` - List applications with filtering and pagination
+- `GET /applications/{id}` - Get single application details
+- `POST /applications` - Create new application
+- `PUT /applications/{id}` - Update application
+- `DELETE /applications/{id}` - Delete application
+- `POST /applications/batch` - Batch operations on applications
+
+#### Sub-task Management
+- `GET /subtasks` - List subtasks with filtering
+- `GET /subtasks/{id}` - Get single subtask details
+- `POST /subtasks` - Create new subtask
+- `PUT /subtasks/{id}` - Update subtask
+- `PATCH /subtasks/{id}/progress` - Update subtask progress
+- `DELETE /subtasks/{id}` - Delete subtask
+
+#### Excel Import/Export
+- `POST /excel/import/applications` - Import applications from Excel (direct file upload)
+- `POST /excel/import/subtasks` - Import subtasks from Excel (direct file upload)
+- `POST /excel/export/applications` - Export applications to Excel
+- `POST /excel/export/subtasks` - Export subtasks to Excel
+- `GET /excel/template/{type}` - Download Excel template (applications/subtasks)
+
+#### Reports
+- `GET /reports/progress-summary` - Get progress summary report
+- `GET /reports/delayed-projects` - Get delayed projects report
+- `GET /reports/team-performance` - Get team performance report
+- `POST /reports/export` - Export reports
+
+#### Audit System
+- `GET /audit/logs` - Get audit logs with filtering
+- `POST /audit/export` - Export audit logs
+- `POST /audit/{id}/rollback` - Rollback to previous state
+
+#### Notifications
+- `GET /notifications` - Get notifications list
+- `PATCH /notifications/{id}/read` - Mark notification as read
+- `POST /notifications/mark-all-read` - Mark all notifications as read
+- `POST /notifications/send` - Send notification
+
+#### Calculation
+- `POST /calculation/calculate` - Calculate progress and status
+
+### Excel Import Notes
+
+The system now sends original Excel files directly to the backend without client-side transformation. The backend is expected to handle:
+
+1. **Chinese column names** in Excel files
+2. **Two-sheet format**:
+   - 总追踪表（勿动） - Applications data
+   - 子追踪表 - Subtasks data
+3. **Date format conversion** from Excel serial numbers to ISO dates
+4. **Field mapping** from Chinese to English field names
+
+If the backend cannot process Chinese column names, it should implement its own mapping logic or notify the frontend team to restore the transformation functionality.
 
 ### State Management (Pinia)
 
@@ -478,12 +536,12 @@ npm run type-check
 
 #### Latest Updates (2025-09-17)
 
-**Excel导入功能优化完成**:
-1. **✅ 基于Sample.xlsx重新设计字段映射**: 移除不必要字段，精确匹配业务需求
-2. **✅ 双表支持**: 分别处理总追踪表（勿动）应用数据和子追踪表子任务数据
-3. **✅ 客户端文件转换**: 使用xlsx库进行中文字段到英文API字段的映射转换
-4. **✅ 智能表选择**: 自动识别工作表类型并应用对应字段映射规则
-5. **✅ 日期处理优化**: 正确处理Excel序列号日期格式到ISO日期字符串的转换
+**Excel导入功能重大调整**:
+1. **✅ 改为直接上传原始文件**: 不再进行客户端转换，直接发送原始Excel文件给后端
+2. **✅ 保留中文列名**: 后端需要处理中文列名的映射
+3. **✅ 双表支持**: 支持总追踪表（应用数据）和子追踪表（子任务数据）
+4. **✅ 修复编译错误**: 解决TypeScript类型检查问题
+5. **✅ 优化错误处理**: 改进导入失败时的错误提示
 
 **Excel导出功能修复完成**:
 1. **✅ 修复Excel导出下载问题**: 适配后端直接返回Excel文件数据
@@ -491,10 +549,10 @@ npm run type-check
 3. **✅ Blob下载优化**: 使用正确的MIME类型和文件处理
 4. **✅ 移除Mock数据**: 完全使用真实API数据，无fallback
 
-**技术改进**:
-- **ExcelAPI.exportAndDownloadApplications**: 新增直接下载方法
-- **ApplicationsAPI字段映射**: `application_id` → `l2_id`, `application_name` → `app_name`
-- **Excel字段映射优化**: 基于Sample.xlsx实际结构重新设计映射规则
+**API文档更新**:
+- **新增详细API端点列表**: 包含所有实际使用的API端点和方法
+- **更新认证说明**: 测试环境使用固定token
+- **添加Excel导入说明**: 后端需要处理中文列名
 - **文件下载优化**: 正确的blob处理和MIME类型设置
 - **错误处理增强**: 改进API错误处理和用户反馈
 
