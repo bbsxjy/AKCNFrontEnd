@@ -839,16 +839,13 @@ export class ExcelAPI {
     }
   }
 
-  // Import subtasks from Excel
+  // Import subtasks from Excel (Enhanced - Uses dual-sheet processing like complete import)
   static async importSubTasks(params: ExcelImportParams): Promise<ExcelImportResponse> {
-    // Transform the file to match API expectations for subtasks
-    const transformedFile = await this.transformExcelFile(params.file, 'subtasks')
+    console.log('🔍 [ExcelAPI] Starting subtasks import using backend dual-sheet processing')
 
+    // Use original file directly - backend now supports dual-sheet processing
     const formData = new FormData()
-    formData.append('file', transformedFile)
-    if (params.update_existing !== undefined) {
-      formData.append('update_existing', params.update_existing.toString())
-    }
+    formData.append('file', params.file)
     if (params.validate_only !== undefined) {
       formData.append('validate_only', params.validate_only.toString())
     }
@@ -856,11 +853,9 @@ export class ExcelAPI {
     console.log('🔍 [ExcelAPI] SubTasks import request:', {
       endpoint: '/excel/import/subtasks',
       originalFile: params.file.name,
-      originalSize: params.file.size,
-      transformedFile: transformedFile.name,
-      transformedSize: transformedFile.size,
-      update_existing: params.update_existing,
-      validate_only: params.validate_only
+      fileSize: params.file.size,
+      validate_only: params.validate_only,
+      note: 'Using backend dual-sheet processing (enhanced subtasks endpoint)'
     })
 
     const response = await api.post('/excel/import/subtasks', formData, {
@@ -870,7 +865,63 @@ export class ExcelAPI {
     })
 
     console.log('📊 [ExcelAPI] SubTasks import response:', response.data)
-    return response.data
+
+    // Log detailed error information for debugging
+    if (!response.data.success) {
+      console.error('❌ [ExcelAPI] SubTasks import validation failed:')
+      console.error('❌ Success:', response.data.success)
+      console.error('❌ Total rows:', response.data.total_rows)
+      console.error('❌ Processed rows:', response.data.processed_rows)
+      console.error('❌ Error count:', response.data.errors?.length || 0)
+      if (response.data.errors && response.data.errors.length > 0) {
+        console.error('❌ First 5 errors:', response.data.errors.slice(0, 5))
+      }
+      if (response.data.applications) {
+        console.error('❌ Applications result:', response.data.applications)
+      }
+      if (response.data.subtasks) {
+        console.error('❌ Subtasks result:', response.data.subtasks)
+      }
+    }
+
+    // Handle enhanced response format with dual-sheet statistics (same as complete import)
+    const enhancedResponse: ExcelImportResponse = {
+      success: response.data.success || false,
+      total_rows: response.data.total_rows || 0,
+      processed_rows: response.data.processed_rows || 0,
+      updated_rows: response.data.updated_rows || 0,
+      skipped_rows: response.data.skipped_rows || 0,
+      processing_time_ms: response.data.processing_time_ms || 0,
+      applications: response.data.applications || {
+        total_rows: 0,
+        imported: 0,
+        updated: 0,
+        skipped: 0
+      },
+      subtasks: response.data.subtasks || {
+        total_rows: 0,
+        imported: 0,
+        updated: 0,
+        skipped: 0
+      },
+      errors: response.data.errors || [],
+      // Legacy compatibility fields
+      imported: (response.data.applications?.imported || 0) + (response.data.subtasks?.imported || 0),
+      updated: (response.data.applications?.updated || 0) + (response.data.subtasks?.updated || 0),
+      skipped: (response.data.applications?.skipped || 0) + (response.data.subtasks?.skipped || 0),
+      status: response.data.success ? 'success' : 'error'
+    }
+
+    console.log('📊 [ExcelAPI] Enhanced SubTasks summary:', {
+      success: enhancedResponse.success,
+      processing_time: enhancedResponse.processing_time_ms + 'ms',
+      applications: enhancedResponse.applications,
+      subtasks: enhancedResponse.subtasks,
+      total_imported: enhancedResponse.imported,
+      total_errors: enhancedResponse.errors.length
+    })
+
+    return enhancedResponse
   }
 
   // Export subtasks to Excel
