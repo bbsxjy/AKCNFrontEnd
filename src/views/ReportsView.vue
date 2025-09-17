@@ -589,44 +589,29 @@ const loadDepartmentReport = async () => {
   }
 }
 
-const generateMonthlyData = () => {
-  // 生成最近12个月的进度数据
-  const months: string[] = []
-  const values: number[] = []
-  const today = new Date()
-
-  for (let i = 11; i >= 0; i--) {
-    const date = new Date(today)
-    date.setMonth(date.getMonth() - i)
-
-    // 格式化月份
-    const month = date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short' })
-    months.push(month)
-
-    // 模拟进度数据（逐月增长）
-    const baseProgress = 20
-    const monthlyIncrease = 5
-    const progress = Math.min(100, baseProgress + (11 - i) * monthlyIncrease)
-    values.push(progress)
-  }
-
-  return { months, values }
-}
+// Removed generateMonthlyData - using generateMonthlyDataFromApplications with real data instead
 
 const generateMonthlyDataFromApplications = (applications: any[]) => {
-  // 基于应用数据生成月度进度
+  // 基于应用数据生成月度进度 - 只使用实际数据
   const months: string[] = []
   const values: number[] = []
   const today = new Date()
 
-  // 计算当前平均进度
+  // 计算当前平均进度 - 只使用有 progress_percentage 的应用
   let currentAvgProgress = 0
   if (applications.length > 0) {
-    const totalProgress = applications.reduce((sum, app) => sum + (app.progress_percentage || 0), 0)
-    currentAvgProgress = Math.round(totalProgress / applications.length)
+    const appsWithProgress = applications.filter(app =>
+      app.progress_percentage !== undefined && app.progress_percentage !== null
+    )
+
+    if (appsWithProgress.length > 0) {
+      const totalProgress = appsWithProgress.reduce((sum, app) => sum + (app.progress_percentage || 0), 0)
+      currentAvgProgress = Math.round(totalProgress / appsWithProgress.length)
+    }
   }
 
-  // 生成最近12个月的趋势
+  // 生成最近12个月的标签和数据
+  // 由于没有历史数据，每个月都显示当前的实际进度
   for (let i = 11; i >= 0; i--) {
     const date = new Date(today)
     date.setMonth(date.getMonth() - i)
@@ -635,9 +620,8 @@ const generateMonthlyDataFromApplications = (applications: any[]) => {
     const month = date.toLocaleDateString('zh-CN', { month: 'short' })
     months.push(month)
 
-    // 模拟历史进度（从低到高）
-    const historicalProgress = Math.max(0, currentAvgProgress - (i * 5))
-    values.push(historicalProgress)
+    // 使用实际进度值，不做任何模拟
+    values.push(currentAvgProgress)
   }
 
   return { months, values }

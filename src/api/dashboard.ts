@@ -125,96 +125,49 @@ export class DashboardAPI {
     return stats
   }
 
-  // 获取进度趋势数据 - 使用应用数据生成模拟趋势
+  // 获取进度趋势数据 - 使用实际应用数据
   static async getProgressTrend(_period: string = '6months'): Promise<TrendDataPoint[]> {
     // 获取所有应用数据
     const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
 
-    // 生成最近30天的趋势数据
+    // 生成最近30天的趋势数据点
     const trendData: TrendDataPoint[] = []
     const today = new Date()
 
-    // 计算当前实际平均进度
+    // 由于没有历史数据API，只能显示当前的平均进度
+    // 每天都显示相同的当前进度值
     let currentAvgProgress = 0
     if (applications.items.length > 0) {
-      // 计算每个应用的进度，如果没有progress_percentage，则根据状态估算
-      const appProgressList = applications.items.map(app => {
-        if (app.progress_percentage !== undefined && app.progress_percentage > 0) {
-          return app.progress_percentage
-        }
-        // 根据状态估算进度
-        const status = app.overall_status || app.status
-        switch (status) {
-          case '全部完成':
-          case 'completed':
-            return 100
-          case '业务上线中':
-          case 'testing':
-            return 75
-          case '研发进行中':
-          case 'in_progress':
-            return 50
-          case '待启动':
-          case 'not_started':
-            return 10
-          case '存在阻塞':
-          case 'blocked':
-            return 30
-          default:
-            return 0
-        }
-      })
+      // 只使用实际的 progress_percentage 字段
+      const validProgressApps = applications.items.filter(app =>
+        app.progress_percentage !== undefined && app.progress_percentage !== null
+      )
 
-      const totalProgress = appProgressList.reduce((sum, progress) => sum + progress, 0)
-      currentAvgProgress = Math.round(totalProgress / appProgressList.length)
+      if (validProgressApps.length > 0) {
+        const totalProgress = validProgressApps.reduce((sum, app) =>
+          sum + (app.progress_percentage || 0), 0)
+        currentAvgProgress = Math.round(totalProgress / validProgressApps.length)
+      }
 
-      console.log('Progress trend calculation:', {
+      console.log('Progress trend calculation (real data only):', {
         totalApps: applications.items.length,
-        totalProgress,
-        avgProgress: currentAvgProgress,
-        sampleApps: applications.items.slice(0, 3).map(app => ({
-          id: app.l2_id,
-          progress: app.progress_percentage,
-          status: app.overall_status || app.status
-        }))
+        appsWithProgress: validProgressApps.length,
+        avgProgress: currentAvgProgress
       })
     }
 
-    // 生成30天的趋势，从低到高模拟增长
+    // 生成30天的数据点，每天都使用当前的实际进度值
+    // 没有历史数据就显示平直线
     for (let i = 29; i >= 0; i--) {
       const date = new Date(today)
       date.setDate(date.getDate() - i)
 
-      // 模拟历史进度（越早越低）
-      let dayProgress = 0
-      if (currentAvgProgress > 0) {
-        // 使用对数增长模型，越接近今天进度越接近当前值
-        const progressRatio = (30 - i) / 30 // 0 to 1
-        const growthFactor = Math.pow(progressRatio, 0.5) // 平方根增长曲线
-        dayProgress = Math.round(currentAvgProgress * growthFactor)
-
-        // 确保有一定的起始值和增长
-        if (i === 29 && dayProgress < 10) {
-          dayProgress = Math.min(10, currentAvgProgress)
-        }
-      }
-
       trendData.push({
         date: date.toISOString().split('T')[0],
-        value: dayProgress
+        value: currentAvgProgress // 使用实际进度，不做任何模拟
       })
     }
 
-    // 如果没有数据，至少返回一些示例数据
-    if (currentAvgProgress === 0 && applications.items.length === 0) {
-      console.log('No applications found, generating sample trend data')
-      // 生成一些示例趋势数据
-      for (let i = 0; i < trendData.length; i++) {
-        trendData[i].value = Math.min(30 + i * 2, 60) // 从30%增长到60%
-      }
-    }
-
-    console.log('Final trend data (first 5 points):', trendData.slice(0, 5))
     return trendData
   }
 
