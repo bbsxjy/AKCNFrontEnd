@@ -102,13 +102,19 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="application_id" label="应用ID" min-width="130">
+        <el-table-column prop="application_id" label="L2 ID" min-width="130">
           <template #default="{ row }">
             <strong>{{ row.application_id }}</strong>
           </template>
         </el-table-column>
         <el-table-column prop="application_name" label="应用名称" min-width="200" />
-        <el-table-column prop="business_domain" label="业务域" min-width="120" />
+        <el-table-column prop="transformation_target" label="改造目标" min-width="100">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.transformation_target === 'AK' ? 'primary' : 'success'">
+              {{ row.transformation_target || 'AK' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="当前状态" min-width="120">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">
@@ -219,15 +225,20 @@
           @selection-change="handleSubTaskSelectionChange"
         >
           <el-table-column type="selection" width="55" />
-          <el-table-column prop="subtask_name" label="子任务名称" min-width="200">
+          <el-table-column label="L2 ID" min-width="120">
             <template #default="{ row }">
-              <strong>{{ row.subtask_name }}</strong>
-              <div v-if="row.status === '存在阻塞'" class="block-warning">⚠️ 阻塞</div>
+              <strong>{{ getApplicationL2Id(row.application_id) }}</strong>
             </template>
           </el-table-column>
           <el-table-column label="应用名称" min-width="150">
             <template #default="{ row }">
               {{ getApplicationName(row.application_id) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="subtask_name" label="子任务名称" min-width="200">
+            <template #default="{ row }">
+              <strong>{{ row.subtask_name }}</strong>
+              <div v-if="row.status === '存在阻塞'" class="block-warning">⚠️ 阻塞</div>
             </template>
           </el-table-column>
           <el-table-column prop="responsible_person" label="负责人" width="120" />
@@ -301,18 +312,18 @@
         <el-form-item label="应用名称" required>
           <el-input v-model="createForm.application_name" />
         </el-form-item>
-        <el-form-item label="监管年份" required>
-          <el-select v-model="createForm.supervision_year" placeholder="请选择年份">
-            <el-option :value="2025" label="2025年" />
-            <el-option :value="2026" label="2026年" />
-            <el-option :value="2027" label="2027年" />
-          </el-select>
-        </el-form-item>
         <el-form-item label="改造目标" required>
           <el-radio-group v-model="createForm.transformation_target">
             <el-radio value="AK">AK</el-radio>
             <el-radio value="云原生">云原生</el-radio>
           </el-radio-group>
+        </el-form-item>
+        <el-form-item label="监管年份">
+          <el-select v-model="createForm.supervision_year" placeholder="请选择年份">
+            <el-option :value="2025" label="2025年" />
+            <el-option :value="2026" label="2026年" />
+            <el-option :value="2027" label="2027年" />
+          </el-select>
         </el-form-item>
         <el-form-item label="负责团队" required>
           <el-select v-model="createForm.responsible_team" placeholder="请选择团队">
@@ -342,11 +353,11 @@
         <el-form-item label="应用名称" required>
           <el-input v-model="editForm.application_name" />
         </el-form-item>
-        <el-form-item label="业务域" required>
-          <el-input v-model="editForm.business_domain" />
-        </el-form-item>
-        <el-form-item label="业务子域">
-          <el-input v-model="editForm.business_subdomain" />
+        <el-form-item label="改造目标">
+          <el-radio-group v-model="editForm.transformation_target">
+            <el-radio value="AK">AK</el-radio>
+            <el-radio value="云原生">云原生</el-radio>
+          </el-radio-group>
         </el-form-item>
         <el-form-item label="负责团队" required>
           <el-select v-model="editForm.responsible_team" placeholder="请选择团队">
@@ -382,7 +393,7 @@ import { useRouter } from 'vue-router'
 import { Plus, Upload, Download } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApplicationsAPI, type Application, type CreateApplicationRequest } from '@/api/applications'
-import { SubTasksAPI, type SubTask, type UpdateSubTaskRequest } from '@/api/subtasks'
+import { SubTasksAPI, type SubTask } from '@/api/subtasks'
 import { ExcelAPI } from '@/api/reports'
 
 const router = useRouter()
@@ -447,11 +458,9 @@ const targetOptions = [
 const createForm = reactive({
   application_id: '',
   application_name: '',
-  business_domain: '',
-  business_subdomain: '',
   responsible_person: '',
   responsible_team: '',
-  status: 'active',
+  status: '待启动',
   priority: 'medium',
   kpi_classification: 'P1',
   service_tier: 'Tier 1',
@@ -465,11 +474,11 @@ const createForm = reactive({
 const editForm = reactive({
   application_id: '',
   application_name: '',
-  business_domain: '',
-  business_subdomain: '',
+  transformation_target: 'AK',
   responsible_person: '',
   responsible_team: '',
-  status: 'active',
+  status: '待启动',
+  supervision_year: 2025,
   priority: 'medium',
   kpi_classification: 'P1',
   service_tier: 'Tier 1',
@@ -594,10 +603,6 @@ onMounted(async () => {
   ])
 })
 
-// 监听筛选条件变化，重置页码
-const watchSearchForm = () => {
-  currentPage.value = 1
-}
 
 // 防抖处理关键词搜索
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -685,11 +690,11 @@ const editApplication = (row: Application) => {
   Object.assign(editForm, {
     application_id: row.application_id,
     application_name: row.application_name,
-    business_domain: row.business_domain,
-    business_subdomain: row.business_subdomain,
+    transformation_target: row.transformation_target || 'AK',
     responsible_person: row.responsible_person,
     responsible_team: row.responsible_team,
-    status: row.status,
+    status: row.status || '待启动',
+    supervision_year: 2025,
     priority: row.priority || 'medium',
     kpi_classification: row.kpi_classification || 'P1',
     service_tier: row.service_tier || 'Tier 1',
@@ -795,17 +800,17 @@ const handleCreate = async () => {
     Object.assign(createForm, {
       application_id: '',
       application_name: '',
-      business_domain: '',
-      business_subdomain: '',
       responsible_person: '',
       responsible_team: '',
-      status: 'active',
+      status: '待启动',
       priority: 'medium',
       kpi_classification: 'P1',
       service_tier: 'Tier 1',
       traffic: 0,
       size: 'medium',
-      public_cloud_vendor: 'AWS'
+      public_cloud_vendor: 'AWS',
+      supervision_year: 2025,
+      transformation_target: 'AK'
     })
   } catch (error) {
     console.error('Failed to create application:', error)
@@ -867,7 +872,12 @@ const handleCurrentChange = (page: number) => {
 // SubTask related functions
 const getApplicationName = (applicationId: number) => {
   const app = allApplications.value.find(app => app.id === applicationId)
-  return app ? app.application_name : 'Unknown'
+  return app ? app.application_name : '-'
+}
+
+const getApplicationL2Id = (applicationId: number) => {
+  const app = allApplications.value.find(app => app.id === applicationId)
+  return app ? app.application_id : '-'
 }
 
 const getSubTaskProgressColor = (row: SubTask) => {

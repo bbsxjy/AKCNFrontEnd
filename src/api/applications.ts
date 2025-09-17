@@ -40,8 +40,7 @@ export interface Application {
 export interface CreateApplicationRequest {
   application_id: string
   application_name: string
-  business_domain: string
-  business_subdomain: string
+  transformation_target?: string
   responsible_person: string
   responsible_team: string
   status: string
@@ -51,13 +50,13 @@ export interface CreateApplicationRequest {
   traffic: number
   size: string
   public_cloud_vendor: string
+  supervision_year?: number
 }
 
 export interface UpdateApplicationRequest {
   application_id?: string
   application_name?: string
-  business_domain?: string
-  business_subdomain?: string
+  transformation_target?: string
   responsible_person?: string
   responsible_team?: string
   status?: string
@@ -67,6 +66,7 @@ export interface UpdateApplicationRequest {
   traffic?: number
   size?: string
   public_cloud_vendor?: string
+  supervision_year?: number
 }
 
 export interface BatchOperationRequest {
@@ -161,11 +161,11 @@ export class ApplicationsAPI {
     const backendData = {
       l2_id: data.application_id,
       app_name: data.application_name,
-      supervision_year: new Date().getFullYear(),
-      transformation_target: data.business_domain === 'AK' ? 'AK' : '云原生',
+      supervision_year: data.supervision_year || new Date().getFullYear(),
+      transformation_target: data.transformation_target || 'AK',
       responsible_team: data.responsible_team,
       responsible_person: data.responsible_person,
-      notes: `Business Domain: ${data.business_domain}, Subdomain: ${data.business_subdomain}, Size: ${data.size}, Cloud: ${data.public_cloud_vendor}`
+      notes: `Size: ${data.size}, Cloud: ${data.public_cloud_vendor}`
     }
 
     const response = await api.post('/applications', backendData)
@@ -204,10 +204,12 @@ export class ApplicationsAPI {
 
     if (data.application_id) backendData.l2_id = data.application_id
     if (data.application_name) backendData.app_name = data.application_name
+    if (data.transformation_target) backendData.transformation_target = data.transformation_target
     if (data.responsible_team) backendData.responsible_team = data.responsible_team
     if (data.responsible_person) backendData.responsible_person = data.responsible_person
-    if (data.business_domain || data.business_subdomain || data.size || data.public_cloud_vendor) {
-      backendData.notes = `Business Domain: ${data.business_domain || ''}, Subdomain: ${data.business_subdomain || ''}, Size: ${data.size || ''}, Cloud: ${data.public_cloud_vendor || ''}`
+    if (data.supervision_year) backendData.supervision_year = data.supervision_year
+    if (data.size || data.public_cloud_vendor) {
+      backendData.notes = `Size: ${data.size || ''}, Cloud: ${data.public_cloud_vendor || ''}`
     }
 
     const response = await api.put(`/applications/${id}`, backendData)
