@@ -83,7 +83,92 @@ export const chartTheme = {
   }
 }
 
-// Progress trend line chart options
+// Monthly completion multi-line chart options
+export function getMonthlyCompletionOptions(data: {
+  months: string[],
+  requirement: number[],
+  release: number[],
+  techOnline: number[],
+  bizOnline: number[]
+}): echarts.EChartsOption {
+  return {
+    color: ['#667eea', '#48bb78', '#ed8936', '#f56565'],
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross'
+      }
+    },
+    legend: {
+      data: ['需求完成', '发版完成', '技术上线', '业务上线'],
+      bottom: 0
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '10%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: data.months,
+      axisLine: {
+        lineStyle: {
+          color: '#e2e8f0'
+        }
+      },
+      axisLabel: {
+        color: '#718096'
+      }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: {
+        lineStyle: {
+          color: '#e2e8f0'
+        }
+      },
+      axisLabel: {
+        color: '#718096',
+        formatter: '{value}'
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#f7fafc'
+        }
+      }
+    },
+    series: [
+      {
+        name: '需求完成',
+        type: 'line',
+        smooth: true,
+        data: data.requirement
+      },
+      {
+        name: '发版完成',
+        type: 'line',
+        smooth: true,
+        data: data.release
+      },
+      {
+        name: '技术上线',
+        type: 'line',
+        smooth: true,
+        data: data.techOnline
+      },
+      {
+        name: '业务上线',
+        type: 'line',
+        smooth: true,
+        data: data.bizOnline
+      }
+    ]
+  }
+}
+
+// Progress trend line chart options (deprecated - kept for compatibility)
 export function getProgressTrendOptions(data: { dates: string[], values: number[] }): echarts.EChartsOption {
   return {
     color: chartTheme.color,

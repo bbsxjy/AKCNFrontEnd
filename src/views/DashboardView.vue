@@ -118,7 +118,11 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>改造进度趋势</span>
+              <span>月度完成趋势</span>
+              <el-radio-group v-model="trendType" size="small" @change="updateProgressChart">
+                <el-radio-button value="actual">实际完成</el-radio-button>
+                <el-radio-button value="planned">计划完成</el-radio-button>
+              </el-radio-group>
             </div>
           </template>
           <div ref="progressChartRef" style="height: 350px;"></div>
@@ -179,7 +183,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { DashboardAPI } from '@/api/dashboard'
-import { useChart, getProgressTrendOptions, getDepartmentPieOptions } from '@/composables/useCharts'
+import { useChart, getMonthlyCompletionOptions, getDepartmentPieOptions } from '@/composables/useCharts'
 
 const router = useRouter()
 
@@ -209,6 +213,9 @@ const stats = ref({
 const myTasks = ref<any[]>([])
 const loading = ref(false)
 
+// Chart toggle
+const trendType = ref<'actual' | 'planned'>('actual')
+
 // Chart refs
 const progressChartRef = ref<HTMLElement | null>(null)
 const departmentChartRef = ref<HTMLElement | null>(null)
@@ -216,23 +223,33 @@ const departmentChartRef = ref<HTMLElement | null>(null)
 // Chart data from API
 const chartData = ref({
   progressTrend: [] as any[],
+  monthlyCompletion: [] as any[],
   departmentDistribution: [] as any[]
 })
 
 // Chart data
 const progressChartOptions = computed(() => {
-  if (chartData.value.progressTrend.length === 0) {
+  if (chartData.value.monthlyCompletion.length === 0) {
     // 如果还没有数据，显示空图表
-    return getProgressTrendOptions({ dates: [], values: [] })
+    return getMonthlyCompletionOptions({
+      months: [],
+      requirement: [],
+      release: [],
+      techOnline: [],
+      bizOnline: []
+    })
   }
 
-  const dates = chartData.value.progressTrend.map(item => {
-    const date = new Date(item.date)
-    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+  const months = chartData.value.monthlyCompletion.map(item => {
+    const date = new Date(item.month + '-01')
+    return date.toLocaleDateString('zh-CN', { year: '2-digit', month: 'short' })
   })
-  const values = chartData.value.progressTrend.map(item => item.value)
+  const requirement = chartData.value.monthlyCompletion.map(item => item.requirement)
+  const release = chartData.value.monthlyCompletion.map(item => item.release)
+  const techOnline = chartData.value.monthlyCompletion.map(item => item.techOnline)
+  const bizOnline = chartData.value.monthlyCompletion.map(item => item.bizOnline)
 
-  return getProgressTrendOptions({ dates, values })
+  return getMonthlyCompletionOptions({ months, requirement, release, techOnline, bizOnline })
 })
 
 const departmentChartOptions = computed(() => {
@@ -254,19 +271,19 @@ const loadDashboardData = async () => {
   try {
     loading.value = true
 
-    // 使用 DashboardAPI 获取所有数据
-    const dashboardData = await DashboardAPI.getDashboardData()
+    // 获取统计数据和任务
+    const [statsData, tasks, deptData] = await Promise.all([
+      DashboardAPI.getDashboardStats(),
+      DashboardAPI.getMyTasks(5),
+      DashboardAPI.getDepartmentDistribution()
+    ])
 
-    // 更新统计数据
-    stats.value = dashboardData.stats
+    stats.value = statsData
+    myTasks.value = tasks
+    chartData.value.departmentDistribution = deptData
 
-    // 更新图表数据
-    chartData.value = dashboardData.chartData
-    console.log('Dashboard chart data loaded:', dashboardData.chartData)
-    console.log('Progress trend data:', dashboardData.chartData.progressTrend)
-
-    // 更新我的任务
-    myTasks.value = dashboardData.myTasks
+    // 加载月度完成数据
+    await loadMonthlyData()
 
     // 刷新图表
     setTimeout(() => {
@@ -283,19 +300,38 @@ const loadDashboardData = async () => {
   }
 }
 
+// 加载月度完成数据
+const loadMonthlyData = async () => {
+  try {
+    const monthlyData = await DashboardAPI.getMonthlyCompletionTrend(trendType.value)
+    chartData.value.monthlyCompletion = monthlyData
+    console.log('Monthly completion data loaded:', monthlyData)
+  } catch (error) {
+    console.error('Failed to load monthly data:', error)
+  }
+}
+
+// 更新进度图表（切换计划/实际）
+const updateProgressChart = async () => {
+  await loadMonthlyData()
+  refreshProgressChart()
+}
+
 // 备用数据加载方法（如果主API失败）
 const loadDataFallback = async () => {
   try {
     // 并行加载各个数据
-    const [statsData, tasks, chartDataResult] = await Promise.all([
+    const [statsData, tasks, monthlyData, deptData] = await Promise.all([
       DashboardAPI.getDashboardStats(),
       DashboardAPI.getMyTasks(5),
-      DashboardAPI.getChartData()
+      DashboardAPI.getMonthlyCompletionTrend(trendType.value),
+      DashboardAPI.getDepartmentDistribution()
     ])
 
     stats.value = statsData
     myTasks.value = tasks
-    chartData.value = chartDataResult
+    chartData.value.monthlyCompletion = monthlyData
+    chartData.value.departmentDistribution = deptData
 
     // 刷新图表
     setTimeout(() => {

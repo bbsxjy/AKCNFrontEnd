@@ -28,6 +28,14 @@ export interface TrendDataPoint {
   value: number
 }
 
+export interface MonthlyCompletionData {
+  month: string
+  requirement: number  // 需求完成数
+  release: number      // 发版完成数
+  techOnline: number   // 技术上线完成数
+  bizOnline: number    // 业务上线完成数
+}
+
 export interface DepartmentProgress {
   name: string
   value: number
@@ -125,50 +133,89 @@ export class DashboardAPI {
     return stats
   }
 
-  // 获取进度趋势数据 - 使用实际应用数据
-  static async getProgressTrend(_period: string = '6months'): Promise<TrendDataPoint[]> {
+  // 获取月度完成数据 - 统计各阶段完成的应用数量
+  static async getMonthlyCompletionTrend(type: 'planned' | 'actual' = 'actual'): Promise<MonthlyCompletionData[]> {
     // 获取所有应用数据
     const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
 
-    // 生成最近30天的趋势数据点
-    const trendData: TrendDataPoint[] = []
+    // 生成最近12个月的数据
+    const monthlyData: MonthlyCompletionData[] = []
     const today = new Date()
 
-    // 由于没有历史数据API，只能显示当前的平均进度
-    // 每天都显示相同的当前进度值
-    let currentAvgProgress = 0
-    if (applications.items.length > 0) {
-      // 只使用实际的 progress_percentage 字段
-      const validProgressApps = applications.items.filter(app =>
-        app.progress_percentage !== undefined && app.progress_percentage !== null
-      )
-
-      if (validProgressApps.length > 0) {
-        const totalProgress = validProgressApps.reduce((sum, app) =>
-          sum + (app.progress_percentage || 0), 0)
-        currentAvgProgress = Math.round(totalProgress / validProgressApps.length)
-      }
-
-      console.log('Progress trend calculation (real data only):', {
-        totalApps: applications.items.length,
-        appsWithProgress: validProgressApps.length,
-        avgProgress: currentAvgProgress
-      })
-    }
-
-    // 生成30天的数据点，每天都使用当前的实际进度值
-    // 没有历史数据就显示平直线
-    for (let i = 29; i >= 0; i--) {
+    for (let i = 11; i >= 0; i--) {
       const date = new Date(today)
-      date.setDate(date.getDate() - i)
+      date.setMonth(date.getMonth() - i)
+      const year = date.getFullYear()
+      const month = date.getMonth() + 1 // JavaScript月份从0开始
 
-      trendData.push({
-        date: date.toISOString().split('T')[0],
-        value: currentAvgProgress // 使用实际进度，不做任何模拟
+      // 统计该月份完成的各阶段数量
+      let requirementCount = 0
+      let releaseCount = 0
+      let techOnlineCount = 0
+      let bizOnlineCount = 0
+
+      applications.items.forEach(app => {
+        // 根据type决定使用计划日期还是实际日期
+        const requirementDate = type === 'planned' ? app.planned_requirement_date : app.actual_requirement_date
+        const releaseDate = type === 'planned' ? app.planned_release_date : app.actual_release_date
+        const techDate = type === 'planned' ? app.planned_tech_online_date : app.actual_tech_online_date
+        const bizDate = type === 'planned' ? app.planned_biz_online_date : app.actual_biz_online_date
+
+        // 检查是否在当前月份完成
+        if (requirementDate) {
+          const d = new Date(requirementDate)
+          if (d.getFullYear() === year && d.getMonth() + 1 === month) {
+            requirementCount++
+          }
+        }
+        if (releaseDate) {
+          const d = new Date(releaseDate)
+          if (d.getFullYear() === year && d.getMonth() + 1 === month) {
+            releaseCount++
+          }
+        }
+        if (techDate) {
+          const d = new Date(techDate)
+          if (d.getFullYear() === year && d.getMonth() + 1 === month) {
+            techOnlineCount++
+          }
+        }
+        if (bizDate) {
+          const d = new Date(bizDate)
+          if (d.getFullYear() === year && d.getMonth() + 1 === month) {
+            bizOnlineCount++
+          }
+        }
+      })
+
+      monthlyData.push({
+        month: `${year}-${String(month).padStart(2, '0')}`,
+        requirement: requirementCount,
+        release: releaseCount,
+        techOnline: techOnlineCount,
+        bizOnline: bizOnlineCount
       })
     }
 
-    return trendData
+    console.log('Monthly completion data:', {
+      type,
+      totalApps: applications.items.length,
+      monthlyData: monthlyData.slice(-3) // 显示最后3个月的数据
+    })
+
+    return monthlyData
+  }
+
+  // 保留原方法以兼容，但改为调用新方法
+  static async getProgressTrend(_period: string = '6months'): Promise<TrendDataPoint[]> {
+    // 调用新方法获取实际完成数据
+    const monthlyData = await this.getMonthlyCompletionTrend('actual')
+
+    // 转换为旧格式，使用业务上线数作为进度值
+    return monthlyData.map(data => ({
+      date: data.month,
+      value: data.bizOnline
+    }))
   }
 
   // 获取部门进度分布 - 使用现有API计算
