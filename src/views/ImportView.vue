@@ -271,6 +271,17 @@ const nextStep = async () => {
       // Handle actual backend response format (differs from API_INTEGRATION_GUIDE.md)
       console.log('🔍 [ImportView] Actual backend response format:', Object.keys(response))
 
+      // Check for additional debug information
+      if (response.warnings && response.warnings.length > 0) {
+        console.log('⚠️ [ImportView] Backend warnings:', response.warnings)
+      }
+      if (response.preview_data) {
+        console.log('👁️ [ImportView] Backend preview data:', response.preview_data)
+      }
+      if (response.processing_time_ms) {
+        console.log('⏱️ [ImportView] Backend processing time:', response.processing_time_ms, 'ms')
+      }
+
       // Check both documented format and actual format
       const mappedResponse = {
         total: response.total_rows || (response.imported || 0) + (response.updated || 0) + (response.skipped || 0),

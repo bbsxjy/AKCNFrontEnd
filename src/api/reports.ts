@@ -406,6 +406,19 @@ export class ExcelAPI {
             hasValidData: transformedRows.length > 0 && transformedRows[0].some(cell => cell !== '')
           })
 
+          // Debug: Save transformed file to downloads for inspection
+          if (process.env.NODE_ENV === 'development') {
+            const downloadUrl = URL.createObjectURL(transformedFile)
+            const link = document.createElement('a')
+            link.href = downloadUrl
+            link.download = `debug_${transformedFile.name}`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            URL.revokeObjectURL(downloadUrl)
+            console.log('💾 [ExcelAPI] Debug: Transformed file saved to downloads for inspection')
+          }
+
           resolve(transformedFile)
         } catch (error) {
           console.error('❌ [ExcelAPI] Excel transformation failed:', error)
