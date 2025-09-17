@@ -203,12 +203,21 @@ const downloadTemplate = async () => {
     console.log('🔍 [ImportView] Downloading template for:', importOptions.sheetType)
 
     await ExcelAPI.downloadTemplate(importOptions.sheetType)
-    ElMessage.success('模板下载成功')
+    ElMessage.success(`${importOptions.sheetType === 'applications' ? '应用' : '子任务'}模板下载成功`)
 
     loadingInstance.close()
   } catch (error: any) {
     console.error('❌ [ImportView] Template download failed:', error)
-    ElMessage.error(`模板下载失败: ${error?.response?.data?.detail || error?.message || '未知错误'}`)
+
+    if (error?.response?.status === 404) {
+      ElMessage.error('模板文件不存在，请联系管理员')
+    } else if (error?.response?.status === 500) {
+      ElMessage.error('服务器错误，请稍后重试')
+    } else {
+      ElMessage.error(`模板下载失败: ${error?.response?.data?.detail || error?.message || '未知错误'}`)
+    }
+
+    loadingInstance.close()
   }
 }
 
@@ -239,17 +248,39 @@ const nextStep = async () => {
 
       console.log('📊 [ImportView] Validation response:', response)
 
+      // Map backend response fields to frontend expected fields
+      const mappedResponse = {
+        total: response.total_rows || 0,
+        imported: response.processed_rows || 0,
+        updated: response.updated_rows || 0,
+        skipped: response.skipped_rows || 0,
+        errors: response.errors || [],
+        success: response.success || false
+      }
+
+      console.log('🔄 [ImportView] Mapped response:', mappedResponse)
+
+      // Check if validation was successful
+      if (!mappedResponse.success && mappedResponse.total === 0) {
+        throw new Error('文件验证失败：文件可能为空或格式不正确。请检查：\n1. 文件是否包含有效数据\n2. 文件格式是否正确\n3. 是否使用了正确的模板')
+      }
+
       // Update import result with validation data
-      importResult.total = response.imported + response.updated + response.skipped + response.errors.length
-      importResult.success = response.imported + response.updated
-      importResult.failed = response.errors.length
-      importResult.imported = response.imported
-      importResult.updated = response.updated
-      importResult.skipped = response.skipped
-      importResult.errors = response.errors
+      importResult.total = mappedResponse.total
+      importResult.success = mappedResponse.imported + mappedResponse.updated
+      importResult.failed = mappedResponse.errors.length
+      importResult.imported = mappedResponse.imported
+      importResult.updated = mappedResponse.updated
+      importResult.skipped = mappedResponse.skipped
+      importResult.errors = mappedResponse.errors
 
       currentStep.value = 1
-      ElMessage.success('文件验证完成')
+
+      if (mappedResponse.errors.length > 0) {
+        ElMessage.warning(`文件验证完成，发现 ${mappedResponse.errors.length} 个问题`)
+      } else {
+        ElMessage.success('文件验证完成，数据格式正确')
+      }
     } catch (error: any) {
       console.error('❌ [ImportView] Validation failed:', error)
       ElMessage.error(`文件验证失败: ${error?.response?.data?.detail || error?.message || '未知错误'}`)
@@ -284,13 +315,24 @@ const nextStep = async () => {
 
       console.log('📊 [ImportView] Import response:', response)
 
+      // Map backend response fields to frontend expected fields
+      const mappedImportResponse = {
+        imported: response.processed_rows || 0,
+        updated: response.updated_rows || 0,
+        skipped: response.skipped_rows || 0,
+        errors: response.errors || [],
+        success: response.success || false
+      }
+
+      console.log('🔄 [ImportView] Mapped import response:', mappedImportResponse)
+
       // Update final results
-      importResult.imported = response.imported
-      importResult.updated = response.updated
-      importResult.skipped = response.skipped
-      importResult.errors = response.errors
-      importResult.success = response.imported + response.updated
-      importResult.failed = response.errors.length
+      importResult.imported = mappedImportResponse.imported
+      importResult.updated = mappedImportResponse.updated
+      importResult.skipped = mappedImportResponse.skipped
+      importResult.errors = mappedImportResponse.errors
+      importResult.success = mappedImportResponse.imported + mappedImportResponse.updated
+      importResult.failed = mappedImportResponse.errors.length
 
       currentStep.value = 3
       ElMessage.success('导入完成')
