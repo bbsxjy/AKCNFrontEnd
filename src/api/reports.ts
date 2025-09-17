@@ -582,7 +582,9 @@ export class ExcelAPI {
           // Create new workbook with transformed data
           const newWorksheet = XLSX.utils.aoa_to_sheet([newHeaders, ...transformedRows])
           const newWorkbook = XLSX.utils.book_new()
-          XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, 'Applications')
+          // Use appropriate sheet name based on type
+          const sheetName = sheetType === 'applications' ? 'Applications' : 'SubTasks'
+          XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, sheetName)
 
           // Convert to buffer
           const newExcelBuffer = XLSX.write(newWorkbook, { type: 'array', bookType: 'xlsx' })
@@ -738,13 +740,11 @@ export class ExcelAPI {
 
   // Import complete Excel file with both applications and subtasks using backend dual-sheet support
   static async importCompleteExcel(params: ExcelImportParams): Promise<ExcelImportResponse> {
-    console.log('🔍 [ExcelAPI] Starting complete import with field transformation')
+    console.log('🔍 [ExcelAPI] Starting complete import with direct file upload')
 
-    // Transform the complete Excel file (both sheets) to match backend expectations
-    const transformedFile = await this.transformCompleteExcelFile(params.file)
-
+    // Try direct upload first - backend may handle Chinese column names
     const formData = new FormData()
-    formData.append('file', transformedFile)
+    formData.append('file', params.file)
     if (params.validate_only !== undefined) {
       formData.append('validate_only', params.validate_only.toString())
     }
@@ -753,10 +753,8 @@ export class ExcelAPI {
       endpoint: '/excel/import/subtasks',
       originalFile: params.file.name,
       originalSize: params.file.size,
-      transformedFile: transformedFile.name,
-      transformedSize: transformedFile.size,
       validate_only: params.validate_only,
-      note: 'Using transformed file with both sheets and correct field mappings'
+      note: 'Using original file with Chinese column names'
     })
 
     const response = await api.post('/excel/import/subtasks', formData, {
@@ -828,13 +826,13 @@ export class ExcelAPI {
     return enhancedResponse
   }
 
-  // Import applications from Excel
+  // Import applications from Excel (Direct upload without transformation)
   static async importApplications(params: ExcelImportParams): Promise<ExcelImportResponse> {
-    // Transform the file to match API expectations
-    const transformedFile = await this.transformExcelFile(params.file)
+    console.log('🔍 [ExcelAPI] Starting applications import with direct file upload')
 
+    // Try direct upload first - backend may handle Chinese column names
     const formData = new FormData()
-    formData.append('file', transformedFile)
+    formData.append('file', params.file)
     if (params.update_existing !== undefined) {
       formData.append('update_existing', params.update_existing.toString())
     }
@@ -842,16 +840,13 @@ export class ExcelAPI {
       formData.append('validate_only', params.validate_only.toString())
     }
 
-    // Note: Excel file has been transformed to use English column names that the API expects
-
     console.log('🔍 [ExcelAPI] Import request:', {
       endpoint: '/excel/import/applications',
       originalFile: params.file.name,
       originalSize: params.file.size,
-      transformedFile: transformedFile.name,
-      transformedSize: transformedFile.size,
       update_existing: params.update_existing,
-      validate_only: params.validate_only
+      validate_only: params.validate_only,
+      note: 'Using original file with Chinese column names'
     })
 
     const response = await api.post('/excel/import/applications', formData, {
@@ -947,15 +942,13 @@ export class ExcelAPI {
     }
   }
 
-  // Import subtasks from Excel (Using transformation to match backend expectations)
+  // Import subtasks from Excel (Direct upload without transformation)
   static async importSubTasks(params: ExcelImportParams): Promise<ExcelImportResponse> {
-    console.log('🔍 [ExcelAPI] Starting subtasks import with field transformation')
+    console.log('🔍 [ExcelAPI] Starting subtasks import with direct file upload')
 
-    // Transform the Excel file to match backend expectations
-    const transformedFile = await this.transformExcelFile(params.file, 'subtasks')
-
+    // Try direct upload first - backend may handle Chinese column names
     const formData = new FormData()
-    formData.append('file', transformedFile)
+    formData.append('file', params.file)
     if (params.validate_only !== undefined) {
       formData.append('validate_only', params.validate_only.toString())
     }
@@ -964,10 +957,8 @@ export class ExcelAPI {
       endpoint: '/excel/import/subtasks',
       originalFile: params.file.name,
       originalSize: params.file.size,
-      transformedFile: transformedFile.name,
-      transformedSize: transformedFile.size,
       validate_only: params.validate_only,
-      note: 'Using transformed file with correct field mappings'
+      note: 'Using original file with Chinese column names'
     })
 
     const response = await api.post('/excel/import/subtasks', formData, {
