@@ -8,6 +8,19 @@ export interface DashboardStats {
   completed: number
   blocked: number
   averageProgress: number
+  // 按改造目标分类
+  akTotal: number
+  akCompleted: number
+  akInProgress: number
+  cloudNativeTotal: number
+  cloudNativeCompleted: number
+  cloudNativeInProgress: number
+  // 按详细状态分类
+  notStarted: number
+  inDevelopment: number
+  inTesting: number
+  online: number
+  offline: number
 }
 
 export interface TrendDataPoint {
@@ -37,7 +50,18 @@ export class DashboardAPI {
       active: 0,
       completed: 0,
       blocked: 0,
-      averageProgress: 0
+      averageProgress: 0,
+      akTotal: 0,
+      akCompleted: 0,
+      akInProgress: 0,
+      cloudNativeTotal: 0,
+      cloudNativeCompleted: 0,
+      cloudNativeInProgress: 0,
+      notStarted: 0,
+      inDevelopment: 0,
+      inTesting: 0,
+      online: 0,
+      offline: 0
     }
 
     if (applications.items.length > 0) {
@@ -46,20 +70,51 @@ export class DashboardAPI {
       applications.items.forEach(app => {
         totalProgress += app.progress_percentage || 0
 
-        switch (app.status) {
+        // 按改造目标分类
+        if (app.transformation_target === 'AK') {
+          stats.akTotal++
+          const status = app.overall_status || app.status
+          if (status === '全部完成' || status === 'completed') {
+            stats.akCompleted++
+          } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress') {
+            stats.akInProgress++
+          }
+        } else if (app.transformation_target === '云原生') {
+          stats.cloudNativeTotal++
+          const status = app.overall_status || app.status
+          if (status === '全部完成' || status === 'completed') {
+            stats.cloudNativeCompleted++
+          } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress') {
+            stats.cloudNativeInProgress++
+          }
+        }
+
+        // 按状态分类
+        const status = app.overall_status || app.status
+        switch (status) {
+          case '待启动':
+          case 'not_started':
+            stats.notStarted++
+            break
           case '研发进行中':
-          case '业务上线中':
-          case 'active':
           case 'in_progress':
             stats.active++
+            stats.inDevelopment++
+            break
+          case '业务上线中':
+          case 'testing':
+            stats.active++
+            stats.inTesting++
             break
           case '全部完成':
           case 'completed':
             stats.completed++
+            stats.online++
             break
           case '存在阻塞':
           case 'blocked':
             stats.blocked++
+            stats.offline++
             break
         }
       })

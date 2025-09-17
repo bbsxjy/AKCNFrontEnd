@@ -1,37 +1,113 @@
 <template>
   <div class="dashboard">
-    <!-- Statistics Cards -->
+    <!-- Primary Statistics Cards -->
     <el-row :gutter="20" class="stats-row">
       <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
         <el-card class="stat-card">
           <div class="stat-value">{{ stats.total }}</div>
           <div class="stat-label">应用总数</div>
           <el-progress :percentage="stats.averageProgress" :show-text="false" class="stat-progress" />
-          <div class="stat-detail">整体进度 {{ stats.averageProgress }}%</div>
+          <div class="stat-detail">进度 {{ stats.averageProgress }}%</div>
         </el-card>
       </el-col>
       <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
         <el-card class="stat-card">
           <div class="stat-value progress">{{ stats.active }}</div>
           <div class="stat-label">进行中</div>
-          <div class="stat-icon">📈</div>
-          <div class="stat-detail">{{ Math.round(stats.active / stats.total * 100) || 0 }}% 占比</div>
+          <div class="stat-detail">{{ Math.round(stats.active / stats.total * 100) || 0 }}%</div>
         </el-card>
       </el-col>
       <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
         <el-card class="stat-card">
           <div class="stat-value success">{{ stats.completed }}</div>
           <div class="stat-label">已完成</div>
-          <div class="stat-icon">✅</div>
-          <div class="stat-detail">{{ Math.round(stats.completed / stats.total * 100) || 0 }}% 完成率</div>
+          <div class="stat-detail">{{ Math.round(stats.completed / stats.total * 100) || 0 }}%</div>
         </el-card>
       </el-col>
       <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
         <el-card class="stat-card">
           <div class="stat-value danger">{{ stats.blocked }}</div>
-          <div class="stat-label">存在阻塞</div>
-          <div class="stat-icon">⚠️</div>
-          <div class="stat-detail">需要关注</div>
+          <div class="stat-label">阻塞</div>
+          <div class="stat-detail">{{ Math.round(stats.blocked / stats.total * 100) || 0 }}%</div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- Transformation Target Statistics -->
+    <el-row :gutter="20" class="stats-row">
+      <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
+        <el-card class="stat-card-horizontal">
+          <div class="target-stats">
+            <div class="target-section">
+              <div class="target-title">AK改造</div>
+              <div class="target-items">
+                <div class="target-item">
+                  <span class="target-value">{{ stats.akTotal }}</span>
+                  <span class="target-label">总数</span>
+                </div>
+                <div class="target-item">
+                  <span class="target-value success">{{ stats.akCompleted }}</span>
+                  <span class="target-label">完成</span>
+                </div>
+                <div class="target-item">
+                  <span class="target-value progress">{{ stats.akInProgress }}</span>
+                  <span class="target-label">进行中</span>
+                </div>
+                <div class="target-item">
+                  <span class="target-value">{{ Math.round(stats.akCompleted / stats.akTotal * 100) || 0 }}%</span>
+                  <span class="target-label">完成率</span>
+                </div>
+              </div>
+            </div>
+            <div class="target-divider"></div>
+            <div class="target-section">
+              <div class="target-title">云原生改造</div>
+              <div class="target-items">
+                <div class="target-item">
+                  <span class="target-value">{{ stats.cloudNativeTotal }}</span>
+                  <span class="target-label">总数</span>
+                </div>
+                <div class="target-item">
+                  <span class="target-value success">{{ stats.cloudNativeCompleted }}</span>
+                  <span class="target-label">完成</span>
+                </div>
+                <div class="target-item">
+                  <span class="target-value progress">{{ stats.cloudNativeInProgress }}</span>
+                  <span class="target-label">进行中</span>
+                </div>
+                <div class="target-item">
+                  <span class="target-value">{{ Math.round(stats.cloudNativeCompleted / stats.cloudNativeTotal * 100) || 0 }}%</span>
+                  <span class="target-label">完成率</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
+        <el-card class="stat-card-horizontal">
+          <div class="status-stats">
+            <div class="status-item">
+              <span class="status-value">{{ stats.notStarted }}</span>
+              <span class="status-label">未启动</span>
+            </div>
+            <div class="status-item">
+              <span class="status-value progress">{{ stats.inDevelopment }}</span>
+              <span class="status-label">研发中</span>
+            </div>
+            <div class="status-item">
+              <span class="status-value warning">{{ stats.inTesting }}</span>
+              <span class="status-label">上线中</span>
+            </div>
+            <div class="status-item">
+              <span class="status-value success">{{ stats.online }}</span>
+              <span class="status-label">已上线</span>
+            </div>
+            <div class="status-item">
+              <span class="status-value danger">{{ stats.offline }}</span>
+              <span class="status-label">已下线</span>
+            </div>
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -113,7 +189,20 @@ const stats = ref({
   active: 0,
   completed: 0,
   blocked: 0,
-  averageProgress: 0
+  averageProgress: 0,
+  // 按改造目标分类
+  akTotal: 0,
+  akCompleted: 0,
+  akInProgress: 0,
+  cloudNativeTotal: 0,
+  cloudNativeCompleted: 0,
+  cloudNativeInProgress: 0,
+  // 按详细状态分类
+  notStarted: 0,  // 未启动
+  inDevelopment: 0,  // 研发进行中
+  inTesting: 0,  // 业务上线中（测试）
+  online: 0,  // 已上线（完成）
+  offline: 0  // 已下线（存在阻塞）
 })
 
 // My tasks data
@@ -294,14 +383,14 @@ onMounted(async () => {
 }
 
 .stat-card .el-card__body {
-  padding: 30px 20px;
+  padding: 20px 15px;
 }
 
 .stat-value {
-  font-size: 2.5em;
+  font-size: 2em;
   font-weight: bold;
   color: #667eea;
-  margin-bottom: 10px;
+  margin-bottom: 5px;
 }
 
 .stat-value.progress {
@@ -316,24 +405,128 @@ onMounted(async () => {
   color: #e53e3e;
 }
 
+.stat-value.warning {
+  color: #ed8936;
+}
+
 .stat-label {
   color: #718096;
-  margin-bottom: 15px;
-  font-size: 16px;
+  margin-bottom: 10px;
+  font-size: 14px;
 }
 
 .stat-progress {
-  margin-bottom: 10px;
-}
-
-.stat-icon {
-  font-size: 24px;
   margin-bottom: 5px;
 }
 
 .stat-detail {
   font-size: 12px;
   color: #718096;
+}
+
+/* Horizontal stat cards */
+.stat-card-horizontal .el-card__body {
+  padding: 15px;
+}
+
+.target-stats {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.target-section {
+  flex: 1;
+  text-align: center;
+}
+
+.target-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #2d3748;
+  margin-bottom: 12px;
+}
+
+.target-items {
+  display: flex;
+  justify-content: space-around;
+  gap: 10px;
+}
+
+.target-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.target-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #667eea;
+  line-height: 1.2;
+}
+
+.target-value.success {
+  color: #38a169;
+}
+
+.target-value.progress {
+  color: #3182ce;
+}
+
+.target-label {
+  font-size: 12px;
+  color: #718096;
+  margin-top: 2px;
+}
+
+.target-divider {
+  width: 1px;
+  height: 50px;
+  background: #e2e8f0;
+  margin: 0 20px;
+}
+
+.status-stats {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.status-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.status-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #667eea;
+  line-height: 1.2;
+}
+
+.status-value.progress {
+  color: #3182ce;
+}
+
+.status-value.success {
+  color: #38a169;
+}
+
+.status-value.danger {
+  color: #e53e3e;
+}
+
+.status-value.warning {
+  color: #ed8936;
+}
+
+.status-label {
+  font-size: 12px;
+  color: #718096;
+  margin-top: 4px;
 }
 
 .charts-row {
@@ -460,6 +653,51 @@ onMounted(async () => {
   .todo-detail {
     font-size: 13px;
   }
+
+  /* 新增统计卡片响应式 */
+  .stat-card-horizontal .el-card__body {
+    padding: 12px;
+  }
+
+  .target-stats {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .target-divider {
+    width: 100%;
+    height: 1px;
+    margin: 15px 0;
+  }
+
+  .target-title {
+    font-size: 14px;
+  }
+
+  .target-items {
+    flex-wrap: wrap;
+  }
+
+  .target-value {
+    font-size: 16px;
+  }
+
+  .target-label {
+    font-size: 11px;
+  }
+
+  .status-stats {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .status-value {
+    font-size: 20px;
+  }
+
+  .status-label {
+    font-size: 11px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -509,6 +747,65 @@ onMounted(async () => {
   .el-button {
     font-size: 12px;
     padding: 8px 16px;
+  }
+
+  /* 新增统计卡片响应式 - 小屏幕 */
+  .stat-card-horizontal .el-card__body {
+    padding: 10px 8px;
+  }
+
+  .target-stats {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .target-section {
+    width: 100%;
+  }
+
+  .target-divider {
+    width: 100%;
+    height: 1px;
+    margin: 12px 0;
+  }
+
+  .target-title {
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  .target-items {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .target-value {
+    font-size: 14px;
+  }
+
+  .target-label {
+    font-size: 10px;
+  }
+
+  .status-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 8px 0;
+  }
+
+  .status-item {
+    padding: 5px;
+  }
+
+  .status-value {
+    font-size: 18px;
+  }
+
+  .status-label {
+    font-size: 10px;
+    margin-top: 2px;
   }
 }
 </style>
