@@ -6,33 +6,39 @@
         <el-card class="transformation-card ak-card">
           <div class="transformation-header">
             <div class="transformation-icon">AK</div>
-            <div class="transformation-title">AK改造</div>
+            <div class="transformation-info">
+              <div class="transformation-title">AK改造</div>
+              <div class="transformation-subtitle">应用现代化改造进度</div>
+            </div>
           </div>
-          <div class="transformation-body">
-            <div class="transformation-main">
-              <div class="main-value">{{ stats.akCompleted }}</div>
-              <div class="main-label">已完成</div>
-              <el-progress
-                :percentage="Math.round(stats.akCompleted / stats.akTotal * 100) || 0"
-                :stroke-width="8"
-                color="#667eea"
-                class="transformation-progress"
-              />
+          <div class="transformation-metrics">
+            <div class="metric-primary">
+              <div class="metric-value-large">{{ stats.akCompleted }}</div>
+              <div class="metric-label">已完成</div>
             </div>
-            <div class="transformation-details">
-              <div class="detail-item">
-                <span class="detail-value">{{ stats.akTotal }}</span>
-                <span class="detail-label">总数</span>
+            <div class="metric-secondary">
+              <div class="metric-item">
+                <div class="metric-value">{{ stats.akTotal }}</div>
+                <div class="metric-label">总数</div>
               </div>
-              <div class="detail-item">
-                <span class="detail-value progress">{{ stats.akInProgress }}</span>
-                <span class="detail-label">进行中</span>
+              <div class="metric-item">
+                <div class="metric-value in-progress">{{ stats.akInProgress }}</div>
+                <div class="metric-label">进行中</div>
               </div>
-              <div class="detail-item">
-                <span class="detail-value">{{ stats.akTotal - stats.akCompleted - stats.akInProgress }}</span>
-                <span class="detail-label">待启动</span>
+              <div class="metric-item">
+                <div class="metric-value">{{ stats.akTotal - stats.akCompleted - stats.akInProgress }}</div>
+                <div class="metric-label">待启动</div>
               </div>
             </div>
+          </div>
+          <div class="transformation-footer">
+            <el-progress
+              :percentage="Math.round(stats.akCompleted / stats.akTotal * 100) || 0"
+              :stroke-width="10"
+              color="#667eea"
+            >
+              <span class="progress-text">完成率 {{ Math.round(stats.akCompleted / stats.akTotal * 100) || 0 }}%</span>
+            </el-progress>
           </div>
         </el-card>
       </el-col>
@@ -40,113 +46,105 @@
         <el-card class="transformation-card cloud-card">
           <div class="transformation-header">
             <div class="transformation-icon cloud">☁️</div>
-            <div class="transformation-title">云原生改造</div>
+            <div class="transformation-info">
+              <div class="transformation-title">云原生改造</div>
+              <div class="transformation-subtitle">容器化与微服务改造进度</div>
+            </div>
           </div>
-          <div class="transformation-body">
-            <div class="transformation-main">
-              <div class="main-value">{{ stats.cloudNativeCompleted }}</div>
-              <div class="main-label">已完成</div>
-              <el-progress
-                :percentage="Math.round(stats.cloudNativeCompleted / stats.cloudNativeTotal * 100) || 0"
-                :stroke-width="8"
-                color="#48bb78"
-                class="transformation-progress"
-              />
+          <div class="transformation-metrics">
+            <div class="metric-primary">
+              <div class="metric-value-large">{{ stats.cloudNativeCompleted }}</div>
+              <div class="metric-label">已完成</div>
             </div>
-            <div class="transformation-details">
-              <div class="detail-item">
-                <span class="detail-value">{{ stats.cloudNativeTotal }}</span>
-                <span class="detail-label">总数</span>
+            <div class="metric-secondary">
+              <div class="metric-item">
+                <div class="metric-value">{{ stats.cloudNativeTotal }}</div>
+                <div class="metric-label">总数</div>
               </div>
-              <div class="detail-item">
-                <span class="detail-value progress">{{ stats.cloudNativeInProgress }}</span>
-                <span class="detail-label">进行中</span>
+              <div class="metric-item">
+                <div class="metric-value in-progress">{{ stats.cloudNativeInProgress }}</div>
+                <div class="metric-label">进行中</div>
               </div>
-              <div class="detail-item">
-                <span class="detail-value">{{ stats.cloudNativeTotal - stats.cloudNativeCompleted - stats.cloudNativeInProgress }}</span>
-                <span class="detail-label">待启动</span>
+              <div class="metric-item">
+                <div class="metric-value">{{ stats.cloudNativeTotal - stats.cloudNativeCompleted - stats.cloudNativeInProgress }}</div>
+                <div class="metric-label">待启动</div>
               </div>
             </div>
+          </div>
+          <div class="transformation-footer">
+            <el-progress
+              :percentage="Math.round(stats.cloudNativeCompleted / stats.cloudNativeTotal * 100) || 0"
+              :stroke-width="10"
+              color="#48bb78"
+            >
+              <span class="progress-text">完成率 {{ Math.round(stats.cloudNativeCompleted / stats.cloudNativeTotal * 100) || 0 }}%</span>
+            </el-progress>
           </div>
         </el-card>
       </el-col>
     </el-row>
 
-    <!-- 第二行：整体统计 -->
-    <el-row :gutter="20" class="stats-row">
-      <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card">
-          <div class="stat-icon">📊</div>
-          <div class="stat-value">{{ stats.total }}</div>
-          <div class="stat-label">应用总数</div>
+    <!-- 第二行：整体统计（紧凑布局） -->
+    <el-row :gutter="16" class="stats-row compact-row">
+      <el-col :xs="6" :sm="6" :md="6" :lg="6" :xl="6">
+        <el-card class="stat-card-compact">
+          <div class="compact-stat">
+            <span class="compact-value">{{ stats.total }}</span>
+            <span class="compact-label">应用总数</span>
+          </div>
         </el-card>
       </el-col>
-      <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card">
-          <div class="stat-icon">⚡</div>
-          <div class="stat-value progress">{{ stats.active }}</div>
-          <div class="stat-label">进行中</div>
+      <el-col :xs="6" :sm="6" :md="6" :lg="6" :xl="6">
+        <el-card class="stat-card-compact">
+          <div class="compact-stat">
+            <span class="compact-value progress">{{ stats.active }}</span>
+            <span class="compact-label">进行中</span>
+          </div>
         </el-card>
       </el-col>
-      <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card">
-          <div class="stat-icon">✅</div>
-          <div class="stat-value success">{{ stats.completed }}</div>
-          <div class="stat-label">已完成</div>
+      <el-col :xs="6" :sm="6" :md="6" :lg="6" :xl="6">
+        <el-card class="stat-card-compact">
+          <div class="compact-stat">
+            <span class="compact-value success">{{ stats.completed }}</span>
+            <span class="compact-label">已完成</span>
+          </div>
         </el-card>
       </el-col>
-      <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card">
-          <div class="stat-icon">⚠️</div>
-          <div class="stat-value danger">{{ stats.blocked }}</div>
-          <div class="stat-label">阻塞</div>
+      <el-col :xs="6" :sm="6" :md="6" :lg="6" :xl="6">
+        <el-card class="stat-card-compact">
+          <div class="compact-stat">
+            <span class="compact-value danger">{{ stats.blocked }}</span>
+            <span class="compact-label">阻塞</span>
+          </div>
         </el-card>
       </el-col>
-    </el-row>
-
-    <!-- 第三行：详细状态分布 -->
-    <el-row :gutter="20" class="stats-row">
-      <el-col :span="24">
-        <el-card class="status-distribution-card">
-          <div class="status-distribution">
-            <div class="status-item">
-              <div class="status-icon">⏳</div>
-              <div class="status-content">
-                <span class="status-value">{{ stats.notStarted }}</span>
-                <span class="status-label">未启动</span>
-              </div>
+      <!-- 第三行合并到第二行右侧 -->
+      <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+        <el-card class="status-bar-card">
+          <div class="status-bar">
+            <div class="status-bar-item">
+              <span class="bar-label">未启动</span>
+              <span class="bar-value">{{ stats.notStarted }}</span>
             </div>
-            <div class="status-divider"></div>
-            <div class="status-item">
-              <div class="status-icon">💻</div>
-              <div class="status-content">
-                <span class="status-value progress">{{ stats.inDevelopment }}</span>
-                <span class="status-label">研发中</span>
-              </div>
+            <div class="bar-divider">|</div>
+            <div class="status-bar-item">
+              <span class="bar-label">研发中</span>
+              <span class="bar-value progress">{{ stats.inDevelopment }}</span>
             </div>
-            <div class="status-divider"></div>
-            <div class="status-item">
-              <div class="status-icon">🚀</div>
-              <div class="status-content">
-                <span class="status-value warning">{{ stats.inTesting }}</span>
-                <span class="status-label">上线中</span>
-              </div>
+            <div class="bar-divider">|</div>
+            <div class="status-bar-item">
+              <span class="bar-label">上线中</span>
+              <span class="bar-value warning">{{ stats.inTesting }}</span>
             </div>
-            <div class="status-divider"></div>
-            <div class="status-item">
-              <div class="status-icon">🌐</div>
-              <div class="status-content">
-                <span class="status-value success">{{ stats.online }}</span>
-                <span class="status-label">已上线</span>
-              </div>
+            <div class="bar-divider">|</div>
+            <div class="status-bar-item">
+              <span class="bar-label">已上线</span>
+              <span class="bar-value success">{{ stats.online }}</span>
             </div>
-            <div class="status-divider"></div>
-            <div class="status-item">
-              <div class="status-icon">📴</div>
-              <div class="status-content">
-                <span class="status-value danger">{{ stats.offline }}</span>
-                <span class="status-label">已下线</span>
-              </div>
+            <div class="bar-divider">|</div>
+            <div class="status-bar-item">
+              <span class="bar-label">已下线</span>
+              <span class="bar-value danger">{{ stats.offline }}</span>
             </div>
           </div>
         </el-card>
@@ -459,133 +457,235 @@ onMounted(async () => {
   margin-bottom: 30px;
 }
 
-/* Transformation Cards (AK and Cloud-Native) */
+/* Transformation Cards (AK and Cloud-Native) - Enhanced */
 .transformation-card {
-  height: 200px;
+  height: 260px;
   transition: all 0.3s;
+  position: relative;
 }
 
 .transformation-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
 }
 
 .transformation-card .el-card__body {
-  padding: 20px;
+  padding: 24px;
   height: 100%;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
 }
 
 .transformation-header {
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .transformation-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  font-size: 16px;
-  margin-right: 12px;
+  font-size: 18px;
+  margin-right: 16px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .transformation-icon.cloud {
   background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
-  font-size: 24px;
+  font-size: 28px;
+  box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+}
+
+.transformation-info {
+  flex: 1;
 }
 
 .transformation-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #2d3748;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a202c;
+  margin-bottom: 4px;
 }
 
-.transformation-body {
+.transformation-subtitle {
+  font-size: 12px;
+  color: #718096;
+}
+
+.transformation-metrics {
   display: flex;
-  flex: 1;
-  gap: 20px;
+  gap: 30px;
+  margin-bottom: 20px;
 }
 
-.transformation-main {
-  flex: 1;
+.metric-primary {
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-right: 30px;
+  border-right: 2px solid #e2e8f0;
 }
 
-.main-value {
-  font-size: 36px;
-  font-weight: bold;
+.metric-value-large {
+  font-size: 48px;
+  font-weight: 700;
   color: #2d3748;
   line-height: 1;
 }
 
-.main-label {
+.metric-label {
+  font-size: 13px;
   color: #718096;
-  font-size: 14px;
-  margin-top: 4px;
-  margin-bottom: 12px;
+  margin-top: 6px;
 }
 
-.transformation-progress {
-  width: 100%;
-}
-
-.transformation-details {
+.metric-secondary {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-left: 20px;
-  border-left: 1px solid #e2e8f0;
+  justify-content: space-around;
+  gap: 10px;
+  flex: 1;
 }
 
-.detail-item {
+.metric-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metric-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.metric-value.in-progress {
+  color: #3182ce;
+}
+
+.transformation-footer {
+  margin-top: auto;
+}
+
+.transformation-footer .el-progress {
+  margin-top: 10px;
+}
+
+.progress-text {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+/* Compact Stats Cards */
+.compact-row {
+  margin-bottom: 16px;
+}
+
+.stat-card-compact {
+  transition: all 0.3s;
+}
+
+.stat-card-compact:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.stat-card-compact .el-card__body {
+  padding: 12px;
+}
+
+.compact-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.compact-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #4a5568;
+  line-height: 1;
+}
+
+.compact-value.progress {
+  color: #3182ce;
+}
+
+.compact-value.success {
+  color: #38a169;
+}
+
+.compact-value.danger {
+  color: #e53e3e;
+}
+
+.compact-label {
+  font-size: 11px;
+  color: #a0aec0;
+  margin-top: 4px;
+}
+
+/* Status Bar Card */
+.status-bar-card {
+  margin-top: 8px;
+}
+
+.status-bar-card .el-card__body {
+  padding: 10px 16px;
+}
+
+.status-bar {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.status-bar-item {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.detail-value {
-  font-size: 20px;
+.bar-label {
+  font-size: 12px;
+  color: #718096;
+}
+
+.bar-value {
+  font-size: 18px;
   font-weight: 600;
   color: #4a5568;
 }
 
-.detail-value.progress {
+.bar-value.progress {
   color: #3182ce;
 }
 
-.detail-label {
-  color: #a0aec0;
-  font-size: 12px;
+.bar-value.success {
+  color: #38a169;
 }
 
-/* Overall Stats Cards */
-.stat-card {
-  text-align: center;
-  transition: all 0.3s;
+.bar-value.warning {
+  color: #ed8936;
 }
 
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+.bar-value.danger {
+  color: #e53e3e;
 }
 
-.stat-card .el-card__body {
-  padding: 20px 15px;
-}
-
-.stat-icon {
-  font-size: 24px;
-  margin-bottom: 8px;
+.bar-divider {
+  color: #e2e8f0;
+  font-size: 16px;
+  margin: 0 4px;
 }
 
 .stat-value {
