@@ -9,6 +9,7 @@
 | Excel列名（中文） | API字段名（英文） | 数据类型 | 说明 |
 |------------------|-----------------|---------|------|
 | L2ID | application_id | string | 应用唯一标识符 |
+| L2应用 | application_name | string | 应用名称 |
 | 档位 | service_tier | string | 服务等级 |
 | 所属项目 | business_subdomain | string | 业务子域 |
 | 开发负责人 | responsible_person | string | 开发负责人 |

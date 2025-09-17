@@ -14,6 +14,7 @@ export interface ValueMapping {
 // Map user's Excel column names to API field names for Applications (总追踪表)
 export const APPLICATION_FIELD_MAPPING: ExcelFieldMapping = {
   'L2ID': 'application_id',
+  'L2应用': 'application_name',
   '档位': 'service_tier',
   '所属项目': 'business_subdomain',
   '开发负责人': 'responsible_person',

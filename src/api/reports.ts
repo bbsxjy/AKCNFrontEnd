@@ -355,6 +355,9 @@ export class ExcelAPI {
                 } else if (value instanceof Date) {
                   value = value.toISOString().split('T')[0]
                 }
+              } else {
+                // Ensure all other fields are strings to avoid type issues
+                value = String(value || '')
               }
 
               newRow.push(value || '')
