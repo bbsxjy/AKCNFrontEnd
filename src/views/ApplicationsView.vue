@@ -112,27 +112,27 @@
             {{ row.app_name || row.application_name }}
           </template>
         </el-table-column>
-        <el-table-column prop="supervision_year" label="监管年份" width="100">
+        <el-table-column prop="ak_supervision_acceptance_year" label="监管年份" width="100">
           <template #default="{ row }">
-            {{ row.supervision_year || '-' }}
+            {{ row.ak_supervision_acceptance_year || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="transformation_target" label="改造目标" min-width="100">
+        <el-table-column prop="overall_transformation_target" label="改造目标" min-width="100">
           <template #default="{ row }">
-            <el-tag size="small" :type="row.transformation_target === 'AK' ? 'primary' : 'success'">
-              {{ row.transformation_target || 'AK' }}
+            <el-tag size="small" :type="row.overall_transformation_target === 'AK' ? 'primary' : 'success'">
+              {{ row.overall_transformation_target || 'AK' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="current_stage" label="当前阶段" min-width="100">
+        <el-table-column prop="current_transformation_phase" label="当前阶段" min-width="100">
           <template #default="{ row }">
-            {{ row.current_stage || '-' }}
+            {{ row.current_transformation_phase || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="overall_status" label="整体状态" min-width="120">
+        <el-table-column prop="current_status" label="整体状态" min-width="120">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.overall_status || row.status)" size="small">
-              {{ row.overall_status || row.status || '待启动' }}
+            <el-tag :type="getStatusType(row.current_status)" size="small">
+              {{ row.current_status || '待启动' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -149,8 +149,16 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="responsible_team" label="负责团队" min-width="120" />
-        <el-table-column prop="responsible_person" label="负责人" min-width="100" />
+        <el-table-column prop="dev_team" label="开发团队" min-width="120">
+          <template #default="{ row }">
+            {{ row.dev_team || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="dev_owner" label="开发负责人" min-width="100">
+          <template #default="{ row }">
+            {{ row.dev_owner || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="updated_at" label="更新时间" min-width="160">
           <template #default="{ row }">
             {{ formatDate(row.updated_at) }}
@@ -221,7 +229,7 @@
                 <el-option
                   v-for="app in allApplications"
                   :key="app.id"
-                  :label="app.application_name"
+                  :label="app.app_name"
                   :value="app.id"
                 />
               </el-select>
@@ -249,9 +257,9 @@
               {{ getApplicationName(row.application_id) }}
             </template>
           </el-table-column>
-          <el-table-column prop="module_name" label="模块名称" min-width="150">
+          <el-table-column prop="version_name" label="版本名称" min-width="150">
             <template #default="{ row }">
-              <strong>{{ row.module_name || '默认模块' }}</strong>
+              <strong>{{ row.version_name || '未命名任务' }}</strong>
             </template>
           </el-table-column>
           <el-table-column prop="sub_target" label="改造目标" width="80">
@@ -375,33 +383,33 @@
     <el-dialog v-model="showCreateDialog" title="新增应用" width="600px">
       <el-form :model="createForm" label-width="120px">
         <el-form-item label="L2 ID" required>
-          <el-input v-model="createForm.application_id" placeholder="如：L2_APP_001" />
+          <el-input v-model="createForm.l2_id" placeholder="如：L2_APP_001" />
         </el-form-item>
         <el-form-item label="应用名称" required>
-          <el-input v-model="createForm.application_name" />
+          <el-input v-model="createForm.app_name" />
         </el-form-item>
         <el-form-item label="改造目标" required>
-          <el-radio-group v-model="createForm.transformation_target">
+          <el-radio-group v-model="createForm.overall_transformation_target">
             <el-radio value="AK">AK</el-radio>
             <el-radio value="云原生">云原生</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="监管年份">
-          <el-select v-model="createForm.supervision_year" placeholder="请选择年份">
+          <el-select v-model="createForm.ak_supervision_acceptance_year" placeholder="请选择年份">
             <el-option :value="2025" label="2025年" />
             <el-option :value="2026" label="2026年" />
             <el-option :value="2027" label="2027年" />
           </el-select>
         </el-form-item>
-        <el-form-item label="负责团队" required>
-          <el-select v-model="createForm.responsible_team" placeholder="请选择团队">
+        <el-form-item label="开发团队" required>
+          <el-select v-model="createForm.dev_team" placeholder="请选择团队">
             <el-option value="研发一部" label="研发一部" />
             <el-option value="研发二部" label="研发二部" />
             <el-option value="运维部" label="运维部" />
           </el-select>
         </el-form-item>
-        <el-form-item label="负责人">
-          <el-input v-model="createForm.responsible_person" />
+        <el-form-item label="开发负责人">
+          <el-input v-model="createForm.dev_owner" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -416,27 +424,27 @@
     <el-dialog v-model="showEditDialog" title="编辑应用" width="600px">
       <el-form :model="editForm" label-width="120px">
         <el-form-item label="L2 ID">
-          <el-input v-model="editForm.application_id" disabled />
+          <el-input v-model="editForm.l2_id" disabled />
         </el-form-item>
         <el-form-item label="应用名称" required>
-          <el-input v-model="editForm.application_name" />
+          <el-input v-model="editForm.app_name" />
         </el-form-item>
         <el-form-item label="改造目标">
-          <el-radio-group v-model="editForm.transformation_target">
+          <el-radio-group v-model="editForm.overall_transformation_target">
             <el-radio value="AK">AK</el-radio>
             <el-radio value="云原生">云原生</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="负责团队" required>
-          <el-select v-model="editForm.responsible_team" placeholder="请选择团队">
+        <el-form-item label="开发团队" required>
+          <el-select v-model="editForm.dev_team" placeholder="请选择团队">
             <el-option value="研发一部" label="研发一部" />
             <el-option value="研发二部" label="研发二部" />
             <el-option value="运维部" label="运维部" />
             <el-option value="架构部" label="架构部" />
           </el-select>
         </el-form-item>
-        <el-form-item label="负责人">
-          <el-input v-model="editForm.responsible_person" />
+        <el-form-item label="开发负责人">
+          <el-input v-model="editForm.dev_owner" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -601,12 +609,12 @@ const filteredSubTasks = computed(() => {
 
   // 状态筛选
   if (subtaskSearchForm.status) {
-    result = result.filter(task => task.status === subtaskSearchForm.status)
+    result = result.filter(task => task.task_status === subtaskSearchForm.status)
   }
 
   // 应用筛选
   if (subtaskSearchForm.application) {
-    result = result.filter(task => task.application_id === subtaskSearchForm.application)
+    result = result.filter(task => task.l2_id === subtaskSearchForm.application)
   }
 
   return result
@@ -762,19 +770,19 @@ const editApplication = (row: Application) => {
   editingId.value = row.id
   // Copy data to edit form
   Object.assign(editForm, {
-    application_id: row.l2_id || row.application_id,
-    application_name: row.app_name || row.application_name,
-    transformation_target: row.transformation_target || 'AK',
-    responsible_person: row.responsible_person,
-    responsible_team: row.responsible_team,
-    status: row.overall_status || row.status || '待启动',
-    supervision_year: row.supervision_year || 2025
+    l2_id: row.l2_id,
+    app_name: row.app_name,
+    overall_transformation_target: row.overall_transformation_target || 'AK',
+    dev_owner: row.dev_owner,
+    dev_team: row.dev_team,
+    current_status: row.current_status || '待启动',
+    ak_supervision_acceptance_year: row.ak_supervision_acceptance_year || 2025
   })
   showEditDialog.value = true
 }
 
 const handleUpdate = async () => {
-  if (!editForm.application_name || !editingId.value) {
+  if (!editForm.app_name || !editingId.value) {
     ElMessage.error('请填写必填字段')
     return
   }
@@ -810,7 +818,7 @@ const deleteApplicationInEdit = async () => {
 
   try {
     await ElMessageBox.confirm(
-      `确定要删除应用"${app.application_name}"吗？此操作将同时删除所有相关子任务，且不可恢复。`,
+      `确定要删除应用"${app.app_name}"吗？此操作将同时删除所有相关子任务，且不可恢复。`,
       '确认删除',
       {
         confirmButtonText: '确定删除',
@@ -851,7 +859,7 @@ const viewSubTasks = (row: Application) => {
 
 
 const handleCreate = async () => {
-  if (!createForm.application_id || !createForm.application_name) {
+  if (!createForm.l2_id || !createForm.app_name) {
     ElMessage.error('请填写必填字段')
     return
   }
@@ -866,13 +874,13 @@ const handleCreate = async () => {
 
     // Reset form
     Object.assign(createForm, {
-      application_id: '',
-      application_name: '',
-      responsible_person: '',
-      responsible_team: '',
-      status: '待启动',
-      supervision_year: 2025,
-      transformation_target: 'AK'
+      l2_id: '',
+      app_name: '',
+      dev_owner: '',
+      dev_team: '',
+      current_status: '待启动',
+      ak_supervision_acceptance_year: 2025,
+      overall_transformation_target: 'AK'
     })
   } catch (error) {
     console.error('Failed to create application:', error)
@@ -888,20 +896,22 @@ const exportExcel = async () => {
     }
 
     const columns = [
-      'application_id',
-      'application_name',
-      'business_domain',
-      'business_subdomain',
-      'responsible_person',
-      'responsible_team',
-      'status',
+      'l2_id',
+      'app_name',
+      'ak_supervision_acceptance_year',
+      'overall_transformation_target',
+      'current_transformation_phase',
+      'current_status',
+      'dev_team',
+      'dev_owner',
+      'ops_team',
+      'ops_owner',
+      'app_tier',
+      'belonging_l1_name',
+      'belonging_projects',
       'progress_percentage',
-      'priority',
-      'kpi_classification',
-      'service_tier',
-      'traffic',
-      'size',
-      'public_cloud_vendor'
+      'is_delayed',
+      'delay_days'
     ]
 
     // Use the new direct download method
@@ -934,16 +944,16 @@ const handleCurrentChange = (page: number) => {
 // SubTask related functions
 const getApplicationName = (applicationId: number) => {
   const app = allApplications.value.find(app => app.id === applicationId)
-  return app ? (app.app_name || app.application_name) : '-'
+  return app ? app.app_name : '-'
 }
 
 const getApplicationL2Id = (applicationId: number) => {
   const app = allApplications.value.find(app => app.id === applicationId)
-  return app ? (app.l2_id || app.application_id) : '-'
+  return app ? app.l2_id : '-'
 }
 
 const getSubTaskProgressColor = (row: SubTask) => {
-  if (row.status === '存在阻塞') return '#f56565'
+  if (row.task_status === '存在阻塞') return '#f56565'
   if (row.progress_percentage >= 80) return '#48bb78'
   return '#667eea'
 }
@@ -960,7 +970,7 @@ const handleSubTaskSelectionChange = (selection: SubTask[]) => {
 }
 
 const editSubTask = (row: SubTask) => {
-  router.push(`/subtasks/${row.application_id}`)
+  router.push(`/subtasks/${row.l2_id}`)
 }
 
 
