@@ -14,75 +14,78 @@ export interface SubTaskListResponse {
 
 export interface SubTask {
   id: number
-  application_id: number
-  module_name: string
-  sub_target: string  // AK或云原生
-  version_name: string  // 实际的子任务名称
-  task_status: string  // 后端状态字段
+  l2_id: number  // was: application_id, now stores application's database ID
+
+  // Core fields
+  sub_target?: 'AK' | '云原生'
+  version_name?: string
+  task_status: string
   progress_percentage: number
   is_blocked: boolean
-  block_reason?: string
-  // 计划时间
+  block_reason?: string | null
+
+  // Date fields
+  planned_requirement_date?: string | null
+  planned_release_date?: string | null
+  planned_tech_online_date?: string | null
+  planned_biz_online_date?: string | null
+  actual_requirement_date?: string | null
+  actual_release_date?: string | null
+  actual_tech_online_date?: string | null
+  actual_biz_online_date?: string | null
+
+  // New fields
+  resource_applied: boolean
+  ops_requirement_submitted?: string | null  // ISO timestamp
+  ops_testing_status?: string | null
+  launch_check_status?: string | null
+
+  // Changed fields
+  notes?: string  // was: technical_notes
+
+  // Timestamps
+  created_at: string
+  updated_at: string
+  created_by?: number
+  updated_by?: number
+
+  // Compatibility fields (for UI display only, not sent to backend)
+  application_id?: number  // Compatibility field
+  subtask_name?: string  // Alias for version_name
+}
+
+export interface CreateSubTaskRequest {
+  l2_id: number  // Application's database ID
+  sub_target?: 'AK' | '云原生'
+  version_name: string
+  task_status?: string
   planned_requirement_date?: string
   planned_release_date?: string
   planned_tech_online_date?: string
   planned_biz_online_date?: string
-  // 实际时间
+  notes?: string
+  resource_applied?: boolean
+}
+
+export interface UpdateSubTaskRequest {
+  version_name?: string
+  task_status?: string
+  progress_percentage?: number
+  is_blocked?: boolean
+  block_reason?: string
+  planned_requirement_date?: string
+  planned_release_date?: string
+  planned_tech_online_date?: string
+  planned_biz_online_date?: string
   actual_requirement_date?: string
   actual_release_date?: string
   actual_tech_online_date?: string
   actual_biz_online_date?: string
-  // 负责人信息
-  dev_owner?: string  // 开发负责人
-  dev_team?: string  // 开发团队
-  ops_owner?: string  // 运维负责人
-  ops_team?: string  // 运维团队
-  // 其他字段
-  requirements?: string
-  technical_notes?: string
-  test_notes?: string
-  deployment_notes?: string
-  priority?: number
-  estimated_hours?: number
-  actual_hours?: number
-  assigned_to?: string  // 旧负责人字段
-  reviewer?: string
-  created_by?: number
-  updated_by?: number
-  created_at: string
-  updated_at: string
-  // 前端兼容字段
-  subtask_name?: string  // 映射自version_name
-  responsible_person?: string  // 映射自assigned_to
-  status?: string  // 映射自task_status
-  planned_start_date?: string  // 映射自planned_requirement_date
-  planned_end_date?: string  // 映射自planned_biz_online_date
-  actual_start_date?: string | null  // 映射自actual_requirement_date
-  actual_end_date?: string | null  // 映射自actual_biz_online_date
-  notes?: string | null  // 映射自technical_notes或block_reason
-}
-
-export interface CreateSubTaskRequest {
-  application_id: number
-  sub_target: 'AK' | '云原生'
-  subtask_name: string
-  responsible_person: string
-  planned_start_date: string
-  planned_end_date: string
-  status: string
   notes?: string
-}
-
-export interface UpdateSubTaskRequest {
-  subtask_name?: string
-  responsible_person?: string
-  planned_start_date?: string
-  planned_end_date?: string
-  actual_start_date?: string
-  actual_end_date?: string
-  status?: string
-  progress_percentage?: number
-  notes?: string
+  resource_applied?: boolean
+  ops_requirement_submitted?: string
+  ops_testing_status?: string
+  launch_check_status?: string
 }
 
 export interface UpdateSubTaskProgressRequest {
@@ -118,52 +121,28 @@ export class SubTasksAPI {
   }
 
   private static mapSubTaskData(item: any): SubTask {
-    // 映射后端task_status到前端显示
-    const statusMap: Record<string, string> = {
-      '待启动': '待启动',
-      '研发进行中': '研发进行中',
-      '业务上线中': '业务上线中',
-      '全部完成': '已完成',
-      '存在阻塞': '存在阻塞'
-    }
-
     return {
       ...item,
-      // Map foreign key field for compatibility
-      application_id: item.l2_id || item.application_id,
-
-      // 负责人信息 - 如果后端没有这些字段，使用assigned_to作为开发负责人
-      dev_owner: item.dev_owner || item.assigned_to || '-',
-      dev_team: item.dev_team || item.responsible_team || '-',
-      ops_owner: item.ops_owner || '-',
-      ops_team: item.ops_team || '-',
-
-      // Ensure new fields have defaults
+      // Ensure required fields have defaults
+      l2_id: item.l2_id || item.application_id,
       resource_applied: item.resource_applied || false,
       ops_requirement_submitted: item.ops_requirement_submitted || null,
       ops_testing_status: item.ops_testing_status || null,
       launch_check_status: item.launch_check_status || null,
+      notes: item.notes || '',
 
-      // Map notes field (was technical_notes)
-      notes: item.notes || item.technical_notes || item.block_reason || '',
-      technical_notes: item.technical_notes || item.notes || '',  // Backward compatibility
-
-      // 兼容字段映射
-      subtask_name: item.version_name || '未命名任务',
-      module_name: item.version_name || '未命名模块',  // Backward compatibility for UI display only
-      responsible_person: item.assigned_to || '未分配',
-      status: statusMap[item.task_status] || item.task_status || '待启动',
-      planned_start_date: item.planned_requirement_date || '',
-      planned_end_date: item.planned_biz_online_date || '',
-      actual_start_date: item.actual_requirement_date || null,
-      actual_end_date: item.actual_biz_online_date || null
+      // Compatibility fields for UI display (not sent to backend)
+      application_id: item.l2_id,
+      subtask_name: item.version_name || '未命名任务'
     }
   }
   // List subtasks with filtering and pagination
   static async getSubTasks(params: SubTaskListParams = {}): Promise<SubTaskListResponse> {
     const queryParams = new URLSearchParams()
 
-    if (params.application_id !== undefined) queryParams.append('application_id', params.application_id.toString())
+    // Note: application_id in params refers to the Application's database ID
+    // Backend expects 'l2_id' parameter for filtering by application
+    if (params.application_id !== undefined) queryParams.append('l2_id', params.application_id.toString())
     if (params.status) queryParams.append('status', params.status)
     if (params.skip !== undefined) queryParams.append('skip', params.skip.toString())
     if (params.limit !== undefined) queryParams.append('limit', params.limit.toString())
@@ -186,17 +165,15 @@ export class SubTasksAPI {
 
   // Create new subtask
   static async createSubTask(data: CreateSubTaskRequest): Promise<SubTask> {
-    // Map frontend fields to backend expected format (using new field names)
+    // Send data as-is, field names already match backend
     const backendData = {
-      l2_id: data.application_id,  // Map application_id to l2_id for backend
+      ...data,
+      // Set defaults if not provided
       sub_target: data.sub_target || 'AK',
-      version_name: data.subtask_name,  // 使用subtask_name作为version_name
-      task_status: data.status || '待启动',
-      dev_owner: data.responsible_person,  // Use dev_owner instead of assigned_to
-      planned_requirement_date: data.planned_start_date,
-      planned_biz_online_date: data.planned_end_date,
-      notes: data.notes || '',  // Use notes instead of technical_notes
-      resource_applied: false  // Default for new field
+      task_status: data.task_status || '待启动',
+      progress_percentage: 0,
+      is_blocked: false,
+      resource_applied: data.resource_applied || false
     }
 
     const response = await api.post('/subtasks', backendData)
@@ -205,20 +182,8 @@ export class SubTasksAPI {
 
   // Update subtask
   static async updateSubTask(id: number, data: UpdateSubTaskRequest): Promise<SubTask> {
-    // Map frontend fields to backend fields
-    const backendData: any = {}
-
-    if (data.subtask_name !== undefined) backendData.version_name = data.subtask_name
-    if (data.responsible_person !== undefined) backendData.assigned_to = data.responsible_person
-    if (data.status !== undefined) backendData.task_status = data.status
-    if (data.progress_percentage !== undefined) backendData.progress_percentage = data.progress_percentage
-    if (data.planned_start_date !== undefined) backendData.planned_requirement_date = data.planned_start_date
-    if (data.planned_end_date !== undefined) backendData.planned_biz_online_date = data.planned_end_date
-    if (data.actual_start_date !== undefined) backendData.actual_requirement_date = data.actual_start_date
-    if (data.actual_end_date !== undefined) backendData.actual_biz_online_date = data.actual_end_date
-    if (data.notes !== undefined) backendData.technical_notes = data.notes
-
-    const response = await api.put(`/subtasks/${id}`, backendData)
+    // Send data as-is, field names already match backend
+    const response = await api.put(`/subtasks/${id}`, data)
     return this.mapSubTaskData(response.data)
   }
 
@@ -250,9 +215,9 @@ export class SubTasksAPI {
   // Get subtasks by application ID for SubTasksView
   static async getSubTasksByApplication(applicationId: number): Promise<SubTask[]> {
     try {
-      const response = await this.getSubTasks({ 
-        application_id: applicationId,
-        limit: 1000 
+      const response = await this.getSubTasks({
+        application_id: applicationId,  // This is the Application's database ID
+        limit: 1000
       })
       return response.items
     } catch (error) {
@@ -283,7 +248,8 @@ export class SubTasksAPI {
 
       if (subtasks.items.length > 0) {
         subtasks.items.forEach(task => {
-          switch (task.status) {
+          switch (task.task_status) {
+            case '全部完成':
             case '已完成':
               stats.completed++
               break

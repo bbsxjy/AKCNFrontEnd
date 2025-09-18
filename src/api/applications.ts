@@ -15,56 +15,91 @@ export interface ApplicationListResponse {
 
 export interface Application {
   id: number
-  l2_id: string  // 后端字段名
-  app_name: string  // 后端字段名
-  supervision_year: number
-  transformation_target: string  // AK或云原生
+  l2_id: string
+  app_name: string
+
+  // Renamed fields
+  ak_supervision_acceptance_year?: number  // was: supervision_year
+  overall_transformation_target?: 'AK' | '云原生'  // was: transformation_target
+  current_transformation_phase?: string  // was: current_stage
+  current_status: string  // was: overall_status
+
+  // New fields
+  app_tier?: number
+  belonging_l1_name?: string
+  belonging_projects?: string
+  is_domain_transformation_completed: boolean
+  is_dbpm_transformation_completed: boolean
+  dev_mode?: string
+  ops_mode?: string
+  dev_owner?: string
+  dev_team?: string
+  ops_owner?: string
+  ops_team?: string
+  belonging_kpi?: string
+  acceptance_status?: string
+
+  // Existing fields
   is_ak_completed: boolean
   is_cloud_native_completed: boolean
-  current_stage: string
-  overall_status: string  // 研发进行中、全部完成等
-  responsible_team: string
-  responsible_person: string
-  progress_percentage: number
-  planned_requirement_date?: string
-  planned_release_date?: string
-  planned_tech_online_date?: string
-  planned_biz_online_date?: string
-  actual_requirement_date?: string
-  actual_release_date?: string
-  actual_tech_online_date?: string
-  actual_biz_online_date?: string
+  planned_requirement_date?: string | null
+  planned_release_date?: string | null
+  planned_tech_online_date?: string | null
+  planned_biz_online_date?: string | null
+  actual_requirement_date?: string | null
+  actual_release_date?: string | null
+  actual_tech_online_date?: string | null
+  actual_biz_online_date?: string | null
   is_delayed: boolean
   delay_days: number
   notes?: string
-  created_by?: number
-  updated_by?: number
   created_at: string
   updated_at: string
-  // 前端兼容字段
-  application_id?: string  // 映射自l2_id
-  application_name?: string  // 映射自app_name
-  status?: string  // 映射自overall_status
+  created_by?: number
+  updated_by?: number
+
+  // Calculated fields (read-only from backend)
+  progress_percentage?: number
+  responsible_team?: string  // Compatibility: returns dev_team or ops_team
+  responsible_person?: string  // Compatibility: returns dev_owner or ops_owner
+  subtask_count?: number
+  completed_subtask_count?: number
 }
 
 export interface CreateApplicationRequest {
-  application_id: string
-  application_name: string
-  transformation_target?: string
-  responsible_person: string
-  responsible_team: string
-  status: string
-  supervision_year?: number
+  l2_id: string
+  app_name: string
+  overall_transformation_target?: 'AK' | '云原生'
+  dev_owner?: string
+  dev_team?: string
+  ops_owner?: string
+  ops_team?: string
+  current_status?: string
+  ak_supervision_acceptance_year?: number
+  app_tier?: number
+  belonging_l1_name?: string
+  belonging_projects?: string
 }
 
 export interface UpdateApplicationRequest {
-  application_id?: string
-  application_name?: string
-  transformation_target?: string
-  responsible_person?: string
-  responsible_team?: string
-  status?: string
-  supervision_year?: number
+  l2_id?: string
+  app_name?: string
+  overall_transformation_target?: 'AK' | '云原生'
+  dev_owner?: string
+  dev_team?: string
+  ops_owner?: string
+  ops_team?: string
+  current_status?: string
+  ak_supervision_acceptance_year?: number
+  app_tier?: number
+  belonging_l1_name?: string
+  belonging_projects?: string
+  is_domain_transformation_completed?: boolean
+  is_dbpm_transformation_completed?: boolean
+  dev_mode?: string
+  ops_mode?: string
+  belonging_kpi?: string
+  acceptance_status?: string
 }
 
 export interface BatchOperationRequest {
@@ -92,15 +127,13 @@ export class ApplicationsAPI {
 
     const response = await api.get(`/applications?${queryParams.toString()}`)
 
-    // Map backend fields to frontend fields
+    // Ensure data consistency
     if (response.data && response.data.items) {
       response.data.items = response.data.items.map((item: any) => ({
         ...item,
-        // 兼容字段映射
-        application_id: item.l2_id,
-        application_name: item.app_name,
-        status: item.overall_status,
-        // 确保进度字段存在
+        // Set defaults for new fields if missing
+        is_domain_transformation_completed: item.is_domain_transformation_completed || false,
+        is_dbpm_transformation_completed: item.is_dbpm_transformation_completed || false,
         progress_percentage: item.progress_percentage || 0
       }))
     }
@@ -112,89 +145,43 @@ export class ApplicationsAPI {
   static async getApplication(id: number): Promise<Application> {
     const response = await api.get(`/applications/${id}`)
 
-    // Map backend fields to frontend fields
-    const item = response.data
+    // Return with defaults for new fields
     return {
-      id: item.id,
-      application_id: item.l2_id || item.application_id,
-      application_name: item.app_name || item.application_name,
-      business_domain: item.business_domain,
-      business_subdomain: item.business_subdomain,
-      responsible_person: item.responsible_person,
-      responsible_team: item.responsible_team,
-      status: item.status,
-      priority: item.priority,
-      kpi_classification: item.kpi_classification,
-      service_tier: item.service_tier,
-      traffic: item.traffic,
-      size: item.size,
-      public_cloud_vendor: item.public_cloud_vendor,
-      progress_percentage: item.progress_percentage || 0,
-      resource_progress: item.resource_progress || 0,
-      service_progress: item.service_progress || 0,
-      traffic_progress: item.traffic_progress || 0,
-      transformation_target: item.transformation_target,
-      created_at: item.created_at,
-      updated_at: item.updated_at
+      ...response.data,
+      is_domain_transformation_completed: response.data.is_domain_transformation_completed || false,
+      is_dbpm_transformation_completed: response.data.is_dbpm_transformation_completed || false,
+      progress_percentage: response.data.progress_percentage || 0
     }
   }
 
   // Create new application
   static async createApplication(data: CreateApplicationRequest): Promise<Application> {
-    // Map frontend fields to backend fields
+    // Send data as-is, field names already match backend
     const backendData = {
-      l2_id: data.application_id,
-      app_name: data.application_name,
-      supervision_year: data.supervision_year || new Date().getFullYear(),
-      transformation_target: data.transformation_target || 'AK',
-      responsible_team: data.responsible_team,
-      responsible_person: data.responsible_person
+      ...data,
+      // Set defaults if not provided
+      ak_supervision_acceptance_year: data.ak_supervision_acceptance_year || new Date().getFullYear(),
+      overall_transformation_target: data.overall_transformation_target || 'AK',
+      current_status: data.current_status || '待启动',
+      dev_team: data.dev_team || '待分配',
+      dev_owner: data.dev_owner || '待分配',
+      is_ak_completed: false,
+      is_cloud_native_completed: false,
+      is_domain_transformation_completed: false,
+      is_dbpm_transformation_completed: false,
+      is_delayed: false,
+      delay_days: 0
     }
 
     const response = await api.post('/applications', backendData)
-
-    // Map backend response to frontend format
-    const item = response.data
-    return {
-      ...item,
-      // 兼容字段映射
-      application_id: item.l2_id,
-      application_name: item.app_name,
-      status: item.current_status || item.overall_status,
-      supervision_year: item.ak_supervision_acceptance_year,
-      transformation_target: item.overall_transformation_target,
-      current_stage: item.current_transformation_phase,
-      overall_status: item.current_status
-    }
+    return response.data
   }
 
   // Update application
   static async updateApplication(id: number, data: UpdateApplicationRequest): Promise<Application> {
-    // Map frontend fields to backend fields
-    const backendData: any = {}
-
-    if (data.application_id) backendData.l2_id = data.application_id
-    if (data.application_name) backendData.app_name = data.application_name
-    if (data.transformation_target) backendData.transformation_target = data.transformation_target
-    if (data.responsible_team) backendData.responsible_team = data.responsible_team
-    if (data.responsible_person) backendData.responsible_person = data.responsible_person
-    if (data.supervision_year) backendData.supervision_year = data.supervision_year
-
-    const response = await api.put(`/applications/${id}`, backendData)
-
-    // Map backend response to frontend format
-    const item = response.data
-    return {
-      ...item,
-      // 兼容字段映射
-      application_id: item.l2_id,
-      application_name: item.app_name,
-      status: item.current_status || item.overall_status,
-      supervision_year: item.ak_supervision_acceptance_year,
-      transformation_target: item.overall_transformation_target,
-      current_stage: item.current_transformation_phase,
-      overall_status: item.current_status
-    }
+    // Send data as-is, field names already match backend
+    const response = await api.put(`/applications/${id}`, data)
+    return response.data
   }
 
   // Delete application
@@ -230,7 +217,7 @@ export class ApplicationsAPI {
 
       if (applications.items.length > 0) {
         applications.items.forEach(app => {
-          switch (app.status) {
+          switch (app.current_status) {
             case '研发进行中':
             case '业务上线中':
               stats.active++

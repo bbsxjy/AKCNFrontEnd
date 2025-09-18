@@ -13,38 +13,55 @@ export interface ValueMapping {
 
 // Map user's Excel column names to API field names for Applications (总追踪表)
 export const APPLICATION_FIELD_MAPPING: ExcelFieldMapping = {
-  'L2ID': 'application_id',
-  'L2应用': 'application_name',
-  '档位': 'service_tier',
-  '所属项目': 'business_subdomain',
-  '开发负责人': 'responsible_person',
-  '开发团队': 'responsible_team',
-  '监管验收年份': 'supervision_year',
-  '改造目标': 'transformation_target',
-  '当前改造阶段': 'current_stage',
-  '硬件资源保障\n优先级': 'priority',
-  '延误状态': 'delay_status',
-  '改造状态': 'status'
+  'L2ID': 'l2_id',
+  'L2 ID': 'l2_id',
+  'L2应用': 'app_name',
+  '应用名称': 'app_name',
+  '档位': 'app_tier',
+  '所属L1名称': 'belonging_l1_name',
+  '所属项目': 'belonging_projects',
+  '开发负责人': 'dev_owner',
+  '开发团队': 'dev_team',
+  '运维负责人': 'ops_owner',
+  '运维团队': 'ops_team',
+  '监管年': 'ak_supervision_acceptance_year',
+  '监管验收年份': 'ak_supervision_acceptance_year',
+  '改造目标': 'overall_transformation_target',
+  '转型目标': 'overall_transformation_target',
+  '当前改造阶段': 'current_transformation_phase',
+  '当前阶段': 'current_transformation_phase',
+  '改造状态': 'current_status',
+  '当前状态': 'current_status',
+  '状态': 'current_status',
+  '开发模式': 'dev_mode',
+  '运维模式': 'ops_mode',
+  '所属KPI': 'belonging_kpi',
+  '验收状态': 'acceptance_status'
 }
 
 // Map user's Excel column names to API field names for SubTasks (子追踪表)
 export const SUBTASK_FIELD_MAPPING: ExcelFieldMapping = {
-  'L2ID': 'application_l2_id',
-  'L2应用名': 'application_name',
+  'L2ID': 'l2_id',
+  'L2 ID': 'l2_id',
   '子目标': 'sub_target',
   '版本名': 'version_name',
+  '版本名称': 'version_name',
   '改造状态': 'task_status',
-  '【计划】\n需求完成时间': 'planned_start_date',
-  '【实际】\n需求到达时间': 'actual_start_date',
+  '任务状态': 'task_status',
+  '【计划】\n需求完成时间': 'planned_requirement_date',
+  '【实际】\n需求到达时间': 'actual_requirement_date',
   '【计划】\n发版时间': 'planned_release_date',
   '【实际】\n发版时间': 'actual_release_date',
-  '【计划】\n技术上线时间': 'planned_tech_date',
-  '【实际】\n技术上线时间': 'actual_tech_date',
-  '【计划】\n业务上线时间': 'planned_end_date',
-  '【实际】\n业务上线时间': 'actual_end_date',
-  '验收年份': 'supervision_year',
-  '所属指标': 'kpi_classification',
-  '主表同步备注': 'technical_notes'
+  '【计划】\n技术上线时间': 'planned_tech_online_date',
+  '【实际】\n技术上线时间': 'actual_tech_online_date',
+  '【计划】\n业务上线时间': 'planned_biz_online_date',
+  '【实际】\n业务上线时间': 'actual_biz_online_date',
+  '备注': 'notes',
+  '主表同步备注': 'notes',
+  '资源已申请': 'resource_applied',
+  '运维需求提交时间': 'ops_requirement_submitted',
+  '运维测试状态': 'ops_testing_status',
+  '上线检查状态': 'launch_check_status'
 }
 
 // Legacy mapping for backward compatibility
@@ -98,24 +115,33 @@ export function transformApplicationRowToAPI(excelRow: Record<string, any>): Rec
 
       // Apply value mappings based on field type
       switch (apiField) {
-        case 'status':
-          mappedValue = APPLICATION_STATUS_MAPPING[excelValue] || excelValue
+        case 'current_status':
+          mappedValue = excelValue  // Keep status as-is, backend accepts Chinese values
           break
-        case 'priority':
-          mappedValue = PRIORITY_VALUE_MAPPING[excelValue] || excelValue
-          break
-        case 'transformation_target':
-          mappedValue = TARGET_VALUE_MAPPING[excelValue] || excelValue
-          break
-        case 'supervision_year':
-          // Extract year from "2026年" format
-          if (typeof excelValue === 'string' && excelValue.includes('年')) {
-            mappedValue = parseInt(excelValue.replace('年', ''))
+        case 'overall_transformation_target':
+          // Map to standard values
+          if (excelValue === '云原生' || excelValue === 'cloud_native') {
+            mappedValue = '云原生'
+          } else {
+            mappedValue = 'AK'
           }
           break
-        case 'application_id':
-          // Ensure application_id is string
+        case 'ak_supervision_acceptance_year':
+          // Extract year from "2026年" format or convert number
+          if (typeof excelValue === 'string' && excelValue.includes('年')) {
+            mappedValue = parseInt(excelValue.replace('年', ''))
+          } else if (typeof excelValue === 'number') {
+            mappedValue = excelValue
+          }
+          break
+        case 'l2_id':
+          // Ensure l2_id is string
           mappedValue = String(excelValue)
+          break
+        case 'app_tier':
+        case 'delay_days':
+          // Ensure numeric fields are numbers
+          mappedValue = typeof excelValue === 'number' ? excelValue : parseInt(excelValue)
           break
       }
 
@@ -124,14 +150,17 @@ export function transformApplicationRowToAPI(excelRow: Record<string, any>): Rec
   }
 
   // Set default values for required fields
-  if (!apiRow.status) {
-    apiRow.status = 'pending'
+  if (!apiRow.current_status) {
+    apiRow.current_status = '待启动'
   }
-  if (!apiRow.business_domain) {
-    apiRow.business_domain = 'Core'
+  if (!apiRow.app_name) {
+    apiRow.app_name = `未命名应用`
   }
-  if (!apiRow.application_name) {
-    apiRow.application_name = `Application_${apiRow.application_id || 'Unknown'}`
+  if (!apiRow.overall_transformation_target) {
+    apiRow.overall_transformation_target = 'AK'
+  }
+  if (!apiRow.dev_team) {
+    apiRow.dev_team = '待分配'
   }
 
   return apiRow
@@ -152,27 +181,36 @@ export function transformSubTaskRowToAPI(excelRow: Record<string, any>): Record<
       // Apply value mappings based on field type
       switch (apiField) {
         case 'task_status':
-          mappedValue = SUBTASK_STATUS_MAPPING[excelValue] || excelValue
+          mappedValue = excelValue  // Keep status as-is, backend accepts Chinese values
           break
-        case 'supervision_year':
-          // Extract year from "2026年" format
-          if (typeof excelValue === 'string' && excelValue.includes('年')) {
-            mappedValue = parseInt(excelValue.replace('年', ''))
+        case 'l2_id':
+          // l2_id should be a number (application's database ID)
+          // If it's a string L2 ID, it needs to be looked up from applications
+          // For now, try to convert to number
+          if (typeof excelValue === 'number') {
+            mappedValue = excelValue
+          } else {
+            // This will need to be resolved by looking up the application
+            mappedValue = excelValue
           }
           break
-        case 'application_l2_id':
-          // Ensure application_l2_id is string
-          mappedValue = String(excelValue)
+        case 'sub_target':
+          // Map to standard values
+          if (excelValue === '云原生' || excelValue === 'cloud_native') {
+            mappedValue = '云原生'
+          } else {
+            mappedValue = 'AK'
+          }
           break
         // Handle date fields - Excel dates might be in serial format
-        case 'planned_start_date':
-        case 'actual_start_date':
+        case 'planned_requirement_date':
+        case 'actual_requirement_date':
         case 'planned_release_date':
         case 'actual_release_date':
-        case 'planned_tech_date':
-        case 'actual_tech_date':
-        case 'planned_end_date':
-        case 'actual_end_date':
+        case 'planned_tech_online_date':
+        case 'actual_tech_online_date':
+        case 'planned_biz_online_date':
+        case 'actual_biz_online_date':
           if (typeof excelValue === 'number') {
             // Excel date serial number to JavaScript Date
             const excelDate = new Date((excelValue - 25569) * 86400 * 1000)
@@ -180,6 +218,10 @@ export function transformSubTaskRowToAPI(excelRow: Record<string, any>): Record<
           } else if (excelValue instanceof Date) {
             mappedValue = excelValue.toISOString().split('T')[0]
           }
+          break
+        case 'resource_applied':
+          // Convert to boolean
+          mappedValue = excelValue === true || excelValue === '是' || excelValue === '1'
           break
       }
 
@@ -189,7 +231,10 @@ export function transformSubTaskRowToAPI(excelRow: Record<string, any>): Record<
 
   // Set default values for required fields
   if (!apiRow.task_status) {
-    apiRow.task_status = 'pending'
+    apiRow.task_status = '待启动'
+  }
+  if (!apiRow.sub_target) {
+    apiRow.sub_target = 'AK'
   }
 
   return apiRow
