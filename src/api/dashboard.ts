@@ -179,26 +179,28 @@ export class DashboardAPI {
 
   // 获取月度完成数据 - 统计各阶段完成的应用数量
   static async getMonthlyCompletionTrend(type: 'planned' | 'actual' = 'actual'): Promise<MonthlyCompletionData[]> {
-    // 获取所有应用数据
-    const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
+    try {
+      // 获取所有应用数据
+      const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
 
-    // 生成最近12个月的数据
-    const monthlyData: MonthlyCompletionData[] = []
-    const today = new Date()
+      // 生成最近12个月的数据
+      const monthlyData: MonthlyCompletionData[] = []
+      const today = new Date()
 
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date(today)
-      date.setMonth(date.getMonth() - i)
-      const year = date.getFullYear()
-      const month = date.getMonth() + 1 // JavaScript月份从0开始
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(today)
+        date.setMonth(date.getMonth() - i)
+        const year = date.getFullYear()
+        const month = date.getMonth() + 1 // JavaScript月份从0开始
 
-      // 统计该月份完成的各阶段数量
-      let requirementCount = 0
-      let releaseCount = 0
-      let techOnlineCount = 0
-      let bizOnlineCount = 0
+        // 统计该月份完成的各阶段数量
+        let requirementCount = 0
+        let releaseCount = 0
+        let techOnlineCount = 0
+        let bizOnlineCount = 0
 
-      applications.items.forEach(app => {
+        if (applications.items && applications.items.length > 0) {
+          applications.items.forEach(app => {
         // 根据type决定使用计划日期还是实际日期
         const requirementDate = type === 'planned' ? app.planned_requirement_date : app.actual_requirement_date
         const releaseDate = type === 'planned' ? app.planned_release_date : app.actual_release_date
@@ -230,24 +232,48 @@ export class DashboardAPI {
             bizOnlineCount++
           }
         }
+          })
+        }
+
+        monthlyData.push({
+          month: `${year}-${String(month).padStart(2, '0')}`,
+          requirement: requirementCount,
+          release: releaseCount,
+          techOnline: techOnlineCount,
+          bizOnline: bizOnlineCount
+        })
+      }
+
+      console.log('Monthly completion data:', {
+        type,
+        totalApps: applications.items?.length || 0,
+        monthlyData: monthlyData.slice(-3) // 显示最后3个月的数据
       })
 
-      monthlyData.push({
-        month: `${year}-${String(month).padStart(2, '0')}`,
-        requirement: requirementCount,
-        release: releaseCount,
-        techOnline: techOnlineCount,
-        bizOnline: bizOnlineCount
-      })
+      return monthlyData
+    } catch (error) {
+      console.error('Failed to get monthly completion trend:', error)
+      // 返回空数据而不是mock data
+      const monthlyData: MonthlyCompletionData[] = []
+      const today = new Date()
+
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(today)
+        date.setMonth(date.getMonth() - i)
+        const year = date.getFullYear()
+        const month = date.getMonth() + 1
+
+        monthlyData.push({
+          month: `${year}-${String(month).padStart(2, '0')}`,
+          requirement: 0,
+          release: 0,
+          techOnline: 0,
+          bizOnline: 0
+        })
+      }
+
+      return monthlyData
     }
-
-    console.log('Monthly completion data:', {
-      type,
-      totalApps: applications.items.length,
-      monthlyData: monthlyData.slice(-3) // 显示最后3个月的数据
-    })
-
-    return monthlyData
   }
 
   // 保留原方法以兼容，但改为调用新方法
@@ -292,12 +318,8 @@ export class DashboardAPI {
       return distribution.sort((a, b) => b.value - a.value).slice(0, 5)
     } catch (error) {
       console.error('Failed to get department distribution:', error)
-      // 返回示例数据用于显示
-      return [
-        { name: '研发团队A', value: 5, percentage: 60 },
-        { name: '研发团队B', value: 3, percentage: 40 },
-        { name: '运维团队', value: 2, percentage: 50 }
-      ]
+      // 返回空数组而不是mock data
+      return []
     }
   }
 
@@ -316,11 +338,12 @@ export class DashboardAPI {
 
   // 获取待办任务（我的任务）
   static async getMyTasks(limit: number = 5): Promise<any[]> {
-    // 获取当前用户的子任务
-    const subtasks = await SubTasksAPI.getMySubTasks()
+    try {
+      // 获取当前用户的子任务
+      const subtasks = await SubTasksAPI.getMySubTasks()
 
-    // 过滤未完成的任务并排序
-    const pendingTasks = subtasks
+      // 过滤未完成的任务并排序
+      const pendingTasks = subtasks
       .filter(task => task.task_status !== '已完成' && task.task_status !== 'completed')
       .sort((a, b) => {
         // 按计划结束日期排序，紧急的在前
@@ -341,18 +364,27 @@ export class DashboardAPI {
       isUrgent: new Date(task.planned_biz_online_date || '').getTime() < sevenDaysLater,
       status: task.task_status,
       progress: task.progress_percentage,
-      applicationId: task.l2_id
-    }))
+        applicationId: task.l2_id
+      }))
+    } catch (error) {
+      console.error('Failed to get my tasks:', error)
+      return []
+    }
   }
 
   // 获取最新通知
   static async getRecentNotifications(limit: number = 10): Promise<any[]> {
-    const notifications = await NotificationsAPI.getNotifications({
-      unread_only: true,
-      limit
-    })
+    try {
+      const notifications = await NotificationsAPI.getNotifications({
+        unread_only: true,
+        limit
+      })
 
-    return notifications.items
+      return notifications.items
+    } catch (error) {
+      console.error('Failed to get notifications:', error)
+      return []
+    }
   }
 
   // 获取完整的仪表盘数据
