@@ -78,18 +78,19 @@ export class DashboardAPI {
       applications.items.forEach(app => {
         totalProgress += app.progress_percentage || 0
 
-        // 按改造目标分类
-        if (app.transformation_target === 'AK') {
+        // 按改造目标分类 (using new field names)
+        const transformTarget = app.overall_transformation_target || app.transformation_target
+        if (transformTarget === 'AK') {
           stats.akTotal++
-          const status = app.overall_status || app.status
+          const status = app.current_status || app.overall_status || app.status
           if (status === '全部完成' || status === 'completed') {
             stats.akCompleted++
           } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress') {
             stats.akInProgress++
           }
-        } else if (app.transformation_target === '云原生') {
+        } else if (transformTarget === '云原生') {
           stats.cloudNativeTotal++
-          const status = app.overall_status || app.status
+          const status = app.current_status || app.overall_status || app.status
           if (status === '全部完成' || status === 'completed') {
             stats.cloudNativeCompleted++
           } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress') {
@@ -97,8 +98,8 @@ export class DashboardAPI {
           }
         }
 
-        // 按状态分类
-        const status = app.overall_status || app.status
+        // 按状态分类 (using new field names)
+        const status = app.current_status || app.overall_status || app.status
         switch (status) {
           case '待启动':
           case 'not_started':
@@ -225,7 +226,7 @@ export class DashboardAPI {
     const departmentMap = new Map<string, { count: number; progress: number }>()
 
     applications.items.forEach(app => {
-      const team = app.responsible_team || '未分配'
+      const team = app.responsible_team || app.dev_team || app.ops_team || '未分配'
       const existing = departmentMap.get(team) || { count: 0, progress: 0 }
       existing.count++
       existing.progress += app.progress_percentage || 0

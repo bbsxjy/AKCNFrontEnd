@@ -199,7 +199,7 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>部门进度分布</span>
+              <span>团队应用占比</span>
             </div>
           </template>
           <div ref="departmentChartRef" style="height: 350px;"></div>

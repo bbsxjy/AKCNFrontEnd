@@ -3,50 +3,93 @@ export interface Application {
   id: number
   l2_id: string
   app_name: string
-  supervision_year: number
-  transformation_target: 'AK' | '云原生'
+
+  // Renamed fields
+  ak_supervision_acceptance_year?: number  // was: supervision_year
+  overall_transformation_target?: 'AK' | '云原生'  // was: transformation_target
+  current_transformation_phase?: string  // was: current_stage
+  current_status: string  // was: overall_status
+
+  // New fields
+  app_tier?: number
+  belonging_l1_name?: string
+  belonging_projects?: string
+  is_domain_transformation_completed: boolean
+  is_dbpm_transformation_completed: boolean
+  dev_mode?: string
+  ops_mode?: string
+  dev_owner?: string
+  dev_team?: string
+  ops_owner?: string
+  ops_team?: string
+  belonging_kpi?: string
+  acceptance_status?: string
+
+  // Existing fields
   is_ak_completed: boolean
   is_cloud_native_completed: boolean
-  current_stage: string
-  overall_status: string
-  responsible_team: string
-  responsible_person: string
-  progress_percentage: number
-  subtask_count: number
-  completed_subtask_count: number
-  planned_completion_date: string | null
-  actual_completion_date: string | null
+  planned_requirement_date?: string | null
+  planned_release_date?: string | null
+  planned_tech_online_date?: string | null
+  planned_biz_online_date?: string | null
+  actual_requirement_date?: string | null
+  actual_release_date?: string | null
+  actual_tech_online_date?: string | null
+  actual_biz_online_date?: string | null
   is_delayed: boolean
   delay_days: number
+  notes?: string
   created_at: string
   updated_at: string
+
+  // Calculated fields (read-only from backend)
+  progress_percentage?: number
+  responsible_team?: string  // Compatibility: returns dev_team or ops_team
+  responsible_person?: string  // Compatibility: returns dev_owner or ops_owner
+  subtask_count?: number
+  completed_subtask_count?: number
 }
 
 // SubTask types
 export interface SubTask {
   id: number
-  application_id: number
-  module_name: string
-  sub_target: 'AK' | '云原生'
-  version_name: string
+  l2_id: number  // was: application_id, now stores application's database ID
+  application_id?: number  // Compatibility field
+
+  // Core fields
+  sub_target?: 'AK' | '云原生'
+  version_name?: string
   task_status: string
   progress_percentage: number
   is_blocked: boolean
-  block_reason: string | null
-  planned_dates: {
-    requirement_date: string | null
-    release_date: string | null
-    tech_online_date: string | null
-    biz_online_date: string | null
-  }
-  actual_dates: {
-    requirement_date: string | null
-    release_date: string | null
-    tech_online_date: string | null
-    biz_online_date: string | null
-  }
+  block_reason?: string | null
+
+  // Date fields (flattened structure)
+  planned_requirement_date?: string | null
+  planned_release_date?: string | null
+  planned_tech_online_date?: string | null
+  planned_biz_online_date?: string | null
+  actual_requirement_date?: string | null
+  actual_release_date?: string | null
+  actual_tech_online_date?: string | null
+  actual_biz_online_date?: string | null
+
+  // New fields
+  resource_applied: boolean
+  ops_requirement_submitted?: string | null  // ISO timestamp
+  ops_testing_status?: string | null
+  launch_check_status?: string | null
+
+  // Changed fields
+  notes?: string  // was: technical_notes
+
+  // Timestamps
   created_at: string
   updated_at: string
+
+  // Compatibility fields (may exist in responses)
+  module_name?: string  // Removed but may appear in old data
+  subtask_name?: string  // Alias for version_name
 }
 
 // User types

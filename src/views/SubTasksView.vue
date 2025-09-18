@@ -180,7 +180,6 @@
         <el-button @click="batchUpdateDates" :disabled="selectedTasks.length === 0">
           批量修改日期
         </el-button>
-        <el-button type="warning" @click="exportSubTasks">导出子任务</el-button>
       </div>
     </el-card>
 
@@ -791,9 +790,6 @@ const deleteSubTaskInEdit = async () => {
   }
 }
 
-const exportSubTasks = () => {
-  safeMessage('导出功能开发中', 'info')
-}
 </script>
 
 <style scoped>

@@ -130,20 +130,34 @@ export class SubTasksAPI {
 
     return {
       ...item,
+      // Map foreign key field for compatibility
+      application_id: item.l2_id || item.application_id,
+
       // 负责人信息 - 如果后端没有这些字段，使用assigned_to作为开发负责人
       dev_owner: item.dev_owner || item.assigned_to || '-',
       dev_team: item.dev_team || item.responsible_team || '-',
       ops_owner: item.ops_owner || '-',
       ops_team: item.ops_team || '-',
+
+      // Ensure new fields have defaults
+      resource_applied: item.resource_applied || false,
+      ops_requirement_submitted: item.ops_requirement_submitted || null,
+      ops_testing_status: item.ops_testing_status || null,
+      launch_check_status: item.launch_check_status || null,
+
+      // Map notes field (was technical_notes)
+      notes: item.notes || item.technical_notes || item.block_reason || '',
+      technical_notes: item.technical_notes || item.notes || '',  // Backward compatibility
+
       // 兼容字段映射
       subtask_name: item.version_name || item.module_name || '未命名任务',
+      module_name: item.module_name || item.version_name || '未命名模块',  // Backward compatibility
       responsible_person: item.assigned_to || '未分配',
       status: statusMap[item.task_status] || item.task_status || '待启动',
       planned_start_date: item.planned_requirement_date || '',
       planned_end_date: item.planned_biz_online_date || '',
       actual_start_date: item.actual_requirement_date || null,
-      actual_end_date: item.actual_biz_online_date || null,
-      notes: item.technical_notes || item.block_reason || ''
+      actual_end_date: item.actual_biz_online_date || null
     }
   }
   // List subtasks with filtering and pagination

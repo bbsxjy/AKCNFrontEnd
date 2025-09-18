@@ -160,7 +160,11 @@ export class ApplicationsAPI {
       // 兼容字段映射
       application_id: item.l2_id,
       application_name: item.app_name,
-      status: item.overall_status
+      status: item.current_status || item.overall_status,
+      supervision_year: item.ak_supervision_acceptance_year,
+      transformation_target: item.overall_transformation_target,
+      current_stage: item.current_transformation_phase,
+      overall_status: item.current_status
     }
   }
 
@@ -185,7 +189,11 @@ export class ApplicationsAPI {
       // 兼容字段映射
       application_id: item.l2_id,
       application_name: item.app_name,
-      status: item.overall_status
+      status: item.current_status || item.overall_status,
+      supervision_year: item.ak_supervision_acceptance_year,
+      transformation_target: item.overall_transformation_target,
+      current_stage: item.current_transformation_phase,
+      overall_status: item.current_status
     }
   }
 

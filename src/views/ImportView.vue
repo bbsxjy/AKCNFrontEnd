@@ -60,30 +60,11 @@
         </el-row>
 
         <el-checkbox v-model="importOptions.validateOnly" class="validate-checkbox">
-          <strong>先验证数据（推荐）</strong>
           <div class="checkbox-hint">
+            <strong>先验证数据（推荐）</strong>
             勾选后将先进行数据验证，显示错误和警告，确认无误后再导入
           </div>
         </el-checkbox>
-
-        <!-- Field Mapping Info -->
-        <div v-if="selectedFile" class="field-mapping-info">
-          <h4>🔄 字段映射说明</h4>
-          <p>系统将自动映射您Excel文件中的中文列名到API字段：</p>
-          <el-row :gutter="10" class="mapping-examples">
-            <el-col :span="8" v-for="(apiField, excelField) in Object.fromEntries(Object.entries(EXCEL_FIELD_MAPPING || {}).slice(0, 6))" :key="excelField">
-              <div class="mapping-item">
-                <span class="excel-field">{{ excelField }}</span>
-                <span class="arrow">→</span>
-                <span class="api-field">{{ apiField }}</span>
-              </div>
-            </el-col>
-          </el-row>
-          <p class="mapping-note">
-            <el-icon><Check /></el-icon>
-            支持您现有的Excel格式，无需修改列名
-          </p>
-        </div>
 
         <div class="step-actions">
           <el-button type="primary" @click="nextStep" :disabled="!selectedFile || loading" :loading="loading">
@@ -620,10 +601,8 @@ const downloadErrorReport = () => {
 
 .validate-checkbox {
   background: #f0f4ff;
-  padding: 15px;
   border-radius: 8px;
   display: block;
-  margin: 20px 0;
 }
 
 .checkbox-hint {

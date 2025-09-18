@@ -6,7 +6,6 @@
           <div>
             <h2>我的任务</h2>
             <div class="user-info">
-              当前用户：{{ authStore.user?.full_name }} | {{ authStore.user?.department }} | 
               共 <strong>{{ totalTasks }}</strong> 个待处理任务
             </div>
           </div>
@@ -18,18 +17,6 @@
           </div>
         </div>
       </template>
-
-      <!-- Smart Filter Notice -->
-      <el-alert
-        :closable="false"
-        type="warning"
-        show-icon
-        class="smart-notice"
-      >
-        <template #title>
-          💡 智能提示：系统已自动筛选出您负责的任务，避免误操作其他任务
-        </template>
-      </el-alert>
 
       <!-- Quick Filter Tabs -->
       <div class="filter-tabs">
@@ -134,19 +121,6 @@
 
         <el-empty v-if="filteredTasks.length === 0" description="暂无任务" />
       </div>
-
-      <!-- Confirmation Notice -->
-      <el-alert
-        :closable="false"
-        type="success"
-        show-icon
-        class="confirmation-notice"
-      >
-        <template #title>
-          ✅ 二次确认机制（防误操作）
-        </template>
-        点击"更新进度"后，系统会弹出确认窗口，显示即将修改的内容，避免误操作
-      </el-alert>
     </el-card>
 
     <!-- Update Task Dialog -->

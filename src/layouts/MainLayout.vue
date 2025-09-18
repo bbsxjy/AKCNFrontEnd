@@ -9,8 +9,8 @@
           @click="toggleSidebar"
         />
         <h1 class="title">
-          <span v-if="!isMobile">AK云原生改造管理系统</span>
-          <span v-else>AK云原生改造管理系统</span>
+          <span v-if="!isMobile">AK云原生改造管理应用</span>
+          <span v-else>AK云原生改造管理应用</span>
         </h1>
       </div>
       <div class="header-right">

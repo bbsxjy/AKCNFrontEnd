@@ -5,9 +5,6 @@
         <div class="header">
           <div>
             <h2>审计日志</h2>
-            <div class="unlimited-notice">
-              ✅ 突破Excel 1000条限制，所有操作永久保存
-            </div>
           </div>
           <div class="actions">
             <el-dropdown split-button type="primary" @click="exportLogs('excel')">
