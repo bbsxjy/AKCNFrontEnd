@@ -222,7 +222,7 @@ import { Check } from '@element-plus/icons-vue'
 import { ElMessage, ElLoading, ElMessageBox } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import { ExcelAPI } from '@/api/reports'
-import { EXCEL_FIELD_MAPPING } from '@/utils/excelFieldMapping'
+import { APPLICATION_FIELD_MAPPING, SUBTASK_FIELD_MAPPING } from '@/utils/excelFieldMapping'
 
 const currentStep = ref(0)
 const selectedFile = ref<UploadFile | null>(null)
@@ -316,6 +316,12 @@ const nextStep = async () => {
     }
     try {
       console.log('🔍 [ImportView] Starting validation import for:', importOptions.importType)
+      console.log('📁 [ImportView] File details:', {
+        name: selectedFile.value?.name,
+        size: selectedFile.value?.size,
+        type: selectedFile.value?.raw?.type,
+        lastModified: selectedFile.value?.raw?.lastModified
+      })
 
       const importParams = {
         file: selectedFile.value.raw,
@@ -353,6 +359,9 @@ const nextStep = async () => {
       console.log('🔍 Applications result:', response.applications)
       console.log('🔍 Subtasks result:', response.subtasks)
       console.log('🔍 Total errors:', response.errors?.length || 0)
+      console.log('🔍 Success flag:', response.success)
+      console.log('🔍 Total rows:', response.total_rows)
+      console.log('🔍 Warnings:', response.warnings)
       if (response.errors && response.errors.length > 0) {
         console.log('🔍 First 3 errors:', response.errors.slice(0, 3))
         // Show detailed error content
@@ -396,10 +405,30 @@ const nextStep = async () => {
         }
 
         if (!hasApplicationsData && !hasSubtasksData) {
-          const expectedFields = Object.keys(EXCEL_FIELD_MAPPING)
-          const fieldMappingHint = `\n\n预期的Excel列名：\n${expectedFields.slice(0, 6).join(', ')} 等\n\n您的Excel应包含这些中文列名，系统会自动进行字段映射。`
+          // Check if there are specific errors from backend
+          if (response.errors && response.errors.length > 0) {
+            const errorDetails = response.errors.map((err: any, idx: number) => {
+              if (typeof err === 'string') return `${idx + 1}. ${err}`
+              if (err.message) return `${idx + 1}. ${err.message}`
+              if (err.error) return `${idx + 1}. ${err.error}`
+              return `${idx + 1}. ${JSON.stringify(err)}`
+            }).join('\n')
+            throw new Error(`文件处理失败，后端返回错误：\n\n${errorDetails}`)
+          }
 
-          throw new Error('文件验证失败：无法识别Excel数据。可能原因：\n1. 文件为空或没有数据行\n2. Excel列名与预期不匹配\n3. 文件编码问题' + fieldMappingHint)
+          // Check if there are warnings that might explain the issue
+          if (response.warnings && response.warnings.length > 0) {
+            const warningDetails = response.warnings.join('\n')
+            throw new Error(`文件处理失败，后端警告：\n\n${warningDetails}\n\n请检查：\n1. Excel文件是否包含“总追踪表（勿动）”或“子追踪表”sheet\n2. 数据是否从第2行开始（第1行为列名）\n3. 列名是否为中文`)
+          }
+
+          const expectedFields = importType === 'applications'
+            ? Object.keys(APPLICATION_FIELD_MAPPING)
+            : Object.keys(SUBTASK_FIELD_MAPPING)
+          const sheetName = importType === 'applications' ? '总追踪表（勿动）' : '子追踪表'
+          const fieldMappingHint = `\n\n预期的Excel列名（${sheetName}）：\n${expectedFields.slice(0, 10).join(', ')} 等\n\n注意：\n1. Excel需要包含“总追踪表（勿动）”或“子追踪表”sheet\n2. 列名必须为中文\n3. 数据从第2行开始`
+
+          throw new Error('文件验证失败：无法识别Excel数据。可能原因：\n1. 文件为空或没有数据行\n2. Sheet名称不正确（需要“总追踪表（勿动）”或“子追踪表”）\n3. Excel列名与预期不匹配\n4. 文件编码问题' + fieldMappingHint)
         }
       }
 
