@@ -57,7 +57,7 @@
             <div class="task-header">
               <span class="task-priority-icon">{{ task.priorityIcon }}</span>
               <div class="task-title">
-                <strong>{{ task.appName }} - {{ task.moduleName }}</strong>
+                <strong>{{ task.appName }} - {{ task.versionName }}</strong>
                 <el-tag
                   :type="getStatusTagType(task.status)"
                   size="small"
@@ -75,8 +75,8 @@
                   <span>{{ task.l2Id }}</span>
                 </div>
                 <div class="detail-item">
-                  <span class="label">模块:</span>
-                  <span>{{ task.moduleName }}</span>
+                  <span class="label">版本:</span>
+                  <span>{{ task.versionName }}</span>
                 </div>
               </div>
               <div class="detail-row">
@@ -127,7 +127,7 @@
     <el-dialog v-model="showUpdateDialog" title="更新任务进度" width="500px">
       <div v-if="selectedTask" class="update-form">
         <div class="task-info">
-          <h4>{{ selectedTask.appName }} - {{ selectedTask.moduleName }}</h4>
+          <h4>{{ selectedTask.appName }} - {{ selectedTask.versionName }}</h4>
           <p class="task-l2id">L2 ID: {{ selectedTask.l2Id }}</p>
         </div>
 
@@ -212,7 +212,7 @@ interface MyTask {
   id: number
   l2Id: string
   appName: string
-  moduleName: string
+  versionName: string
   status: string
   progress: number
   plannedDate: string
@@ -304,7 +304,7 @@ const loadMyTasks = async () => {
         id: task.id,
         l2Id: task.l2_id || 'N/A',
         appName: task.app_name || '未知应用',
-        moduleName: task.version_name,
+        versionName: task.version_name,
         status: task.status,
         progress: task.progress_percentage || 0,
         plannedDate: task.planned_end_date,
@@ -346,7 +346,7 @@ const updateTask = (task: MyTask) => {
 }
 
 const viewTaskDetails = (task: MyTask) => {
-  ElMessage.info(`查看任务详情：${task.appName} - ${task.moduleName}`)
+  ElMessage.info(`查看任务详情：${task.appName} - ${task.versionName}`)
 }
 
 const confirmUpdate = async () => {

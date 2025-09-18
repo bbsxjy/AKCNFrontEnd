@@ -53,7 +53,7 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <!-- Module name column removed - using version_name/subtask_name instead -->
+        <!-- Version name column -->
         <el-table-column prop="sub_target" label="改造目标" width="90">
           <template #default="{ row }">
             <el-tag size="small" :type="row.sub_target === 'AK' ? 'primary' : 'success'">
@@ -374,9 +374,8 @@ const editForm = reactive<UpdateSubTaskRequest>({
 })
 
 // Computed properties
-const applicationName = computed(() => application.value?.application_name || 'Loading...')
-const l2Id = computed(() => application.value?.application_id || '')
-const responsiblePerson = computed(() => application.value?.responsible_person || '')
+const applicationName = computed(() => application.value?.app_name || 'Loading...')
+const l2Id = computed(() => application.value?.l2_id || '')
 
 // Computed property to ensure progress percentage is always a number
 const safeProgressPercentage = computed({
@@ -430,9 +429,6 @@ const loadSubTasks = async () => {
     subTasks.value = rawSubTasks.map(task => ({
       ...task,
       progress_percentage: Number(task.progress_percentage) || 0,
-      subtask_name: task.subtask_name || '',
-      responsible_person: task.responsible_person || '',
-      status: task.status || '',
       notes: task.notes || null
     }))
     await loadStatistics()
@@ -543,18 +539,19 @@ const showCreateTaskDialog = () => {
   Object.assign(createForm, {
     application_id: Number(applicationId),
     sub_target: 'AK',
-    subtask_name: '',
-    responsible_person: '',
-    planned_start_date: '',
-    planned_end_date: '',
-    status: 'planning',
+    version_name: '',
+    task_status: 'planning',
+    planned_requirement_date: '',
+    planned_release_date: '',
+    planned_tech_online_date: '',
+    planned_biz_online_date: '',
     notes: ''
   })
   showCreateDialog.value = true
 }
 
 const handleCreate = async () => {
-  if (!createForm.subtask_name || !createForm.responsible_person) {
+  if (!createForm.version_name) {
     safeMessage('请填写必填字段', 'error')
     return
   }
@@ -574,8 +571,7 @@ const handleCreate = async () => {
 const editTask = (task: SubTask) => {
   editingTask.value = task
   Object.assign(editForm, {
-    subtask_name: task.subtask_name || '',
-    responsible_person: task.responsible_person || '',
+    version_name: task.version_name || '',
     planned_start_date: task.planned_start_date || '',
     planned_end_date: task.planned_end_date || '',
     actual_start_date: task.actual_start_date || '',
@@ -760,7 +756,7 @@ const deleteSubTaskInEdit = async () => {
 
   try {
     await ElMessageBox.confirm(
-      `确定要删除子任务"${editingTask.value.subtask_name}"吗？此操作不可恢复。`,
+      `确定要删除子任务"${editingTask.value.version_name}"吗？此操作不可恢复。`,
       '确认删除',
       {
         confirmButtonText: '确定删除',

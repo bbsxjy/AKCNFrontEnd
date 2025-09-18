@@ -49,9 +49,7 @@ export interface SubTask {
   created_by?: number
   updated_by?: number
 
-  // Compatibility fields (for UI display only, not sent to backend)
-  application_id?: number  // Compatibility field
-  subtask_name?: string  // Alias for version_name
+  // No compatibility fields - all removed
 }
 
 export interface CreateSubTaskRequest {
@@ -131,9 +129,7 @@ export class SubTasksAPI {
       launch_check_status: item.launch_check_status || null,
       notes: item.notes || '',
 
-      // Compatibility fields for UI display (not sent to backend)
-      application_id: item.l2_id,
-      subtask_name: item.version_name || '未命名任务'
+      // No compatibility fields needed
     }
   }
   // List subtasks with filtering and pagination
