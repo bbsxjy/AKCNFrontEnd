@@ -13,19 +13,27 @@ export interface ValueMapping {
 
 // Map user's Excel column names to API field names for Applications (总追踪表)
 export const APPLICATION_FIELD_MAPPING: ExcelFieldMapping = {
+  // Primary identifiers
   'L2ID': 'l2_id',
   'L2 ID': 'l2_id',
   'L2应用': 'app_name',
   '应用名称': 'app_name',
+
+  // Basic information
   '档位': 'app_tier',
+  '所属L1': 'belonging_l1_name',
   '所属L1名称': 'belonging_l1_name',
   '所属项目': 'belonging_projects',
+
+  // Team and ownership
   '开发负责人': 'dev_owner',
   '开发团队': 'dev_team',
   '运维负责人': 'ops_owner',
   '运维团队': 'ops_team',
-  '监管年': 'ak_supervision_acceptance_year',
+
+  // Transformation details
   '监管验收年份': 'ak_supervision_acceptance_year',
+  '监管年': 'ak_supervision_acceptance_year',
   '改造目标': 'overall_transformation_target',
   '转型目标': 'overall_transformation_target',
   '当前改造阶段': 'current_transformation_phase',
@@ -33,29 +41,74 @@ export const APPLICATION_FIELD_MAPPING: ExcelFieldMapping = {
   '改造状态': 'current_status',
   '当前状态': 'current_status',
   '状态': 'current_status',
+
+  // Completion flags
+  '是否已完成AK': 'is_ak_completed',
+  '是否已完成云原生': 'is_cloud_native_completed',
+
+  // Planned dates (with line breaks as in Excel)
+  '【计划】\n需求完成时间': 'planned_requirement_date',
+  '【计划】需求完成时间': 'planned_requirement_date',
+  '【计划】\n发版时间': 'planned_release_date',
+  '【计划】发版时间': 'planned_release_date',
+  '【计划】\n技术上线时间': 'planned_tech_online_date',
+  '【计划】技术上线时间': 'planned_tech_online_date',
+  '【计划】\n业务上线时间': 'planned_biz_online_date',
+  '【计划】业务上线时间': 'planned_biz_online_date',
+
+  // Actual dates (with line breaks as in Excel)
+  '【实际】\n需求到达时间': 'actual_requirement_date',
+  '【实际】需求到达时间': 'actual_requirement_date',
+  '【实际】\n发版时间': 'actual_release_date',
+  '【实际】发版时间': 'actual_release_date',
+  '【实际】\n技术上线时间': 'actual_tech_online_date',
+  '【实际】技术上线时间': 'actual_tech_online_date',
+  '【实际】\n业务上线时间': 'actual_biz_online_date',
+  '【实际】业务上线时间': 'actual_biz_online_date',
+
+  // Additional fields
   '开发模式': 'dev_mode',
   '运维模式': 'ops_mode',
+  '所属指标': 'belonging_kpi',
   '所属KPI': 'belonging_kpi',
-  '验收状态': 'acceptance_status'
+  '验收状态': 'acceptance_status',
+  '备注': 'notes'
 }
 
 // Map user's Excel column names to API field names for SubTasks (子追踪表)
 export const SUBTASK_FIELD_MAPPING: ExcelFieldMapping = {
+  // Primary identifiers
   'L2ID': 'l2_id',
   'L2 ID': 'l2_id',
+
+  // Subtask details
   '子目标': 'sub_target',
   '版本名': 'version_name',
   '版本名称': 'version_name',
   '改造状态': 'task_status',
   '任务状态': 'task_status',
+
+  // Planned dates (with line breaks as in Excel)
   '【计划】\n需求完成时间': 'planned_requirement_date',
-  '【实际】\n需求到达时间': 'actual_requirement_date',
+  '【计划】需求完成时间': 'planned_requirement_date',
   '【计划】\n发版时间': 'planned_release_date',
-  '【实际】\n发版时间': 'actual_release_date',
+  '【计划】发版时间': 'planned_release_date',
   '【计划】\n技术上线时间': 'planned_tech_online_date',
-  '【实际】\n技术上线时间': 'actual_tech_online_date',
+  '【计划】技术上线时间': 'planned_tech_online_date',
   '【计划】\n业务上线时间': 'planned_biz_online_date',
+  '【计划】业务上线时间': 'planned_biz_online_date',
+
+  // Actual dates (with line breaks as in Excel)
+  '【实际】\n需求到达时间': 'actual_requirement_date',
+  '【实际】需求到达时间': 'actual_requirement_date',
+  '【实际】\n发版时间': 'actual_release_date',
+  '【实际】发版时间': 'actual_release_date',
+  '【实际】\n技术上线时间': 'actual_tech_online_date',
+  '【实际】技术上线时间': 'actual_tech_online_date',
   '【实际】\n业务上线时间': 'actual_biz_online_date',
+  '【实际】业务上线时间': 'actual_biz_online_date',
+
+  // Additional fields
   '备注': 'notes',
   '主表同步备注': 'notes',
   '资源已申请': 'resource_applied',
