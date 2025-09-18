@@ -60,8 +60,6 @@ export interface Application {
 
   // Calculated fields (read-only from backend)
   progress_percentage?: number
-  responsible_team?: string  // Compatibility: returns dev_team or ops_team
-  responsible_person?: string  // Compatibility: returns dev_owner or ops_owner
   subtask_count?: number
   completed_subtask_count?: number
 }

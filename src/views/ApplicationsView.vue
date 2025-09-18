@@ -104,7 +104,7 @@
         <el-table-column type="selection" width="55" />
         <el-table-column prop="l2_id" label="L2 ID" min-width="130">
           <template #default="{ row }">
-            <strong>{{ row.l2_id || row.application_id }}</strong>
+            <strong>{{ row.l2_id }}</strong>
           </template>
         </el-table-column>
         <el-table-column prop="app_name" label="应用名称" min-width="200">
@@ -249,12 +249,12 @@
           <el-table-column type="selection" width="55" />
           <el-table-column label="L2 ID" width="100" fixed="left">
             <template #default="{ row }">
-              <strong>{{ getApplicationL2Id(row.application_id) }}</strong>
+              <strong>{{ getApplicationL2Id(row.l2_id) }}</strong>
             </template>
           </el-table-column>
           <el-table-column label="应用名称" min-width="120">
             <template #default="{ row }">
-              {{ getApplicationName(row.application_id) }}
+              {{ getApplicationName(row.l2_id) }}
             </template>
           </el-table-column>
           <el-table-column prop="version_name" label="版本名称" min-width="150">
@@ -532,23 +532,23 @@ const targetOptions = [
 ]
 
 const createForm = reactive({
-  application_id: '',
-  application_name: '',
-  responsible_person: '',
-  responsible_team: '',
-  status: '待启动',
-  supervision_year: 2025,
-  transformation_target: 'AK'
+  l2_id: '',
+  app_name: '',
+  dev_owner: '',
+  dev_team: '',
+  current_status: '待启动',
+  ak_supervision_acceptance_year: 2025,
+  overall_transformation_target: 'AK'
 })
 
 const editForm = reactive({
-  application_id: '',
-  application_name: '',
-  transformation_target: 'AK',
-  responsible_person: '',
-  responsible_team: '',
-  status: '待启动',
-  supervision_year: 2025
+  l2_id: '',
+  app_name: '',
+  overall_transformation_target: 'AK',
+  dev_owner: '',
+  dev_team: '',
+  current_status: '待启动',
+  ak_supervision_acceptance_year: 2025
 })
 
 // 前端筛选后的数据
@@ -559,8 +559,8 @@ const filteredApplications = computed(() => {
   if (debouncedKeyword.value) {
     const keyword = debouncedKeyword.value.toLowerCase()
     result = result.filter(app => {
-      const id = app.l2_id || app.application_id || ''
-      const name = app.app_name || app.application_name || ''
+      const id = app.l2_id || ''
+      const name = app.app_name || ''
       return id.toLowerCase().includes(keyword) || name.toLowerCase().includes(keyword)
     })
   }
@@ -572,12 +572,12 @@ const filteredApplications = computed(() => {
 
   // 部门筛选
   if (searchForm.department) {
-    result = result.filter(app => app.responsible_team === searchForm.department)
+    result = result.filter(app => (app.dev_team === searchForm.department) || (app.ops_team === searchForm.department))
   }
 
   // 改造目标筛选（假设数据中有此字段）
   if (searchForm.target) {
-    result = result.filter(app => app.transformation_target === searchForm.target)
+    result = result.filter(app => app.overall_transformation_target === searchForm.target)
   }
 
   return result
@@ -601,9 +601,8 @@ const filteredSubTasks = computed(() => {
   if (subtaskSearchForm.keyword) {
     const keyword = subtaskSearchForm.keyword.toLowerCase()
     result = result.filter(task => {
-      const name = task.version_name || task.subtask_name || ''
-      const person = task.assigned_to || task.responsible_person || ''
-      return name.toLowerCase().includes(keyword) || person.toLowerCase().includes(keyword)
+      const name = task.version_name || ''
+      return name.toLowerCase().includes(keyword)
     })
   }
 

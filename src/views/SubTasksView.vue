@@ -189,11 +189,8 @@
             <el-radio value="云原生">云原生</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="子任务名称" required>
-          <el-input v-model="createForm.subtask_name" placeholder="请输入子任务名称" />
-        </el-form-item>
-        <el-form-item label="负责人" required>
-          <el-input v-model="createForm.responsible_person" placeholder="请输入负责人" />
+        <el-form-item label="版本名称" required>
+          <el-input v-model="createForm.version_name" placeholder="请输入版本名称" />
         </el-form-item>
         <el-form-item label="计划开始日期" required>
           <el-date-picker
@@ -242,11 +239,8 @@
     <!-- Edit SubTask Dialog -->
     <el-dialog v-model="showEditDialog" title="编辑子任务" width="600px">
       <el-form :model="editForm" label-width="120px">
-        <el-form-item label="子任务名称" required>
-          <el-input v-model="editForm.subtask_name" placeholder="请输入子任务名称" />
-        </el-form-item>
-        <el-form-item label="负责人" required>
-          <el-input v-model="editForm.responsible_person" placeholder="请输入负责人" />
+        <el-form-item label="版本名称" required>
+          <el-input v-model="editForm.version_name" placeholder="请输入版本名称" />
         </el-form-item>
         <el-form-item label="计划开始日期">
           <el-date-picker
@@ -353,24 +347,28 @@ const statistics = reactive({
 })
 
 const createForm = reactive<CreateSubTaskRequest>({
-  application_id: Number(applicationId),
+  l2_id: Number(applicationId),
   sub_target: 'AK',
-  subtask_name: '',
-  responsible_person: '',
-  planned_start_date: '',
-  planned_end_date: '',
-  status: 'planning',
+  version_name: '',
+  task_status: 'planning',
+  planned_requirement_date: '',
+  planned_release_date: '',
+  planned_tech_online_date: '',
+  planned_biz_online_date: '',
   notes: ''
 })
 
 const editForm = reactive<UpdateSubTaskRequest>({
-  subtask_name: '',
-  responsible_person: '',
-  planned_start_date: '',
-  planned_end_date: '',
-  actual_start_date: '',
-  actual_end_date: '',
-  status: '',
+  version_name: '',
+  task_status: '',
+  planned_requirement_date: '',
+  planned_release_date: '',
+  planned_tech_online_date: '',
+  planned_biz_online_date: '',
+  actual_requirement_date: '',
+  actual_release_date: '',
+  actual_tech_online_date: '',
+  actual_biz_online_date: '',
   progress_percentage: 0,
   notes: ''
 })
@@ -590,7 +588,7 @@ const editTask = (task: SubTask) => {
 }
 
 const handleEdit = async () => {
-  if (!editingTask.value || !editForm.subtask_name) {
+  if (!editingTask.value || !editForm.version_name) {
     safeMessage('请填写必填字段', 'error')
     return
   }
@@ -599,18 +597,30 @@ const handleEdit = async () => {
     // Format dates to YYYY-MM-DD strings if they are Date objects
     const formattedData = {
       ...editForm,
-      planned_start_date: editForm.planned_start_date instanceof Date
-        ? editForm.planned_start_date.toISOString().split('T')[0]
-        : editForm.planned_start_date,
-      planned_end_date: editForm.planned_end_date instanceof Date
-        ? editForm.planned_end_date.toISOString().split('T')[0]
-        : editForm.planned_end_date,
-      actual_start_date: editForm.actual_start_date instanceof Date
-        ? editForm.actual_start_date.toISOString().split('T')[0]
-        : editForm.actual_start_date,
-      actual_end_date: editForm.actual_end_date instanceof Date
-        ? editForm.actual_end_date.toISOString().split('T')[0]
-        : editForm.actual_end_date,
+      planned_requirement_date: editForm.planned_requirement_date instanceof Date
+        ? editForm.planned_requirement_date.toISOString().split('T')[0]
+        : editForm.planned_requirement_date,
+      planned_release_date: editForm.planned_release_date instanceof Date
+        ? editForm.planned_release_date.toISOString().split('T')[0]
+        : editForm.planned_release_date,
+      planned_tech_online_date: editForm.planned_tech_online_date instanceof Date
+        ? editForm.planned_tech_online_date.toISOString().split('T')[0]
+        : editForm.planned_tech_online_date,
+      planned_biz_online_date: editForm.planned_biz_online_date instanceof Date
+        ? editForm.planned_biz_online_date.toISOString().split('T')[0]
+        : editForm.planned_biz_online_date,
+      actual_requirement_date: editForm.actual_requirement_date instanceof Date
+        ? editForm.actual_requirement_date.toISOString().split('T')[0]
+        : editForm.actual_requirement_date,
+      actual_release_date: editForm.actual_release_date instanceof Date
+        ? editForm.actual_release_date.toISOString().split('T')[0]
+        : editForm.actual_release_date,
+      actual_tech_online_date: editForm.actual_tech_online_date instanceof Date
+        ? editForm.actual_tech_online_date.toISOString().split('T')[0]
+        : editForm.actual_tech_online_date,
+      actual_biz_online_date: editForm.actual_biz_online_date instanceof Date
+        ? editForm.actual_biz_online_date.toISOString().split('T')[0]
+        : editForm.actual_biz_online_date,
       // Ensure progress_percentage is a number
       progress_percentage: Number(editForm.progress_percentage) || 0
     }
@@ -693,7 +703,7 @@ const batchUpdateStatus = async () => {
     })
 
     for (const task of selectedTasks.value) {
-      await SubTasksAPI.updateSubTask(task.id, { status })
+      await SubTasksAPI.updateSubTask(task.id, { task_status: status })
     }
 
     ElMessage({

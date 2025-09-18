@@ -302,9 +302,9 @@ const loadMyTasks = async () => {
       
       return {
         id: task.id,
-        l2Id: task.application_id || 'N/A',
-        appName: task.application_name || '未知应用',
-        moduleName: task.subtask_name,
+        l2Id: task.l2_id || 'N/A',
+        appName: task.app_name || '未知应用',
+        moduleName: task.version_name,
         status: task.status,
         progress: task.progress_percentage || 0,
         plannedDate: task.planned_end_date,

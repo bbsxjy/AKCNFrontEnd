@@ -79,10 +79,10 @@ export class DashboardAPI {
         totalProgress += app.progress_percentage || 0
 
         // 按改造目标分类 (using new field names)
-        const transformTarget = app.overall_transformation_target || app.transformation_target
+        const transformTarget = app.overall_transformation_target
         if (transformTarget === 'AK') {
           stats.akTotal++
-          const status = app.current_status || app.overall_status || app.status
+          const status = app.current_status
           if (status === '全部完成' || status === 'completed') {
             stats.akCompleted++
           } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress') {
@@ -90,7 +90,7 @@ export class DashboardAPI {
           }
         } else if (transformTarget === '云原生') {
           stats.cloudNativeTotal++
-          const status = app.current_status || app.overall_status || app.status
+          const status = app.current_status
           if (status === '全部完成' || status === 'completed') {
             stats.cloudNativeCompleted++
           } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress') {
@@ -99,7 +99,7 @@ export class DashboardAPI {
         }
 
         // 按状态分类 (using new field names)
-        const status = app.current_status || app.overall_status || app.status
+        const status = app.current_status
         switch (status) {
           case '待启动':
           case 'not_started':
@@ -226,7 +226,7 @@ export class DashboardAPI {
     const departmentMap = new Map<string, { count: number; progress: number }>()
 
     applications.items.forEach(app => {
-      const team = app.responsible_team || app.dev_team || app.ops_team || '未分配'
+      const team = app.dev_team || app.ops_team || '未分配'
       const existing = departmentMap.get(team) || { count: 0, progress: 0 }
       existing.count++
       existing.progress += app.progress_percentage || 0
@@ -265,11 +265,11 @@ export class DashboardAPI {
 
     // 过滤未完成的任务并排序
     const pendingTasks = subtasks
-      .filter(task => task.status !== '已完成' && task.status !== 'completed')
+      .filter(task => task.task_status !== '已完成' && task.task_status !== 'completed')
       .sort((a, b) => {
         // 按计划结束日期排序，紧急的在前
-        const dateA = new Date(a.planned_end_date).getTime()
-        const dateB = new Date(b.planned_end_date).getTime()
+        const dateA = new Date(a.planned_biz_online_date || '').getTime()
+        const dateB = new Date(b.planned_biz_online_date || '').getTime()
         return dateA - dateB
       })
       .slice(0, limit)
@@ -280,13 +280,12 @@ export class DashboardAPI {
 
     return pendingTasks.map(task => ({
       id: task.id,
-      title: task.subtask_name,
-      plannedDate: task.planned_end_date,
-      isUrgent: new Date(task.planned_end_date).getTime() < sevenDaysLater,
-      status: task.status,
+      title: task.version_name,
+      plannedDate: task.planned_biz_online_date,
+      isUrgent: new Date(task.planned_biz_online_date || '').getTime() < sevenDaysLater,
+      status: task.task_status,
       progress: task.progress_percentage,
-      applicationId: task.application_id,
-      responsiblePerson: task.responsible_person
+      applicationId: task.l2_id
     }))
   }
 

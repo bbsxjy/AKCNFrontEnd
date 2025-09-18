@@ -44,8 +44,6 @@ export interface Application {
 
   // Calculated fields (read-only from backend)
   progress_percentage?: number
-  responsible_team?: string  // Compatibility: returns dev_team or ops_team
-  responsible_person?: string  // Compatibility: returns dev_owner or ops_owner
   subtask_count?: number
   completed_subtask_count?: number
 }
@@ -53,8 +51,7 @@ export interface Application {
 // SubTask types
 export interface SubTask {
   id: number
-  l2_id: number  // was: application_id, now stores application's database ID
-  application_id?: number  // Compatibility field
+  l2_id: number  // Stores application's database ID
 
   // Core fields
   sub_target?: 'AK' | '云原生'
@@ -86,10 +83,6 @@ export interface SubTask {
   // Timestamps
   created_at: string
   updated_at: string
-
-  // Compatibility fields (may exist in responses)
-  module_name?: string  // Removed but may appear in old data
-  subtask_name?: string  // Alias for version_name
 }
 
 // User types

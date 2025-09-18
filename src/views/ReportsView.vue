@@ -137,9 +137,9 @@
 
         <!-- Delay Report Table -->
         <el-table v-else :data="delayData" style="width: 100%">
-          <el-table-column prop="application_id" label="应用ID" width="120" />
+          <el-table-column prop="l2_id" label="L2 ID" width="120" />
           <el-table-column prop="application_name" label="应用名称" min-width="200" />
-          <el-table-column prop="responsible_team" label="负责团队" width="120" />
+          <el-table-column prop="dev_team" label="开发团队" width="120" />
           <el-table-column prop="delay_days" label="延期天数" width="100" align="center">
             <template #default="{ row }">
               <el-tag :type="getDelayType(row.delay_days)">
@@ -290,7 +290,7 @@ const loadSummaryReport = async () => {
     const departmentMap = new Map<string, any>()
 
     applications.items.forEach(app => {
-      const dept = app.responsible_team || '未分配'
+      const dept = app.dev_team || app.ops_team || '未分配'
       if (!departmentMap.has(dept)) {
         departmentMap.set(dept, {
           department: dept,
@@ -394,10 +394,10 @@ const loadProgressReport = async () => {
     applications.items.forEach(app => {
       const progress = app.progress_percentage || 0
       const appData = {
-        application_id: app.l2_id || app.application_id,
-        application_name: app.app_name || app.application_name,
+        l2_id: app.l2_id,
+        application_name: app.app_name,
         progress: progress,
-        responsible_team: app.responsible_team
+        dev_team: app.dev_team || app.ops_team
       }
 
       if (progress === 100) {
@@ -461,7 +461,7 @@ const loadDelayReport = async () => {
 
     applications.items.forEach(app => {
       // 查找该应用的子任务
-      const appSubtasks = subtasks.items.filter(task => task.application_id === app.id)
+      const appSubtasks = subtasks.items.filter(task => task.l2_id === app.id)
 
       // 检查是否有延期的子任务
       const delayedTasks = appSubtasks.filter(task => {
@@ -480,10 +480,10 @@ const loadDelayReport = async () => {
         }))
 
         delayedApplications.push({
-          application_id: app.l2_id || app.application_id,
-          application_name: app.app_name || app.application_name,
+          l2_id: app.l2_id,
+          application_name: app.app_name,
           delay_days: maxDelay,
-          responsible_team: app.responsible_team || '未分配',
+          dev_team: app.dev_team || app.ops_team || '未分配',
           planned_end_date: delayedTasks[0].planned_biz_online_date || '-',
           expected_end_date: calculateExpectedDate(delayedTasks[0].planned_biz_online_date, maxDelay),
           delay_reason: delayedTasks[0].block_reason || '进度延迟'
@@ -517,7 +517,7 @@ const loadDepartmentReport = async () => {
     const departmentMap = new Map<string, any>()
 
     applications.items.forEach(app => {
-      const dept = app.responsible_team || '未分配'
+      const dept = app.dev_team || app.ops_team || '未分配'
       if (!departmentMap.has(dept)) {
         departmentMap.set(dept, {
           department: dept,
@@ -560,7 +560,7 @@ const loadDepartmentReport = async () => {
 
       // 统计该部门的子任务
       const deptSubtasks = subtasks.items.filter(task =>
-        task.application_id === app.id
+        task.l2_id === app.id
       )
       deptData.total_subtasks += deptSubtasks.length
       deptData.completed_subtasks += deptSubtasks.filter(task =>
