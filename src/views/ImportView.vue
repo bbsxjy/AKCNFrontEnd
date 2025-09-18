@@ -422,10 +422,10 @@ const nextStep = async () => {
             throw new Error(`文件处理失败，后端警告：\n\n${warningDetails}\n\n请检查：\n1. Excel文件是否包含“总追踪表（勿动）”或“子追踪表”sheet\n2. 数据是否从第2行开始（第1行为列名）\n3. 列名是否为中文`)
           }
 
-          const expectedFields = importType === 'applications'
+          const expectedFields = importOptions.importType === 'applications'
             ? Object.keys(APPLICATION_FIELD_MAPPING)
             : Object.keys(SUBTASK_FIELD_MAPPING)
-          const sheetName = importType === 'applications' ? '总追踪表（勿动）' : '子追踪表'
+          const sheetName = importOptions.importType === 'applications' ? '总追踪表（勿动）' : '子追踪表'
           const fieldMappingHint = `\n\n预期的Excel列名（${sheetName}）：\n${expectedFields.slice(0, 10).join(', ')} 等\n\n注意：\n1. Excel需要包含“总追踪表（勿动）”或“子追踪表”sheet\n2. 列名必须为中文\n3. 数据从第2行开始`
 
           throw new Error('文件验证失败：无法识别Excel数据。可能原因：\n1. 文件为空或没有数据行\n2. Sheet名称不正确（需要“总追踪表（勿动）”或“子追踪表”）\n3. Excel列名与预期不匹配\n4. 文件编码问题' + fieldMappingHint)
