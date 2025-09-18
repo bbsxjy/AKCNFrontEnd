@@ -28,6 +28,18 @@ api.interceptors.request.use(
     // Always add the fixed token to the Authorization header
     config.headers.Authorization = `Bearer ${token}`
 
+    // Ensure URLs have trailing slashes for API endpoints to avoid redirects
+    // This prevents CORS issues caused by backend redirecting /path to /path/
+    if (config.url && !config.url.includes('?') && !config.url.endsWith('/')) {
+      config.url = config.url + '/'
+    } else if (config.url && config.url.includes('?')) {
+      // For URLs with query params, ensure the base path has a trailing slash
+      const [path, query] = config.url.split('?')
+      if (!path.endsWith('/')) {
+        config.url = path + '/?' + query
+      }
+    }
+
     // Add client IP for audit logging (will be overridden by server)
     config.headers['X-Client-IP'] = 'frontend'
 

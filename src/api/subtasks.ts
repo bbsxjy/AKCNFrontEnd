@@ -64,7 +64,6 @@ export interface SubTask {
 
 export interface CreateSubTaskRequest {
   application_id: number
-  module_name: string
   sub_target: 'AK' | '云原生'
   subtask_name: string
   responsible_person: string
@@ -150,8 +149,8 @@ export class SubTasksAPI {
       technical_notes: item.technical_notes || item.notes || '',  // Backward compatibility
 
       // 兼容字段映射
-      subtask_name: item.version_name || item.module_name || '未命名任务',
-      module_name: item.module_name || item.version_name || '未命名模块',  // Backward compatibility
+      subtask_name: item.version_name || '未命名任务',
+      module_name: item.version_name || '未命名模块',  // Backward compatibility for UI display only
       responsible_person: item.assigned_to || '未分配',
       status: statusMap[item.task_status] || item.task_status || '待启动',
       planned_start_date: item.planned_requirement_date || '',
@@ -187,17 +186,17 @@ export class SubTasksAPI {
 
   // Create new subtask
   static async createSubTask(data: CreateSubTaskRequest): Promise<SubTask> {
-    // Map frontend fields to backend expected format
+    // Map frontend fields to backend expected format (using new field names)
     const backendData = {
-      application_id: data.application_id,
-      module_name: data.module_name || '默认模块',
+      l2_id: data.application_id,  // Map application_id to l2_id for backend
       sub_target: data.sub_target || 'AK',
       version_name: data.subtask_name,  // 使用subtask_name作为version_name
       task_status: data.status || '待启动',
-      assigned_to: data.responsible_person,
+      dev_owner: data.responsible_person,  // Use dev_owner instead of assigned_to
       planned_requirement_date: data.planned_start_date,
       planned_biz_online_date: data.planned_end_date,
-      technical_notes: data.notes || ''
+      notes: data.notes || '',  // Use notes instead of technical_notes
+      resource_applied: false  // Default for new field
     }
 
     const response = await api.post('/subtasks', backendData)

@@ -53,11 +53,7 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="module_name" label="模块名称" min-width="150" fixed="left">
-          <template #default="{ row }">
-            <strong>{{ row.module_name || '默认模块' }}</strong>
-          </template>
-        </el-table-column>
+        <!-- Module name column removed - using version_name/subtask_name instead -->
         <el-table-column prop="sub_target" label="改造目标" width="90">
           <template #default="{ row }">
             <el-tag size="small" :type="row.sub_target === 'AK' ? 'primary' : 'success'">
@@ -186,9 +182,7 @@
     <!-- Create SubTask Dialog -->
     <el-dialog v-model="showCreateDialog" title="新增子任务" width="600px">
       <el-form :model="createForm" label-width="120px">
-        <el-form-item label="模块名称" required>
-          <el-input v-model="createForm.module_name" placeholder="请输入模块名称" />
-        </el-form-item>
+        <!-- Module name field removed from new schema -->
         <el-form-item label="改造目标" required>
           <el-radio-group v-model="createForm.sub_target">
             <el-radio value="AK">AK</el-radio>
@@ -360,7 +354,6 @@ const statistics = reactive({
 
 const createForm = reactive<CreateSubTaskRequest>({
   application_id: Number(applicationId),
-  module_name: '',
   sub_target: 'AK',
   subtask_name: '',
   responsible_person: '',
@@ -551,7 +544,6 @@ const showCreateTaskDialog = () => {
   // Reset form
   Object.assign(createForm, {
     application_id: Number(applicationId),
-    module_name: '',
     sub_target: 'AK',
     subtask_name: '',
     responsible_person: '',
@@ -564,7 +556,7 @@ const showCreateTaskDialog = () => {
 }
 
 const handleCreate = async () => {
-  if (!createForm.module_name || !createForm.subtask_name || !createForm.responsible_person) {
+  if (!createForm.subtask_name || !createForm.responsible_person) {
     safeMessage('请填写必填字段', 'error')
     return
   }
