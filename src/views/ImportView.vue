@@ -219,7 +219,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { Check } from '@element-plus/icons-vue'
-import { ElMessage, ElLoading } from 'element-plus'
+import { ElMessage, ElLoading, ElMessageBox } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import { ExcelAPI } from '@/api/reports'
 import { EXCEL_FIELD_MAPPING } from '@/utils/excelFieldMapping'
@@ -387,6 +387,14 @@ const nextStep = async () => {
         const hasApplicationsData = mappedResponse.applications && typeof mappedResponse.applications.total_rows === 'number' && mappedResponse.applications.total_rows > 0
         const hasSubtasksData = mappedResponse.subtasks && typeof mappedResponse.subtasks.total_rows === 'number' && mappedResponse.subtasks.total_rows > 0
 
+        // Check if there were skipped rows (backend processing error)
+        const skippedCount = mappedResponse.skipped ||
+          (mappedResponse.applications?.skipped || 0) + (mappedResponse.subtasks?.skipped || 0)
+
+        if (skippedCount > 0) {
+          throw new Error(`后端处理错误：${skippedCount} 条记录处理失败。\n\n这通常是由于：\n1. 后端数据库连接问题\n2. 异步处理错误（greenlet_spawn）\n3. 数据验证失败\n\n请联系系统管理员检查后端日志。\n\n临时解决方案：\n- 将Excel文件拆分成更小的批次（每次100行）\n- 逐批导入数据`)
+        }
+
         if (!hasApplicationsData && !hasSubtasksData) {
           const expectedFields = Object.keys(EXCEL_FIELD_MAPPING)
           const fieldMappingHint = `\n\n预期的Excel列名：\n${expectedFields.slice(0, 6).join(', ')} 等\n\n您的Excel应包含这些中文列名，系统会自动进行字段映射。`
@@ -419,6 +427,17 @@ const nextStep = async () => {
       // Check if it's a timeout error
       if (error?.code === 'ECONNABORTED' && error?.message?.includes('timeout')) {
         ElMessage.error(`文件太大，处理超时。请稍后重试或联系管理员增加服务器处理能力。`)
+      } else if (error?.message?.includes('后端处理错误')) {
+        // Backend processing error
+        ElMessageBox.alert(
+          error.message,
+          '后端处理错误',
+          {
+            confirmButtonText: '我知道了',
+            type: 'error',
+            dangerouslyUseHTMLString: false
+          }
+        )
       } else {
         ElMessage.error(`文件验证失败: ${error?.response?.data?.detail || error?.message || '未知错误'}`)
       }
