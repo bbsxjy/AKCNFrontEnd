@@ -50,18 +50,11 @@ export interface DashboardChartData {
 export class DashboardAPI {
   // 获取仪表盘统计数据 - 使用现有API计算
   static async getDashboardStats(): Promise<DashboardStats> {
-    try {
-      // 从应用列表API计算统计数据
-      const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
+    // 从应用列表API计算统计数据
+    const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
 
-      console.log('Dashboard Stats - Applications data:', {
-        total: applications.total,
-        itemsCount: applications.items?.length || 0,
-        firstItem: applications.items?.[0]
-      })
-
-      const stats: DashboardStats = {
-        total: applications.total || 0,
+    const stats: DashboardStats = {
+      total: applications.total,
       active: 0,
       completed: 0,
       blocked: 0,
@@ -79,40 +72,31 @@ export class DashboardAPI {
       offline: 0
     }
 
-      if (applications.items && applications.items.length > 0) {
+    if (applications.items.length > 0) {
       let totalProgress = 0
 
       applications.items.forEach(app => {
         totalProgress += app.progress_percentage || 0
 
-          // 按改造目标分类 (using new field names)
-          const transformTarget = app.overall_transformation_target
-          if (transformTarget === 'AK' || transformTarget === 'ak') {
+        // 按改造目标分类 (using new field names)
+        const transformTarget = app.overall_transformation_target
+        if (transformTarget === 'AK') {
           stats.akTotal++
           const status = app.current_status
           if (status === '全部完成' || status === 'completed') {
             stats.akCompleted++
-            } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
-              stats.akInProgress++
+          } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress') {
+            stats.akInProgress++
           }
-          } else if (transformTarget === '云原生' || transformTarget === 'cloud_native') {
+        } else if (transformTarget === '云原生') {
           stats.cloudNativeTotal++
           const status = app.current_status
           if (status === '全部完成' || status === 'completed') {
             stats.cloudNativeCompleted++
-            } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
-              stats.cloudNativeInProgress++
-            }
-          } else {
-            // 如果没有明确指定目标，默认统计到AK
-            stats.akTotal++
-            const status = app.current_status
-            if (status === '全部完成' || status === 'completed') {
-              stats.akCompleted++
-            } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
-              stats.akInProgress++
-            }
+          } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress') {
+            stats.cloudNativeInProgress++
           }
+        }
 
         // 按状态分类 (using new field names)
         const status = app.current_status
@@ -144,37 +128,10 @@ export class DashboardAPI {
         }
       })
 
-        stats.averageProgress = applications.items.length > 0 ? Math.round(totalProgress / applications.items.length) : 0
-
-        // 确保总数至少等于各分类之和
-        stats.total = Math.max(stats.total, stats.akTotal + stats.cloudNativeTotal)
-      }
-
-      console.log('Dashboard Stats - Final calculated stats:', stats)
-      return stats
-
-    } catch (error) {
-      console.error('Failed to get dashboard stats:', error)
-      // 返回默认值而不是空值
-      return {
-        total: 0,
-        active: 0,
-        completed: 0,
-        blocked: 0,
-        averageProgress: 0,
-        akTotal: 0,
-        akCompleted: 0,
-        akInProgress: 0,
-        cloudNativeTotal: 0,
-        cloudNativeCompleted: 0,
-        cloudNativeInProgress: 0,
-        notStarted: 0,
-        inDevelopment: 0,
-        inTesting: 0,
-        online: 0,
-        offline: 0
-      }
+      stats.averageProgress = Math.round(totalProgress / applications.items.length)
     }
+
+    return stats
   }
 
   // 获取月度完成数据 - 统计各阶段完成的应用数量
@@ -264,41 +221,28 @@ export class DashboardAPI {
 
   // 获取部门进度分布 - 使用现有API计算
   static async getDepartmentDistribution(): Promise<DepartmentProgress[]> {
-    try {
-      // 从应用列表API计算部门分布
-      const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
-      const departmentMap = new Map<string, { count: number; progress: number }>()
+    // 从应用列表API计算部门分布
+    const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
+    const departmentMap = new Map<string, { count: number; progress: number }>()
 
-      if (applications.items && applications.items.length > 0) {
-        applications.items.forEach(app => {
-          const team = app.dev_team || app.ops_team || '未分配'
-          const existing = departmentMap.get(team) || { count: 0, progress: 0 }
-          existing.count++
-          existing.progress += app.progress_percentage || 0
-          departmentMap.set(team, existing)
-        })
-      }
+    applications.items.forEach(app => {
+      const team = app.dev_team || app.ops_team || '未分配'
+      const existing = departmentMap.get(team) || { count: 0, progress: 0 }
+      existing.count++
+      existing.progress += app.progress_percentage || 0
+      departmentMap.set(team, existing)
+    })
 
-      const distribution: DepartmentProgress[] = []
-      departmentMap.forEach((data, team) => {
-        distribution.push({
-          name: team,
-          value: data.count,
-          percentage: data.count > 0 ? Math.round(data.progress / data.count) : 0
-        })
+    const distribution: DepartmentProgress[] = []
+    departmentMap.forEach((data, team) => {
+      distribution.push({
+        name: team,
+        value: data.count,
+        percentage: data.count > 0 ? Math.round(data.progress / data.count) : 0
       })
+    })
 
-      console.log('Department Distribution:', distribution)
-      return distribution.sort((a, b) => b.value - a.value).slice(0, 5)
-    } catch (error) {
-      console.error('Failed to get department distribution:', error)
-      // 返回示例数据用于显示
-      return [
-        { name: '研发团队A', value: 5, percentage: 60 },
-        { name: '研发团队B', value: 3, percentage: 40 },
-        { name: '运维团队', value: 2, percentage: 50 }
-      ]
-    }
+    return distribution.sort((a, b) => b.value - a.value).slice(0, 5)
   }
 
   // 获取图表数据

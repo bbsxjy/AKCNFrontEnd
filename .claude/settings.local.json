@@ -23,7 +23,8 @@
       "Bash(python:*)",
       "Bash(tasklist:*)",
       "Bash(taskkill:*)",
-      "Bash(tskill:*)"
+      "Bash(tskill:*)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []
