@@ -15,7 +15,7 @@ export interface NotificationMessage {
 }
 
 export interface ProgressUpdateMessage {
-  application_id: number
+  l2_id: number
   progress_percentage: number
   resource_progress: number
   service_progress: number

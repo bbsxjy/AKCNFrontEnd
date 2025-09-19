@@ -752,8 +752,8 @@
             </div>
             <el-timeline v-else>
               <el-timeline-item
-                v-for="record in auditRecords"
-                :key="record.id"
+                v-for="(record, index) in auditRecords"
+                :key="record.id || `audit-${index}`"
                 :timestamp="formatDate(record.created_at)"
                 placement="top"
               >
@@ -765,7 +765,7 @@
                     </el-tag>
                   </div>
                   <div class="audit-changes" v-if="record.changed_fields && record.changed_fields.length > 0">
-                    <div class="change-item" v-for="field in record.changed_fields" :key="field">
+                    <div class="change-item" v-for="(field, fieldIndex) in record.changed_fields" :key="`${field}-${fieldIndex}`">
                       <span class="field-name">{{ getFieldLabel(field) }}:</span>
                       <span class="old-value" v-if="record.old_values && record.old_values[field] !== undefined">
                         {{ formatFieldValue(field, record.old_values[field]) }}
@@ -776,7 +776,7 @@
                       </span>
                     </div>
                   </div>
-                  <div class="audit-footer" v-if="isAdmin">
+                  <div class="audit-footer" v-if="isAdmin && record.id">
                     <el-button
                       v-if="record.operation !== 'DELETE' && canRollback(record)"
                       size="small"
@@ -1611,6 +1611,8 @@ const formatFieldValue = (field: string, value: any) => {
 
 // Check if can rollback
 const canRollback = (record: AuditLog) => {
+  if (!record || !record.id || !record.created_at) return false
+
   // Only allow rollback of recent operations (within 7 days)
   const recordDate = new Date(record.created_at)
   const now = new Date()
@@ -1620,6 +1622,11 @@ const canRollback = (record: AuditLog) => {
 
 // Rollback audit operation
 const rollbackAudit = async (record: AuditLog) => {
+  if (!record || !record.id) {
+    ElMessage.error('无法回滚：记录ID无效')
+    return
+  }
+
   try {
     await ElMessageBox.confirm(
       `确定要回滚此操作吗？这将恢复到操作前的状态。`,

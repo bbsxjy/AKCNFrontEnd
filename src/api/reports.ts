@@ -46,7 +46,7 @@ export interface DelayedProjectsResponse {
   content?: string
   file_url?: string
   data: Array<{
-    application_id: string
+    l2_id: string
     application_name: string
     delay_days: number
     delayed_subtasks: any[]
@@ -388,7 +388,7 @@ export class ExcelAPI {
           value = TARGET_VALUE_MAPPING[value]
         } else if (fieldName === 'supervision_year' && typeof value === 'string' && value.includes('年')) {
           value = parseInt(value.replace('年', ''))
-        } else if (fieldName === 'application_id') {
+        } else if (fieldName === 'l2_id') {
           value = String(value || '')
           if (!value.trim()) {
             value = `APP_${Date.now()}_${rowIndex + 1}`

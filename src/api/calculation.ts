@@ -6,7 +6,7 @@ export interface CalculationRequest {
 }
 
 export interface CalculationResult {
-  application_id: number
+  l2_id: number
   progress_percentage: number
   resource_progress: number
   service_progress: number
@@ -35,7 +35,7 @@ export class CalculationAPI {
   // Calculate for specific applications
   static async calculateApplications(applicationIds: number[]): Promise<CalculationResponse> {
     return this.calculate({
-      application_ids: applicationIds,
+      l2_id: applicationIds,
       calculation_type: 'all'
     })
   }

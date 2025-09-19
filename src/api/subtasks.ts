@@ -1,7 +1,7 @@
 import api from './index'
 
 export interface SubTaskListParams {
-  application_id?: number
+  l2_id?: number
   status?: string
   skip?: number
   limit?: number
@@ -122,7 +122,7 @@ export class SubTasksAPI {
     return {
       ...item,
       // Ensure required fields have defaults
-      l2_id: item.l2_id || item.application_id,
+      l2_id: item.l2_id,
       resource_applied: item.resource_applied || false,
       ops_requirement_submitted: item.ops_requirement_submitted || null,
       ops_testing_status: item.ops_testing_status || null,
@@ -138,7 +138,7 @@ export class SubTasksAPI {
 
     // Note: application_id in params refers to the Application's database ID
     // Backend expects 'l2_id' parameter for filtering by application
-    if (params.application_id !== undefined) queryParams.append('l2_id', params.application_id.toString())
+    if (params.l2_id !== undefined) queryParams.append('l2_id', params.l2_id.toString())
     if (params.status) queryParams.append('status', params.status)
     if (params.skip !== undefined) queryParams.append('skip', params.skip.toString())
     if (params.limit !== undefined) queryParams.append('limit', params.limit.toString())
@@ -212,7 +212,7 @@ export class SubTasksAPI {
   static async getSubTasksByApplication(applicationId: number): Promise<SubTask[]> {
     try {
       const response = await this.getSubTasks({
-        application_id: applicationId,  // This is the Application's database ID
+        l2_id: applicationId,  // This is the Application's database ID
         limit: 1000
       })
       return response.items
@@ -231,7 +231,7 @@ export class SubTasksAPI {
     notStarted: number
   }> {
     try {
-      const params = applicationId ? { application_id: applicationId, limit: 1000 } : { limit: 1000 }
+      const params = applicationId ? { l2_id: applicationId, limit: 1000 } : { limit: 1000 }
       const subtasks = await this.getSubTasks(params)
       
       const stats = {

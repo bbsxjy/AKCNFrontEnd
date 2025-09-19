@@ -537,7 +537,7 @@ const goBack = () => {
 const showCreateTaskDialog = () => {
   // Reset form
   Object.assign(createForm, {
-    application_id: Number(applicationId),
+    l2_id: Number(applicationId),
     sub_target: 'AK',
     version_name: '',
     task_status: 'planning',
