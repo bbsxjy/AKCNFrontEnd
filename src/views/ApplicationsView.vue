@@ -134,38 +134,70 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="progress_percentage" label="整体进度" width="120" align="center">
-          <template #default="{ row }">
-            <el-progress
-              :percentage="row.progress_percentage || 0"
-              :stroke-width="6"
-              :color="getProgressColor(row)"
-            />
-          </template>
-        </el-table-column>
         <!-- 关键计划时间点 -->
         <el-table-column label="计划需求" width="95" align="center">
           <template #default="{ row }">
-            {{ formatYearMonth(row.planned_requirement_date) }}
+            <div class="plan-date-cell">
+              {{ formatYearMonth(row.planned_requirement_date) }}
+              <el-icon v-if="hasDateAdjustment(row, 'requirement')" class="adjustment-indicator" title="计划已调整">
+                <el-icon-warning />
+              </el-icon>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="计划发版" width="95" align="center">
           <template #default="{ row }">
-            {{ formatYearMonth(row.planned_release_date) }}
+            <div class="plan-date-cell">
+              {{ formatYearMonth(row.planned_release_date) }}
+              <el-icon v-if="hasDateAdjustment(row, 'release')" class="adjustment-indicator" title="计划已调整">
+                <el-icon-warning />
+              </el-icon>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="计划技术上线" width="110" align="center">
           <template #default="{ row }">
-            {{ formatYearMonth(row.planned_tech_online_date) }}
+            <div class="plan-date-cell">
+              {{ formatYearMonth(row.planned_tech_online_date) }}
+              <el-icon v-if="hasDateAdjustment(row, 'tech')" class="adjustment-indicator" title="计划已调整">
+                <el-icon-warning />
+              </el-icon>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="计划业务上线" width="110" align="center">
           <template #default="{ row }">
-            <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
+            <div class="plan-date-cell">
+              <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
+              <el-icon v-if="hasDateAdjustment(row, 'biz')" class="adjustment-indicator" title="计划已调整">
+                <el-icon-warning />
+              </el-icon>
+            </div>
+          </template>
+        </el-table-column>
+        <!-- 计划调整次数 -->
+        <el-table-column label="调整" width="65" align="center">
+          <template #default="{ row }">
+            <el-badge
+              v-if="getPlanAdjustmentCount(row) > 0"
+              :value="getPlanAdjustmentCount(row)"
+              type="warning"
+              class="adjustment-badge"
+            >
+              <el-button
+                size="small"
+                type="text"
+                @click="showPlanHistory(row)"
+                title="查看调整历史"
+              >
+                <el-icon><el-icon-clock /></el-icon>
+              </el-button>
+            </el-badge>
+            <span v-else class="no-adjustment">-</span>
           </template>
         </el-table-column>
         <!-- 延期预警 -->
-        <el-table-column label="进度状态" width="100" align="center">
+        <el-table-column label="延期状态" width="90" align="center">
           <template #default="{ row }">
             <el-tag v-if="row.is_delayed" type="danger" size="small">
               延期{{ row.delay_days }}天
@@ -765,13 +797,119 @@
       </template>
     </el-dialog>
 
+    <!-- Plan History Dialog -->
+    <el-dialog v-model="showPlanHistoryDialog" title="计划调整历史" width="900px">
+      <div v-loading="planHistoryLoading" style="min-height: 400px;">
+        <!-- 调整统计 -->
+        <div class="adjustment-summary">
+          <el-alert type="warning" :closable="false">
+            <template #title>
+              <div class="summary-content">
+                <span>该应用计划已调整 <strong>{{ planHistoryData.length }}</strong> 次</span>
+                <span v-if="currentPlanAdjustment" class="latest-adjustment">
+                  最近调整：{{ formatDate(currentPlanAdjustment.adjusted_at) }}
+                </span>
+              </div>
+            </template>
+          </el-alert>
+        </div>
+
+        <!-- 时间线对比视图 -->
+        <div class="timeline-comparison" v-if="planHistoryData.length > 0">
+          <h3>计划时间线对比</h3>
+          <div class="timeline-chart">
+            <div class="timeline-row" v-for="(history, index) in planHistoryData" :key="index">
+              <div class="timeline-label">
+                <div class="version-label">
+                  <el-tag v-if="index === 0" type="success" size="small">当前</el-tag>
+                  <el-tag v-else size="small">第{{ planHistoryData.length - index }}次</el-tag>
+                </div>
+                <div class="adjust-info">
+                  <div class="adjust-date">{{ formatDate(history.adjusted_at) }}</div>
+                  <div class="adjust-user">{{ history.adjusted_by }}</div>
+                </div>
+              </div>
+              <div class="timeline-content">
+                <div class="timeline-bar">
+                  <div class="phase-block requirement" :style="getPhaseStyle(history, 'requirement')">
+                    <span>需求</span>
+                    <span class="phase-date">{{ formatYearMonth(history.planned_requirement_date) }}</span>
+                  </div>
+                  <div class="phase-block release" :style="getPhaseStyle(history, 'release')">
+                    <span>发版</span>
+                    <span class="phase-date">{{ formatYearMonth(history.planned_release_date) }}</span>
+                  </div>
+                  <div class="phase-block tech" :style="getPhaseStyle(history, 'tech')">
+                    <span>技术上线</span>
+                    <span class="phase-date">{{ formatYearMonth(history.planned_tech_online_date) }}</span>
+                  </div>
+                  <div class="phase-block biz" :style="getPhaseStyle(history, 'biz')">
+                    <span>业务上线</span>
+                    <span class="phase-date">{{ formatYearMonth(history.planned_biz_online_date) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 调整明细 -->
+        <div class="adjustment-details" v-if="planHistoryData.length > 0">
+          <h3>调整明细</h3>
+          <el-table :data="planAdjustmentDetails" border>
+            <el-table-column prop="adjusted_at" label="调整时间" width="160">
+              <template #default="{ row }">
+                {{ formatDate(row.adjusted_at) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="adjusted_by" label="调整人" width="100" />
+            <el-table-column prop="field" label="调整项" width="120">
+              <template #default="{ row }">
+                {{ getAdjustmentFieldLabel(row.field) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="old_date" label="原计划" width="100">
+              <template #default="{ row }">
+                <span class="old-date">{{ formatYearMonth(row.old_date) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="new_date" label="新计划" width="100">
+              <template #default="{ row }">
+                <span class="new-date">{{ formatYearMonth(row.new_date) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="delay_days" label="延期天数" width="90" align="center">
+              <template #default="{ row }">
+                <el-tag v-if="row.delay_days > 0" type="danger" size="small">
+                  +{{ row.delay_days }}天
+                </el-tag>
+                <el-tag v-else-if="row.delay_days < 0" type="success" size="small">
+                  {{ row.delay_days }}天
+                </el-tag>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="reason" label="调整原因" min-width="200" show-overflow-tooltip />
+          </el-table>
+        </div>
+
+        <!-- 无调整记录 -->
+        <div v-if="planHistoryData.length === 0" class="no-adjustment-history">
+          <el-empty description="该应用暂无计划调整记录" />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showPlanHistoryDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Upload, Download } from '@element-plus/icons-vue'
+import { Plus, Upload, Download, Warning as ElIconWarning, Clock as ElIconClock } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApplicationsAPI, type Application, type CreateApplicationRequest } from '@/api/applications'
 import { SubTasksAPI, type SubTask } from '@/api/subtasks'
@@ -784,11 +922,14 @@ const router = useRouter()
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const showDetailDialog = ref(false)
+const showPlanHistoryDialog = ref(false)
 const selectedApplications = ref<Application[]>([])
 const editingId = ref<number | null>(null)
 const detailData = ref<Partial<Application>>({})
 const activeEditTab = ref('basic')
 const activeDetailTab = ref('basic')
+const planHistoryData = ref<any[]>([])
+const planHistoryLoading = ref(false)
 
 // Audit related states
 const auditRecords = ref<AuditLog[]>([])
@@ -1502,6 +1643,203 @@ const rollbackAudit = async (record: AuditLog) => {
     ElMessage.error('回滚操作失败')
   }
 }
+
+// Check if application has date adjustments
+const hasDateAdjustment = (row: Application, phase: string) => {
+  // This would check from audit records if the date field has been modified
+  // For now, we'll simulate based on audit cache
+  const adjustments = planAdjustmentCache.value.get(row.id)
+  if (!adjustments) return false
+
+  const fieldMap: Record<string, string> = {
+    'requirement': 'planned_requirement_date',
+    'release': 'planned_release_date',
+    'tech': 'planned_tech_online_date',
+    'biz': 'planned_biz_online_date'
+  }
+
+  return adjustments.some((adj: any) => adj.field === fieldMap[phase])
+}
+
+// Get plan adjustment count for an application
+const getPlanAdjustmentCount = (row: Application) => {
+  // Count unique adjustment events from audit records
+  const adjustments = planAdjustmentCache.value.get(row.id)
+  if (!adjustments) return 0
+
+  // Count unique adjustment dates
+  const uniqueDates = new Set(adjustments.map((adj: any) => adj.adjusted_at.split('T')[0]))
+  return uniqueDates.size
+}
+
+// Show plan history dialog
+const showPlanHistory = async (row: Application) => {
+  planHistoryLoading.value = true
+  showPlanHistoryDialog.value = true
+
+  try {
+    // Load audit records for this application
+    const audits = await AuditAPI.getRecordHistory('applications', row.id)
+
+    // Filter for plan date changes
+    const planFields = [
+      'planned_requirement_date',
+      'planned_release_date',
+      'planned_tech_online_date',
+      'planned_biz_online_date'
+    ]
+
+    const planAudits = audits.filter(audit =>
+      audit.changed_fields &&
+      audit.changed_fields.some(field => planFields.includes(field))
+    )
+
+    // Process into timeline data
+    planHistoryData.value = processPlanHistory(planAudits, row)
+    planAdjustmentDetails.value = extractAdjustmentDetails(planAudits)
+    currentPlanAdjustment.value = planHistoryData.value[0]
+
+  } catch (error) {
+    console.error('Failed to load plan history:', error)
+    planHistoryData.value = []
+    planAdjustmentDetails.value = []
+  } finally {
+    planHistoryLoading.value = false
+  }
+}
+
+// Process plan history for timeline view
+const processPlanHistory = (audits: AuditLog[], currentApp: Application) => {
+  const history: any[] = []
+
+  // Add current state
+  history.push({
+    adjusted_at: new Date().toISOString(),
+    adjusted_by: '当前状态',
+    planned_requirement_date: currentApp.planned_requirement_date,
+    planned_release_date: currentApp.planned_release_date,
+    planned_tech_online_date: currentApp.planned_tech_online_date,
+    planned_biz_online_date: currentApp.planned_biz_online_date,
+    is_current: true
+  })
+
+  // Add historical states from audits
+  audits.forEach(audit => {
+    const planState = {
+      adjusted_at: audit.created_at,
+      adjusted_by: audit.user_full_name || '系统',
+      planned_requirement_date: audit.old_values?.planned_requirement_date,
+      planned_release_date: audit.old_values?.planned_release_date,
+      planned_tech_online_date: audit.old_values?.planned_tech_online_date,
+      planned_biz_online_date: audit.old_values?.planned_biz_online_date
+    }
+
+    // Only add if there are actual date values
+    if (Object.values(planState).some(v => v && v !== audit.created_at && v !== audit.user_full_name)) {
+      history.push(planState)
+    }
+  })
+
+  return history
+}
+
+// Extract adjustment details for table view
+const extractAdjustmentDetails = (audits: AuditLog[]) => {
+  const details: any[] = []
+  const planFields = [
+    'planned_requirement_date',
+    'planned_release_date',
+    'planned_tech_online_date',
+    'planned_biz_online_date'
+  ]
+
+  audits.forEach(audit => {
+    audit.changed_fields?.forEach(field => {
+      if (planFields.includes(field)) {
+        const oldDate = audit.old_values?.[field]
+        const newDate = audit.new_values?.[field]
+
+        if (oldDate && newDate) {
+          const daysDiff = calculateDaysDiff(oldDate, newDate)
+
+          details.push({
+            adjusted_at: audit.created_at,
+            adjusted_by: audit.user_full_name || '系统',
+            field: field,
+            old_date: oldDate,
+            new_date: newDate,
+            delay_days: daysDiff,
+            reason: audit.new_values?.adjustment_reason || '未说明'
+          })
+        }
+      }
+    })
+  })
+
+  return details.sort((a, b) => new Date(b.adjusted_at).getTime() - new Date(a.adjusted_at).getTime())
+}
+
+// Calculate days difference between two dates
+const calculateDaysDiff = (date1: string, date2: string) => {
+  const d1 = new Date(date1)
+  const d2 = new Date(date2)
+  const diffTime = d2.getTime() - d1.getTime()
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+}
+
+// Get adjustment field label
+const getAdjustmentFieldLabel = (field: string) => {
+  const labels: Record<string, string> = {
+    'planned_requirement_date': '需求完成',
+    'planned_release_date': '发版时间',
+    'planned_tech_online_date': '技术上线',
+    'planned_biz_online_date': '业务上线'
+  }
+  return labels[field] || field
+}
+
+// Get phase style for timeline chart
+const getPhaseStyle = (history: any, phase: string) => {
+  const fieldMap: Record<string, string> = {
+    'requirement': 'planned_requirement_date',
+    'release': 'planned_release_date',
+    'tech': 'planned_tech_online_date',
+    'biz': 'planned_biz_online_date'
+  }
+
+  const date = history[fieldMap[phase]]
+  if (!date) return { visibility: 'hidden' }
+
+  // Calculate position based on date
+  // This is simplified - in production you'd calculate actual positions
+  return {}
+}
+
+// Initialize plan adjustment cache on load
+const initializePlanAdjustmentCache = async () => {
+  // Load adjustment data for all applications
+  // This would be optimized to batch load or lazy load
+  for (const app of allApplications.value) {
+    try {
+      const audits = await AuditAPI.getRecordHistory('applications', app.id)
+      const planAdjustments = audits.filter(audit =>
+        audit.changed_fields?.some(field =>
+          field.includes('planned_') && field.includes('_date')
+        )
+      ).map(audit => ({
+        adjusted_at: audit.created_at,
+        field: audit.changed_fields?.find(f => f.includes('planned_')),
+        user: audit.user_full_name
+      }))
+
+      if (planAdjustments.length > 0) {
+        planAdjustmentCache.value.set(app.id, planAdjustments)
+      }
+    } catch (error) {
+      console.error(`Failed to load adjustments for app ${app.id}:`, error)
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -1715,6 +2053,177 @@ const rollbackAudit = async (record: AuditLog) => {
 .el-timeline-item__timestamp {
   color: #718096 !important;
   font-size: 12px !important;
+}
+
+/* 计划调整指示器 */
+.plan-date-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.adjustment-indicator {
+  color: #ed8936;
+  font-size: 14px;
+  cursor: help;
+}
+
+.adjustment-badge {
+  cursor: pointer;
+}
+
+.adjustment-badge .el-badge__content {
+  background-color: #ed8936;
+}
+
+.no-adjustment {
+  color: #cbd5e0;
+  font-size: 12px;
+}
+
+/* 计划历史弹窗样式 */
+.adjustment-summary {
+  margin-bottom: 20px;
+}
+
+.summary-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.latest-adjustment {
+  font-size: 12px;
+  color: #718096;
+  margin-left: 20px;
+}
+
+/* 时间线对比视图 */
+.timeline-comparison {
+  margin: 20px 0;
+  padding: 20px;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.timeline-comparison h3 {
+  margin: 0 0 20px 0;
+  color: #2d3748;
+  font-size: 16px;
+}
+
+.timeline-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.timeline-label {
+  width: 150px;
+  flex-shrink: 0;
+}
+
+.version-label {
+  margin-bottom: 5px;
+}
+
+.adjust-info {
+  font-size: 12px;
+  color: #718096;
+}
+
+.adjust-date {
+  margin-bottom: 2px;
+}
+
+.adjust-user {
+  color: #4a5568;
+}
+
+.timeline-content {
+  flex: 1;
+  overflow-x: auto;
+}
+
+.timeline-bar {
+  display: flex;
+  gap: 10px;
+  min-width: 600px;
+  padding: 10px;
+  background: #f7fafc;
+  border-radius: 4px;
+  position: relative;
+}
+
+.phase-block {
+  flex: 1;
+  padding: 8px;
+  background: white;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.phase-block.requirement {
+  border-left: 3px solid #667eea;
+}
+
+.phase-block.release {
+  border-left: 3px solid #48bb78;
+}
+
+.phase-block.tech {
+  border-left: 3px solid #ed8936;
+}
+
+.phase-block.biz {
+  border-left: 3px solid #f56565;
+}
+
+.phase-date {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+/* 调整明细表格 */
+.adjustment-details {
+  margin-top: 30px;
+}
+
+.adjustment-details h3 {
+  margin: 0 0 15px 0;
+  color: #2d3748;
+  font-size: 16px;
+}
+
+.old-date {
+  color: #a0aec0;
+  text-decoration: line-through;
+}
+
+.new-date {
+  color: #48bb78;
+  font-weight: 600;
+}
+
+.no-adjustment-history {
+  padding: 40px;
+  text-align: center;
 }
 
 @media (max-width: 768px) {
