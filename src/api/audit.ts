@@ -113,7 +113,31 @@ export class AuditAPI {
   static async getRecordHistory(tableName: string, recordId: number): Promise<AuditLog[]> {
     try {
       const response = await api.get(`/audit/record/${tableName}/${recordId}`)
-      return response.data.items || response.data || []
+      const data = response.data
+
+      // Handle different response formats
+      if (Array.isArray(data)) {
+        return data
+      } else if (data && typeof data === 'object') {
+        // Check for history array (actual API response format)
+        if (Array.isArray(data.history)) {
+          return data.history
+        }
+        // If it's an object with items array
+        if (Array.isArray(data.items)) {
+          return data.items
+        }
+        // If it's an object with data array
+        if (Array.isArray(data.data)) {
+          return data.data
+        }
+        // If it's a single audit record, wrap in array
+        if (data.operation && data.record_id) {
+          return [data]
+        }
+      }
+
+      return []
     } catch (error) {
       console.error('Failed to get record history:', error)
       return []

@@ -1524,10 +1524,16 @@ const loadAuditRecords = async (applicationId: number) => {
   try {
     auditLoading.value = true
     const records = await AuditAPI.getRecordHistory('applications', applicationId)
-    // Filter out any null/undefined records and ensure each record has required fields
-    auditRecords.value = (records || []).filter(record =>
-      record && typeof record === 'object'
-    )
+
+    // Ensure records is an array and filter out invalid entries
+    if (Array.isArray(records)) {
+      auditRecords.value = records.filter(record =>
+        record && typeof record === 'object' && record.operation
+      )
+    } else {
+      console.warn('Audit records API did not return an array:', records)
+      auditRecords.value = []
+    }
   } catch (error) {
     console.error('Failed to load audit records:', error)
     auditRecords.value = []
