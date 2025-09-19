@@ -711,6 +711,54 @@
             </el-descriptions-item>
           </el-descriptions>
         </el-tab-pane>
+
+        <!-- 操作记录 -->
+        <el-tab-pane label="操作记录" name="audit" lazy>
+          <div v-loading="auditLoading" style="min-height: 300px;">
+            <div v-if="auditRecords.length === 0" class="audit-empty">
+              <el-empty description="暂无操作记录" />
+            </div>
+            <el-timeline v-else>
+              <el-timeline-item
+                v-for="record in auditRecords"
+                :key="record.id"
+                :timestamp="formatDate(record.created_at)"
+                placement="top"
+              >
+                <div class="audit-record">
+                  <div class="audit-header">
+                    <span class="audit-user">{{ record.user_full_name || '系统' }}</span>
+                    <el-tag size="small" :type="getOperationType(record.operation)">
+                      {{ getOperationText(record.operation) }}
+                    </el-tag>
+                  </div>
+                  <div class="audit-changes" v-if="record.changed_fields && record.changed_fields.length > 0">
+                    <div class="change-item" v-for="field in record.changed_fields" :key="field">
+                      <span class="field-name">{{ getFieldLabel(field) }}:</span>
+                      <span class="old-value" v-if="record.old_values && record.old_values[field] !== undefined">
+                        {{ formatFieldValue(field, record.old_values[field]) }}
+                      </span>
+                      <span class="arrow" v-if="record.old_values && record.old_values[field] !== undefined">→</span>
+                      <span class="new-value" v-if="record.new_values && record.new_values[field] !== undefined">
+                        {{ formatFieldValue(field, record.new_values[field]) }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="audit-footer" v-if="isAdmin">
+                    <el-button
+                      v-if="record.operation !== 'DELETE' && canRollback(record)"
+                      size="small"
+                      type="warning"
+                      @click="rollbackAudit(record)"
+                    >
+                      回滚此操作
+                    </el-button>
+                  </div>
+                </div>
+              </el-timeline-item>
+            </el-timeline>
+          </div>
+        </el-tab-pane>
       </el-tabs>
       <template #footer>
         <el-button @click="showDetailDialog = false">关闭</el-button>
@@ -728,6 +776,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApplicationsAPI, type Application, type CreateApplicationRequest } from '@/api/applications'
 import { SubTasksAPI, type SubTask } from '@/api/subtasks'
 import { ExcelAPI } from '@/api/reports'
+import { AuditAPI, type AuditLog } from '@/api/audit'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 
@@ -739,6 +789,12 @@ const editingId = ref<number | null>(null)
 const detailData = ref<Partial<Application>>({})
 const activeEditTab = ref('basic')
 const activeDetailTab = ref('basic')
+
+// Audit related states
+const auditRecords = ref<AuditLog[]>([])
+const auditLoading = ref(false)
+const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.hasRole('ADMIN'))
 
 // Tab and SubTasks states
 const activeTab = ref('applications')
@@ -1308,10 +1364,143 @@ const handleSubTaskCurrentChange = (page: number) => {
 }
 
 // Show application detail
-const showAppDetail = (row: Application) => {
+const showAppDetail = async (row: Application) => {
   detailData.value = { ...row }
   activeDetailTab.value = 'basic'
   showDetailDialog.value = true
+
+  // Load audit records when showing details
+  loadAuditRecords(row.id)
+}
+
+// Load audit records for the application
+const loadAuditRecords = async (applicationId: number) => {
+  try {
+    auditLoading.value = true
+    auditRecords.value = await AuditAPI.getRecordHistory('applications', applicationId)
+  } catch (error) {
+    console.error('Failed to load audit records:', error)
+    auditRecords.value = []
+  } finally {
+    auditLoading.value = false
+  }
+}
+
+// Get operation type for styling
+const getOperationType = (operation: string) => {
+  const typeMap: Record<string, string> = {
+    'INSERT': 'success',
+    'UPDATE': 'warning',
+    'DELETE': 'danger'
+  }
+  return typeMap[operation] || 'info'
+}
+
+// Get operation text in Chinese
+const getOperationText = (operation: string) => {
+  const textMap: Record<string, string> = {
+    'INSERT': '创建',
+    'UPDATE': '更新',
+    'DELETE': '删除'
+  }
+  return textMap[operation] || operation
+}
+
+// Get field label in Chinese
+const getFieldLabel = (field: string) => {
+  const labelMap: Record<string, string> = {
+    'app_name': '应用名称',
+    'l2_id': 'L2 ID',
+    'belonging_l1_name': '所属L1',
+    'belonging_projects': '所属项目',
+    'belonging_kpi': '所属指标',
+    'ak_supervision_acceptance_year': '监管验收年份',
+    'overall_transformation_target': '改造目标',
+    'current_status': '当前状态',
+    'current_transformation_phase': '当前改造阶段',
+    'dev_owner': '开发负责人',
+    'dev_team': '开发团队',
+    'ops_owner': '运维负责人',
+    'ops_team': '运维团队',
+    'app_tier': '应用档位',
+    'dev_mode': '开发模式',
+    'ops_mode': '运维模式',
+    'acceptance_status': '验收状态',
+    'is_domain_transformation_completed': '域AK改造完成',
+    'is_dbpm_transformation_completed': 'DBPM改造完成',
+    'planned_requirement_date': '计划需求时间',
+    'planned_release_date': '计划发版时间',
+    'planned_tech_online_date': '计划技术上线',
+    'planned_biz_online_date': '计划业务上线',
+    'actual_requirement_date': '实际需求时间',
+    'actual_release_date': '实际发版时间',
+    'actual_tech_online_date': '实际技术上线',
+    'actual_biz_online_date': '实际业务上线',
+    'notes': '备注'
+  }
+  return labelMap[field] || field
+}
+
+// Format field value for display
+const formatFieldValue = (field: string, value: any) => {
+  if (value === null || value === undefined || value === '') return '空'
+
+  // Date fields
+  if (field.includes('_date') || field.includes('_at')) {
+    return formatYearMonth(value)
+  }
+
+  // Boolean fields
+  if (field.startsWith('is_')) {
+    return value ? '是' : '否'
+  }
+
+  // Year field
+  if (field === 'ak_supervision_acceptance_year') {
+    return value + '年'
+  }
+
+  return value.toString()
+}
+
+// Check if can rollback
+const canRollback = (record: AuditLog) => {
+  // Only allow rollback of recent operations (within 7 days)
+  const recordDate = new Date(record.created_at)
+  const now = new Date()
+  const daysDiff = (now.getTime() - recordDate.getTime()) / (1000 * 60 * 60 * 24)
+  return daysDiff <= 7
+}
+
+// Rollback audit operation
+const rollbackAudit = async (record: AuditLog) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要回滚此操作吗？这将恢复到操作前的状态。`,
+      '确认回滚',
+      {
+        confirmButtonText: '确定回滚',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    await AuditAPI.rollbackAuditLog(record.id, {
+      confirm: true,
+      reason: '管理员手动回滚'
+    })
+
+    ElMessage.success('操作已回滚')
+
+    // Reload application data and audit records
+    await loadApplications()
+    await loadAuditRecords(detailData.value.id!)
+  } catch (error: any) {
+    if (error === 'cancel') return
+
+    console.error('Failed to rollback:', error)
+    ElMessage.error('回滚操作失败')
+  }
 }
 </script>
 
@@ -1449,6 +1638,83 @@ const showAppDetail = (row: Application) => {
 
 .el-tabs__content {
   padding: 20px 10px;
+}
+
+/* 审计记录样式 */
+.audit-empty {
+  padding: 40px 0;
+  text-align: center;
+}
+
+.audit-record {
+  padding: 12px;
+  background: #f7fafc;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.audit-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.audit-user {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.audit-changes {
+  padding: 8px 0;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  margin: 10px 0;
+}
+
+.change-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.field-name {
+  font-weight: 500;
+  color: #4a5568;
+  min-width: 100px;
+}
+
+.old-value {
+  color: #a0aec0;
+  text-decoration: line-through;
+}
+
+.arrow {
+  color: #718096;
+  font-weight: bold;
+}
+
+.new-value {
+  color: #48bb78;
+  font-weight: 500;
+}
+
+.audit-footer {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Timeline 样式优化 */
+.el-timeline {
+  padding: 20px;
+}
+
+.el-timeline-item__timestamp {
+  color: #718096 !important;
+  font-size: 12px !important;
 }
 
 @media (max-width: 768px) {

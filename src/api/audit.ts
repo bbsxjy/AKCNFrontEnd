@@ -2,6 +2,7 @@ import api from './index'
 
 export interface AuditLogListParams {
   table_name?: string
+  record_id?: number  // Add record_id filter
   operation?: 'INSERT' | 'UPDATE' | 'DELETE'
   user_id?: number
   user_name?: string  // Add user name search
@@ -65,6 +66,7 @@ export class AuditAPI {
     const queryParams = new URLSearchParams()
 
     if (params.table_name) queryParams.append('table_name', params.table_name)
+    if (params.record_id !== undefined) queryParams.append('record_id', params.record_id.toString())
     if (params.operation) queryParams.append('operation', params.operation)
     if (params.user_id !== undefined) queryParams.append('user_id', params.user_id.toString())
     if (params.user_name) queryParams.append('user_name', params.user_name)
@@ -110,16 +112,22 @@ export class AuditAPI {
   // Get audit logs for specific table and record
   static async getRecordHistory(tableName: string, recordId: number): Promise<AuditLog[]> {
     try {
-      const response = await this.getAuditLogs({
-        table_name: tableName,
-        limit: 1000
-      })
-      
-      // Filter by record_id on frontend since API doesn't support this filter
-      return response.items.filter(log => log.record_id === recordId)
+      const response = await api.get(`/audit/record/${tableName}/${recordId}`)
+      return response.data.items || response.data || []
     } catch (error) {
       console.error('Failed to get record history:', error)
       return []
+    }
+  }
+
+  // Get record change summary
+  static async getRecordSummary(tableName: string, recordId: number): Promise<any> {
+    try {
+      const response = await api.get(`/audit/record/${tableName}/${recordId}/summary`)
+      return response.data
+    } catch (error) {
+      console.error('Failed to get record summary:', error)
+      return null
     }
   }
 
