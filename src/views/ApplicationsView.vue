@@ -937,6 +937,11 @@ const auditLoading = ref(false)
 const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.hasRole('ADMIN'))
 
+// Plan adjustment tracking states - Initialize here
+const planAdjustmentCache = ref<Map<number, any>>(new Map())
+const currentPlanAdjustment = ref<any>(null)
+const planAdjustmentDetails = ref<any[]>([])
+
 // Tab and SubTasks states
 const activeTab = ref('applications')
 const allSubTasks = ref<SubTask[]>([])
