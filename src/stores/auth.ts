@@ -42,6 +42,12 @@ export const useAuthStore = defineStore('auth', () => {
   const canManageApplications = computed(() => hasPermission('applications', 'create') || isAdmin.value)
   const canManageSubtasks = computed(() => hasPermission('subtasks', 'create') || isAdmin.value)
 
+  // Check if user has a specific role
+  const hasRole = (role: string): boolean => {
+    if (!user.value) return false
+    return user.value.role?.toLowerCase() === role.toLowerCase()
+  }
+
   const loadUserInfo = async () => {
     if (!token.value) return false
 
@@ -161,6 +167,7 @@ export const useAuthStore = defineStore('auth', () => {
     canManageApplications,
     canManageSubtasks,
     hasPermission,
+    hasRole,
     loadUserInfo,
     login,
     ssoLogin,
