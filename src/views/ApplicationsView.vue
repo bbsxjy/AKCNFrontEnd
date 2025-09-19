@@ -102,126 +102,85 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <!-- 基础信息 -->
-        <el-table-column prop="belonging_l1_name" label="所属L1" width="80">
-          <template #default="{ row }">
-            {{ row.belonging_l1_name || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="l2_id" label="L2ID" width="100" fixed="left">
+        <!-- 核心标识 -->
+        <el-table-column prop="l2_id" label="L2 ID" width="110" fixed="left">
           <template #default="{ row }">
             <strong>{{ row.l2_id }}</strong>
           </template>
         </el-table-column>
-        <el-table-column prop="app_name" label="应用名称" min-width="120" show-overflow-tooltip>
+        <el-table-column prop="app_name" label="应用名称" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.app_name || row.application_name }}
           </template>
         </el-table-column>
-        <el-table-column prop="belonging_projects" label="所属项目" width="100" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ row.belonging_projects || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="belonging_kpi" label="所属指标" width="100" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ row.belonging_kpi || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="ak_supervision_acceptance_year" label="监管验收年份" width="110">
+        <!-- 管理信息 -->
+        <el-table-column prop="ak_supervision_acceptance_year" label="监管年份" width="90" align="center">
           <template #default="{ row }">
             {{ row.ak_supervision_acceptance_year ? row.ak_supervision_acceptance_year + '年' : '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="overall_transformation_target" label="改造目标" width="85">
+        <el-table-column prop="overall_transformation_target" label="改造目标" width="90" align="center">
           <template #default="{ row }">
             <el-tag size="small" :type="row.overall_transformation_target === 'AK' ? 'primary' : 'success'">
               {{ row.overall_transformation_target || 'AK' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="current_transformation_phase" label="当前改造阶段" width="110">
-          <template #default="{ row }">
-            {{ row.current_transformation_phase || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="current_status" label="改造状态" width="90">
+        <!-- 进度状态 -->
+        <el-table-column prop="current_status" label="当前状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.current_status)" size="small">
               {{ row.current_status || '待启动' }}
             </el-tag>
           </template>
         </el-table-column>
-        <!-- 计划时间 -->
-        <el-table-column label="【计划】需求完成时间" width="100">
+        <el-table-column prop="progress_percentage" label="整体进度" width="120" align="center">
+          <template #default="{ row }">
+            <el-progress
+              :percentage="row.progress_percentage || 0"
+              :stroke-width="6"
+              :color="getProgressColor(row)"
+            />
+          </template>
+        </el-table-column>
+        <!-- 关键计划时间点 -->
+        <el-table-column label="计划需求" width="95" align="center">
           <template #default="{ row }">
             {{ formatYearMonth(row.planned_requirement_date) }}
           </template>
         </el-table-column>
-        <el-table-column label="【实际】需求到达时间" width="100">
-          <template #default="{ row }">
-            <span :class="{ 'completed-date': row.actual_requirement_date }">
-              {{ formatYearMonth(row.actual_requirement_date) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="【计划】发版时间" width="100">
+        <el-table-column label="计划发版" width="95" align="center">
           <template #default="{ row }">
             {{ formatYearMonth(row.planned_release_date) }}
           </template>
         </el-table-column>
-        <el-table-column label="【实际】发版时间" width="100">
-          <template #default="{ row }">
-            <span :class="{ 'completed-date': row.actual_release_date }">
-              {{ formatYearMonth(row.actual_release_date) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="【计划】技术上线时间" width="100">
+        <el-table-column label="计划技术上线" width="110" align="center">
           <template #default="{ row }">
             {{ formatYearMonth(row.planned_tech_online_date) }}
           </template>
         </el-table-column>
-        <el-table-column label="【实际】技术上线时间" width="100">
+        <el-table-column label="计划业务上线" width="110" align="center">
           <template #default="{ row }">
-            <span :class="{ 'completed-date': row.actual_tech_online_date }">
-              {{ formatYearMonth(row.actual_tech_online_date) }}
-            </span>
+            <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
           </template>
         </el-table-column>
-        <el-table-column label="【计划】业务上线时间" width="100">
+        <!-- 延期预警 -->
+        <el-table-column label="进度状态" width="100" align="center">
           <template #default="{ row }">
-            {{ formatYearMonth(row.planned_biz_online_date) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="【实际】业务上线时间" width="100">
-          <template #default="{ row }">
-            <span :class="{ 'completed-date': row.actual_biz_online_date }">
-              {{ formatYearMonth(row.actual_biz_online_date) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="acceptance_status" label="验收状态" width="90">
-          <template #default="{ row }">
-            <el-tag v-if="row.acceptance_status"
-                   :type="row.acceptance_status === '已验收' ? 'success' : 'warning'"
-                   size="small">
-              {{ row.acceptance_status }}
+            <el-tag v-if="row.is_delayed" type="danger" size="small">
+              延期{{ row.delay_days }}天
             </el-tag>
-            <span v-else>-</span>
+            <el-tag v-else type="success" size="small">正常</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <!-- 操作按钮 -->
+        <el-table-column label="操作" width="220" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button size="small" type="info" @click="showAppDetail(row)">详情</el-button>
-            <el-button size="small" @click="editApplication(row)">编辑</el-button>
-            <el-button
-              size="small"
-              type="primary"
-              @click="viewSubTasks(row)"
-            >
-              子任务
-            </el-button>
+            <div class="operation-buttons">
+              <el-button size="small" @click="editApplication(row)">编辑</el-button>
+              <el-button size="small" type="primary" @click="viewSubTasks(row)">子任务</el-button>
+              <el-button size="small" type="info" @click="showAppDetail(row)">详情</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -598,72 +557,161 @@
     </el-dialog>
 
     <!-- Application Detail Dialog -->
-    <el-dialog v-model="showDetailDialog" title="应用详情" width="800px">
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="L2 ID" label-align="right">
-          <strong>{{ detailData.l2_id }}</strong>
-        </el-descriptions-item>
-        <el-descriptions-item label="应用名称" label-align="right">
-          {{ detailData.app_name }}
-        </el-descriptions-item>
-        <el-descriptions-item label="档位" label-align="right">
-          {{ detailData.app_tier || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="改造目标" label-align="right">
-          <el-tag :type="detailData.overall_transformation_target === 'AK' ? 'primary' : 'success'" size="small">
-            {{ detailData.overall_transformation_target || 'AK' }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="开发模式" label-align="right">
-          {{ detailData.dev_mode || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="运维模式" label-align="right">
-          {{ detailData.ops_mode || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="开发负责人" label-align="right">
-          {{ detailData.dev_owner || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="开发团队" label-align="right">
-          {{ detailData.dev_team || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="运维负责人" label-align="right">
-          {{ detailData.ops_owner || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="运维团队" label-align="right">
-          {{ detailData.ops_team || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="域AK改造完成" label-align="right">
-          <el-tag :type="detailData.is_domain_transformation_completed ? 'success' : 'info'" size="small">
-            {{ detailData.is_domain_transformation_completed ? '是' : '否' }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="DBPM改造完成" label-align="right">
-          <el-tag :type="detailData.is_dbpm_transformation_completed ? 'success' : 'info'" size="small">
-            {{ detailData.is_dbpm_transformation_completed ? '是' : '否' }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="进度" label-align="right">
-          <el-progress :percentage="detailData.progress_percentage || 0" :color="getProgressColor(detailData)" style="width: 200px;" />
-        </el-descriptions-item>
-        <el-descriptions-item label="子任务统计" label-align="right">
-          {{ detailData.completed_subtask_count || 0 }} / {{ detailData.subtask_count || 0 }}
-        </el-descriptions-item>
-        <el-descriptions-item label="是否延期" label-align="right">
-          <el-tag v-if="detailData.is_delayed" type="danger" size="small">
-            延期 {{ detailData.delay_days }} 天
-          </el-tag>
-          <el-tag v-else type="success" size="small">正常</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="创建时间" label-align="right">
-          {{ formatDate(detailData.created_at) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="更新时间" label-align="right">
-          {{ formatDate(detailData.updated_at) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="备注" label-align="right" :span="2">
-          {{ detailData.notes || '-' }}
-        </el-descriptions-item>
-      </el-descriptions>
+    <el-dialog v-model="showDetailDialog" title="应用详情" width="900px">
+      <el-tabs v-model="activeDetailTab" type="card">
+        <!-- 基础信息 -->
+        <el-tab-pane label="基础信息" name="basic">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="L2 ID" label-align="right">
+              <strong>{{ detailData.l2_id }}</strong>
+            </el-descriptions-item>
+            <el-descriptions-item label="应用名称" label-align="right">
+              {{ detailData.app_name }}
+            </el-descriptions-item>
+            <el-descriptions-item label="所属L1" label-align="right">
+              {{ detailData.belonging_l1_name || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="所属项目" label-align="right">
+              {{ detailData.belonging_projects || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="所属指标" label-align="right">
+              {{ detailData.belonging_kpi || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="应用档位" label-align="right">
+              {{ detailData.app_tier || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="监管验收年份" label-align="right">
+              {{ detailData.ak_supervision_acceptance_year ? detailData.ak_supervision_acceptance_year + '年' : '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="改造目标" label-align="right">
+              <el-tag :type="detailData.overall_transformation_target === 'AK' ? 'primary' : 'success'" size="small">
+                {{ detailData.overall_transformation_target || 'AK' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="当前改造阶段" label-align="right">
+              {{ detailData.current_transformation_phase || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="验收状态" label-align="right">
+              <el-tag v-if="detailData.acceptance_status"
+                     :type="detailData.acceptance_status === '已验收' ? 'success' : 'warning'"
+                     size="small">
+                {{ detailData.acceptance_status }}
+              </el-tag>
+              <span v-else>-</span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <!-- 团队信息 -->
+        <el-tab-pane label="团队信息" name="team">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="开发模式" label-align="right">
+              {{ detailData.dev_mode || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="运维模式" label-align="right">
+              {{ detailData.ops_mode || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="开发负责人" label-align="right">
+              {{ detailData.dev_owner || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="开发团队" label-align="right">
+              {{ detailData.dev_team || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="运维负责人" label-align="right">
+              {{ detailData.ops_owner || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="运维团队" label-align="right">
+              {{ detailData.ops_team || '-' }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <!-- 时间进度 -->
+        <el-tab-pane label="时间进度" name="timeline">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="【计划】需求完成" label-align="right">
+              {{ formatDate(detailData.planned_requirement_date) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="【实际】需求到达" label-align="right">
+              <span :style="{ color: detailData.actual_requirement_date ? '#48bb78' : '#999' }">
+                {{ formatDate(detailData.actual_requirement_date) }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="【计划】发版时间" label-align="right">
+              {{ formatDate(detailData.planned_release_date) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="【实际】发版时间" label-align="right">
+              <span :style="{ color: detailData.actual_release_date ? '#48bb78' : '#999' }">
+                {{ formatDate(detailData.actual_release_date) }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="【计划】技术上线" label-align="right">
+              {{ formatDate(detailData.planned_tech_online_date) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="【实际】技术上线" label-align="right">
+              <span :style="{ color: detailData.actual_tech_online_date ? '#48bb78' : '#999' }">
+                {{ formatDate(detailData.actual_tech_online_date) }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="【计划】业务上线" label-align="right">
+              {{ formatDate(detailData.planned_biz_online_date) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="【实际】业务上线" label-align="right">
+              <span :style="{ color: detailData.actual_biz_online_date ? '#48bb78' : '#999' }">
+                {{ formatDate(detailData.actual_biz_online_date) }}
+              </span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <!-- 进度状态 -->
+        <el-tab-pane label="进度状态" name="progress">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="整体进度" label-align="right">
+              <el-progress :percentage="detailData.progress_percentage || 0" :color="getProgressColor(detailData)" style="width: 200px;" />
+            </el-descriptions-item>
+            <el-descriptions-item label="子任务统计" label-align="right">
+              {{ detailData.completed_subtask_count || 0 }} / {{ detailData.subtask_count || 0 }}
+            </el-descriptions-item>
+            <el-descriptions-item label="延期状态" label-align="right">
+              <el-tag v-if="detailData.is_delayed" type="danger" size="small">
+                延期 {{ detailData.delay_days }} 天
+              </el-tag>
+              <el-tag v-else type="success" size="small">正常</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="当前状态" label-align="right">
+              <el-tag :type="getStatusType(detailData.current_status)" size="small">
+                {{ detailData.current_status || '待启动' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="域AK改造" label-align="right">
+              <el-tag :type="detailData.is_domain_transformation_completed ? 'success' : 'info'" size="small">
+                {{ detailData.is_domain_transformation_completed ? '完成' : '未完成' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="DBPM改造" label-align="right">
+              <el-tag :type="detailData.is_dbpm_transformation_completed ? 'success' : 'info'" size="small">
+                {{ detailData.is_dbpm_transformation_completed ? '完成' : '未完成' }}
+              </el-tag>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <!-- 其他信息 -->
+        <el-tab-pane label="其他信息" name="other">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="创建时间" label-align="right">
+              {{ formatDate(detailData.created_at) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="更新时间" label-align="right">
+              {{ formatDate(detailData.updated_at) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="备注" label-align="right" :span="2">
+              {{ detailData.notes || '-' }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+      </el-tabs>
       <template #footer>
         <el-button @click="showDetailDialog = false">关闭</el-button>
       </template>
@@ -690,6 +738,7 @@ const selectedApplications = ref<Application[]>([])
 const editingId = ref<number | null>(null)
 const detailData = ref<Partial<Application>>({})
 const activeEditTab = ref('basic')
+const activeDetailTab = ref('basic')
 
 // Tab and SubTasks states
 const activeTab = ref('applications')
@@ -1261,6 +1310,7 @@ const handleSubTaskCurrentChange = (page: number) => {
 // Show application detail
 const showAppDetail = (row: Application) => {
   detailData.value = { ...row }
+  activeDetailTab.value = 'basic'
   showDetailDialog.value = true
 }
 </script>
@@ -1312,6 +1362,17 @@ const showAppDetail = (row: Application) => {
   font-weight: 600;
 }
 
+/* 操作按钮样式 */
+.operation-buttons {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+
+.operation-buttons .el-button {
+  padding: 5px 10px;
+}
+
 .blocked-text {
   color: #f56565;
 }
@@ -1347,19 +1408,28 @@ const showAppDetail = (row: Application) => {
   background-color: #f7fafc;
   font-weight: 600;
   color: #2d3748;
+  text-align: center !important;
 }
 
 .el-table td {
-  padding: 8px 0;
+  padding: 10px 0;
 }
 
-/* 时间列样式 */
-.el-table-column[label*="计划"] .cell {
-  color: #667eea;
+/* 计划时间点突出显示 */
+.el-table th.el-table__cell[colspan="1"][rowspan="1"] {
+  .cell:contains("计划") {
+    color: #667eea;
+  }
 }
 
-.el-table-column[label*="实际"] .cell {
-  color: #48bb78;
+/* 进度条样式 */
+.el-progress {
+  line-height: 1;
+}
+
+.el-progress__text {
+  font-size: 12px !important;
+  color: #2d3748;
 }
 
 /* 详情弹窗样式 */
