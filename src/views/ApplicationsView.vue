@@ -752,33 +752,33 @@
             </div>
             <el-timeline v-else>
               <el-timeline-item
-                v-for="(record, index) in auditRecords"
-                :key="record.id || `audit-${index}`"
-                :timestamp="formatDate(record.created_at)"
+                v-for="(record, index) in (auditRecords || [])"
+                :key="record?.id || `audit-${index}`"
+                :timestamp="formatDate(record?.created_at)"
                 placement="top"
               >
                 <div class="audit-record">
                   <div class="audit-header">
-                    <span class="audit-user">{{ record.user_full_name || '系统' }}</span>
-                    <el-tag size="small" :type="getOperationType(record.operation)">
-                      {{ getOperationText(record.operation) }}
+                    <span class="audit-user">{{ record?.user_full_name || '系统' }}</span>
+                    <el-tag size="small" :type="getOperationType(record?.operation)">
+                      {{ getOperationText(record?.operation) }}
                     </el-tag>
                   </div>
-                  <div class="audit-changes" v-if="record.changed_fields && record.changed_fields.length > 0">
+                  <div class="audit-changes" v-if="record?.changed_fields && record?.changed_fields.length > 0">
                     <div class="change-item" v-for="(field, fieldIndex) in record.changed_fields" :key="`${field}-${fieldIndex}`">
                       <span class="field-name">{{ getFieldLabel(field) }}:</span>
-                      <span class="old-value" v-if="record.old_values && record.old_values[field] !== undefined">
-                        {{ formatFieldValue(field, record.old_values[field]) }}
+                      <span class="old-value" v-if="record?.old_values && record?.old_values[field] !== undefined">
+                        {{ formatFieldValue(field, record?.old_values[field]) }}
                       </span>
-                      <span class="arrow" v-if="record.old_values && record.old_values[field] !== undefined">→</span>
-                      <span class="new-value" v-if="record.new_values && record.new_values[field] !== undefined">
-                        {{ formatFieldValue(field, record.new_values[field]) }}
+                      <span class="arrow" v-if="record?.old_values && record?.old_values[field] !== undefined">→</span>
+                      <span class="new-value" v-if="record?.new_values && record?.new_values[field] !== undefined">
+                        {{ formatFieldValue(field, record?.new_values[field]) }}
                       </span>
                     </div>
                   </div>
-                  <div class="audit-footer" v-if="isAdmin && record.id">
+                  <div class="audit-footer" v-if="isAdmin && record?.id">
                     <el-button
-                      v-if="record.operation !== 'DELETE' && canRollback(record)"
+                      v-if="record?.operation !== 'DELETE' && canRollback(record)"
                       size="small"
                       type="warning"
                       @click="rollbackAudit(record)"
@@ -1523,7 +1523,11 @@ const showAppDetail = async (row: Application) => {
 const loadAuditRecords = async (applicationId: number) => {
   try {
     auditLoading.value = true
-    auditRecords.value = await AuditAPI.getRecordHistory('applications', applicationId)
+    const records = await AuditAPI.getRecordHistory('applications', applicationId)
+    // Filter out any null/undefined records and ensure each record has required fields
+    auditRecords.value = (records || []).filter(record =>
+      record && typeof record === 'object'
+    )
   } catch (error) {
     console.error('Failed to load audit records:', error)
     auditRecords.value = []
