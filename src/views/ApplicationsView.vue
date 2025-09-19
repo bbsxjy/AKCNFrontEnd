@@ -102,57 +102,118 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="l2_id" label="L2 ID" min-width="130">
+        <!-- 基础信息 -->
+        <el-table-column prop="belonging_l1_name" label="所属L1" width="80">
+          <template #default="{ row }">
+            {{ row.belonging_l1_name || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="l2_id" label="L2ID" width="100" fixed="left">
           <template #default="{ row }">
             <strong>{{ row.l2_id }}</strong>
           </template>
         </el-table-column>
-        <el-table-column prop="app_name" label="应用名称" min-width="200">
+        <el-table-column prop="app_name" label="应用名称" min-width="120" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.app_name || row.application_name }}
           </template>
         </el-table-column>
-        <el-table-column prop="ak_supervision_acceptance_year" label="监管年份" width="100">
+        <el-table-column prop="belonging_projects" label="所属项目" width="100" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.ak_supervision_acceptance_year || '-' }}
+            {{ row.belonging_projects || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="overall_transformation_target" label="改造目标" min-width="100">
+        <el-table-column prop="belonging_kpi" label="所属指标" width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.belonging_kpi || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="ak_supervision_acceptance_year" label="监管验收年份" width="110">
+          <template #default="{ row }">
+            {{ row.ak_supervision_acceptance_year ? row.ak_supervision_acceptance_year + '年' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="overall_transformation_target" label="改造目标" width="85">
           <template #default="{ row }">
             <el-tag size="small" :type="row.overall_transformation_target === 'AK' ? 'primary' : 'success'">
               {{ row.overall_transformation_target || 'AK' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="current_transformation_phase" label="当前阶段" min-width="100">
+        <el-table-column prop="current_transformation_phase" label="当前改造阶段" width="110">
           <template #default="{ row }">
             {{ row.current_transformation_phase || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="current_status" label="整体状态" min-width="120">
+        <el-table-column prop="current_status" label="改造状态" width="90">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.current_status)" size="small">
               {{ row.current_status || '待启动' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="dev_team" label="开发团队" min-width="120">
+        <!-- 计划时间 -->
+        <el-table-column label="【计划】需求完成时间" width="100">
           <template #default="{ row }">
-            {{ row.dev_team || '-' }}
+            {{ formatYearMonth(row.planned_requirement_date) }}
           </template>
         </el-table-column>
-        <el-table-column prop="dev_owner" label="开发负责人" min-width="100">
+        <el-table-column label="【实际】需求到达时间" width="100">
           <template #default="{ row }">
-            {{ row.dev_owner || '-' }}
+            <span :class="{ 'completed-date': row.actual_requirement_date }">
+              {{ formatYearMonth(row.actual_requirement_date) }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" min-width="160">
+        <el-table-column label="【计划】发版时间" width="100">
           <template #default="{ row }">
-            {{ formatDate(row.updated_at) }}
+            {{ formatYearMonth(row.planned_release_date) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="【实际】发版时间" width="100">
           <template #default="{ row }">
+            <span :class="{ 'completed-date': row.actual_release_date }">
+              {{ formatYearMonth(row.actual_release_date) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="【计划】技术上线时间" width="100">
+          <template #default="{ row }">
+            {{ formatYearMonth(row.planned_tech_online_date) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="【实际】技术上线时间" width="100">
+          <template #default="{ row }">
+            <span :class="{ 'completed-date': row.actual_tech_online_date }">
+              {{ formatYearMonth(row.actual_tech_online_date) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="【计划】业务上线时间" width="100">
+          <template #default="{ row }">
+            {{ formatYearMonth(row.planned_biz_online_date) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="【实际】业务上线时间" width="100">
+          <template #default="{ row }">
+            <span :class="{ 'completed-date': row.actual_biz_online_date }">
+              {{ formatYearMonth(row.actual_biz_online_date) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="acceptance_status" label="验收状态" width="90">
+          <template #default="{ row }">
+            <el-tag v-if="row.acceptance_status"
+                   :type="row.acceptance_status === '已验收' ? 'success' : 'warning'"
+                   size="small">
+              {{ row.acceptance_status }}
+            </el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="180" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" type="info" @click="showAppDetail(row)">详情</el-button>
             <el-button size="small" @click="editApplication(row)">编辑</el-button>
             <el-button
               size="small"
@@ -367,13 +428,22 @@
     </el-card>
 
     <!-- Create Application Dialog -->
-    <el-dialog v-model="showCreateDialog" title="新增应用" width="600px">
+    <el-dialog v-model="showCreateDialog" title="新增应用" width="700px">
       <el-form :model="createForm" label-width="120px">
         <el-form-item label="L2 ID" required>
           <el-input v-model="createForm.l2_id" placeholder="如：L2_APP_001" />
         </el-form-item>
         <el-form-item label="应用名称" required>
-          <el-input v-model="createForm.app_name" />
+          <el-input v-model="createForm.app_name" placeholder="请输入应用名称" />
+        </el-form-item>
+        <el-form-item label="所属L1">
+          <el-input v-model="createForm.belonging_l1_name" placeholder="请输入所属L1名称" />
+        </el-form-item>
+        <el-form-item label="所属项目">
+          <el-input v-model="createForm.belonging_projects" placeholder="请输入所属项目" />
+        </el-form-item>
+        <el-form-item label="所属指标">
+          <el-input v-model="createForm.belonging_kpi" placeholder="请输入所属指标" />
         </el-form-item>
         <el-form-item label="改造目标" required>
           <el-radio-group v-model="createForm.overall_transformation_target">
@@ -381,7 +451,7 @@
             <el-radio value="云原生">云原生</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="监管年份">
+        <el-form-item label="监管验收年份">
           <el-select v-model="createForm.ak_supervision_acceptance_year" placeholder="请选择年份">
             <el-option :value="2025" label="2025年" />
             <el-option :value="2026" label="2026年" />
@@ -393,10 +463,11 @@
             <el-option value="研发一部" label="研发一部" />
             <el-option value="研发二部" label="研发二部" />
             <el-option value="运维部" label="运维部" />
+            <el-option value="架构部" label="架构部" />
           </el-select>
         </el-form-item>
         <el-form-item label="开发负责人">
-          <el-input v-model="createForm.dev_owner" />
+          <el-input v-model="createForm.dev_owner" placeholder="请输入开发负责人" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -408,31 +479,110 @@
     </el-dialog>
 
     <!-- Edit Application Dialog -->
-    <el-dialog v-model="showEditDialog" title="编辑应用" width="600px">
+    <el-dialog v-model="showEditDialog" title="编辑应用" width="800px">
       <el-form :model="editForm" label-width="120px">
-        <el-form-item label="L2 ID">
-          <el-input v-model="editForm.l2_id" disabled />
-        </el-form-item>
-        <el-form-item label="应用名称" required>
-          <el-input v-model="editForm.app_name" />
-        </el-form-item>
-        <el-form-item label="改造目标">
-          <el-radio-group v-model="editForm.overall_transformation_target">
-            <el-radio value="AK">AK</el-radio>
-            <el-radio value="云原生">云原生</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="开发团队" required>
-          <el-select v-model="editForm.dev_team" placeholder="请选择团队">
-            <el-option value="研发一部" label="研发一部" />
-            <el-option value="研发二部" label="研发二部" />
-            <el-option value="运维部" label="运维部" />
-            <el-option value="架构部" label="架构部" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="开发负责人">
-          <el-input v-model="editForm.dev_owner" />
-        </el-form-item>
+        <el-tabs v-model="activeEditTab" type="card">
+          <!-- 基础信息 -->
+          <el-tab-pane label="基础信息" name="basic">
+            <el-form-item label="L2 ID">
+              <el-input v-model="editForm.l2_id" disabled />
+            </el-form-item>
+            <el-form-item label="应用名称" required>
+              <el-input v-model="editForm.app_name" />
+            </el-form-item>
+            <el-form-item label="所属L1">
+              <el-input v-model="editForm.belonging_l1_name" placeholder="请输入所属L1名称" />
+            </el-form-item>
+            <el-form-item label="所属项目">
+              <el-input v-model="editForm.belonging_projects" placeholder="请输入所属项目" />
+            </el-form-item>
+            <el-form-item label="所属指标">
+              <el-input v-model="editForm.belonging_kpi" placeholder="请输入所属指标" />
+            </el-form-item>
+            <el-form-item label="监管验收年份">
+              <el-select v-model="editForm.ak_supervision_acceptance_year" placeholder="请选择年份">
+                <el-option :value="2025" label="2025年" />
+                <el-option :value="2026" label="2026年" />
+                <el-option :value="2027" label="2027年" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="改造目标">
+              <el-radio-group v-model="editForm.overall_transformation_target">
+                <el-radio value="AK">AK</el-radio>
+                <el-radio value="云原生">云原生</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="验收状态">
+              <el-select v-model="editForm.acceptance_status" placeholder="请选择验收状态" clearable>
+                <el-option value="未验收" label="未验收" />
+                <el-option value="验收中" label="验收中" />
+                <el-option value="已验收" label="已验收" />
+              </el-select>
+            </el-form-item>
+          </el-tab-pane>
+
+          <!-- 团队信息 -->
+          <el-tab-pane label="团队信息" name="team">
+            <el-form-item label="应用档位">
+              <el-input-number v-model="editForm.app_tier" :min="1" :max="5" placeholder="请选择档位" />
+            </el-form-item>
+            <el-form-item label="开发模式">
+              <el-input v-model="editForm.dev_mode" placeholder="请输入开发模式" />
+            </el-form-item>
+            <el-form-item label="运维模式">
+              <el-input v-model="editForm.ops_mode" placeholder="请输入运维模式" />
+            </el-form-item>
+            <el-form-item label="开发负责人">
+              <el-input v-model="editForm.dev_owner" placeholder="请输入开发负责人" />
+            </el-form-item>
+            <el-form-item label="开发团队" required>
+              <el-select v-model="editForm.dev_team" placeholder="请选择团队">
+                <el-option value="研发一部" label="研发一部" />
+                <el-option value="研发二部" label="研发二部" />
+                <el-option value="运维部" label="运维部" />
+                <el-option value="架构部" label="架构部" />
+                <el-option value="测试部" label="测试部" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="运维负责人">
+              <el-input v-model="editForm.ops_owner" placeholder="请输入运维负责人" />
+            </el-form-item>
+            <el-form-item label="运维团队">
+              <el-select v-model="editForm.ops_team" placeholder="请选择运维团队" clearable>
+                <el-option value="运维一部" label="运维一部" />
+                <el-option value="运维二部" label="运维二部" />
+                <el-option value="云运维部" label="云运维部" />
+              </el-select>
+            </el-form-item>
+          </el-tab-pane>
+
+          <!-- 其他信息 -->
+          <el-tab-pane label="其他信息" name="other">
+            <el-form-item label="当前状态">
+              <el-select v-model="editForm.current_status" placeholder="请选择状态">
+                <el-option value="待启动" label="待启动" />
+                <el-option value="研发进行中" label="研发进行中" />
+                <el-option value="业务上线中" label="业务上线中" />
+                <el-option value="全部完成" label="全部完成" />
+                <el-option value="存在阻塞" label="存在阻塞" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="域AK改造">
+              <el-switch v-model="editForm.is_domain_transformation_completed" active-text="完成" inactive-text="未完成" />
+            </el-form-item>
+            <el-form-item label="DBPM改造">
+              <el-switch v-model="editForm.is_dbpm_transformation_completed" active-text="完成" inactive-text="未完成" />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input
+                v-model="editForm.notes"
+                type="textarea"
+                :rows="4"
+                placeholder="请输入备注信息"
+              />
+            </el-form-item>
+          </el-tab-pane>
+        </el-tabs>
       </el-form>
       <template #footer>
         <div style="display: flex; justify-content: space-between; width: 100%;">
@@ -444,6 +594,78 @@
             </el-button>
           </div>
         </div>
+      </template>
+    </el-dialog>
+
+    <!-- Application Detail Dialog -->
+    <el-dialog v-model="showDetailDialog" title="应用详情" width="800px">
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="L2 ID" label-align="right">
+          <strong>{{ detailData.l2_id }}</strong>
+        </el-descriptions-item>
+        <el-descriptions-item label="应用名称" label-align="right">
+          {{ detailData.app_name }}
+        </el-descriptions-item>
+        <el-descriptions-item label="档位" label-align="right">
+          {{ detailData.app_tier || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="改造目标" label-align="right">
+          <el-tag :type="detailData.overall_transformation_target === 'AK' ? 'primary' : 'success'" size="small">
+            {{ detailData.overall_transformation_target || 'AK' }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="开发模式" label-align="right">
+          {{ detailData.dev_mode || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="运维模式" label-align="right">
+          {{ detailData.ops_mode || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="开发负责人" label-align="right">
+          {{ detailData.dev_owner || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="开发团队" label-align="right">
+          {{ detailData.dev_team || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="运维负责人" label-align="right">
+          {{ detailData.ops_owner || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="运维团队" label-align="right">
+          {{ detailData.ops_team || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="域AK改造完成" label-align="right">
+          <el-tag :type="detailData.is_domain_transformation_completed ? 'success' : 'info'" size="small">
+            {{ detailData.is_domain_transformation_completed ? '是' : '否' }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="DBPM改造完成" label-align="right">
+          <el-tag :type="detailData.is_dbpm_transformation_completed ? 'success' : 'info'" size="small">
+            {{ detailData.is_dbpm_transformation_completed ? '是' : '否' }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="进度" label-align="right">
+          <el-progress :percentage="detailData.progress_percentage || 0" :color="getProgressColor(detailData)" style="width: 200px;" />
+        </el-descriptions-item>
+        <el-descriptions-item label="子任务统计" label-align="right">
+          {{ detailData.completed_subtask_count || 0 }} / {{ detailData.subtask_count || 0 }}
+        </el-descriptions-item>
+        <el-descriptions-item label="是否延期" label-align="right">
+          <el-tag v-if="detailData.is_delayed" type="danger" size="small">
+            延期 {{ detailData.delay_days }} 天
+          </el-tag>
+          <el-tag v-else type="success" size="small">正常</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="创建时间" label-align="right">
+          {{ formatDate(detailData.created_at) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="更新时间" label-align="right">
+          {{ formatDate(detailData.updated_at) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="备注" label-align="right" :span="2">
+          {{ detailData.notes || '-' }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button @click="showDetailDialog = false">关闭</el-button>
       </template>
     </el-dialog>
 
@@ -463,8 +685,11 @@ const router = useRouter()
 
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
+const showDetailDialog = ref(false)
 const selectedApplications = ref<Application[]>([])
 const editingId = ref<number | null>(null)
+const detailData = ref<Partial<Application>>({})
+const activeEditTab = ref('basic')
 
 // Tab and SubTasks states
 const activeTab = ref('applications')
@@ -525,7 +750,10 @@ const createForm = reactive({
   dev_team: '',
   current_status: '待启动',
   ak_supervision_acceptance_year: 2025,
-  overall_transformation_target: 'AK'
+  overall_transformation_target: 'AK',
+  belonging_l1_name: '',
+  belonging_projects: '',
+  belonging_kpi: ''
 })
 
 const editForm = reactive({
@@ -534,8 +762,20 @@ const editForm = reactive({
   overall_transformation_target: 'AK',
   dev_owner: '',
   dev_team: '',
+  ops_owner: '',
+  ops_team: '',
   current_status: '待启动',
-  ak_supervision_acceptance_year: 2025
+  ak_supervision_acceptance_year: 2025,
+  app_tier: undefined as number | undefined,
+  belonging_l1_name: '',
+  belonging_projects: '',
+  belonging_kpi: '',
+  acceptance_status: '',
+  dev_mode: '',
+  ops_mode: '',
+  is_domain_transformation_completed: false,
+  is_dbpm_transformation_completed: false,
+  notes: ''
 })
 
 // 前端筛选后的数据
@@ -721,6 +961,39 @@ const formatDate = (dateString: string | null | undefined) => {
   }
 }
 
+// Format date as xx年xx月
+const formatYearMonth = (dateString: string | null | undefined) => {
+  if (!dateString) return '-'
+
+  try {
+    // Handle different date formats
+    let date: Date
+    if (dateString.includes('T')) {
+      // ISO format: 2024-01-01T00:00:00
+      date = new Date(dateString)
+    } else if (dateString.includes('-')) {
+      // Date format: 2024-01-01
+      date = new Date(dateString + 'T00:00:00')
+    } else {
+      // Fallback
+      date = new Date(dateString)
+    }
+
+    if (isNaN(date.getTime())) {
+      return '-'
+    }
+
+    // Format as xx年xx月
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const monthStr = month < 10 ? '0' + month : month.toString()
+    return `${year}年${monthStr}月`
+  } catch (error) {
+    console.error('Date formatting error:', error, 'Input:', dateString)
+    return '-'
+  }
+}
+
 const formatShortDate = (dateString: string | null | undefined) => {
   if (!dateString) return '-'
 
@@ -754,15 +1027,28 @@ const handleSelectionChange = (selection: Application[]) => {
 
 const editApplication = (row: Application) => {
   editingId.value = row.id
+  activeEditTab.value = 'basic'
   // Copy data to edit form
   Object.assign(editForm, {
     l2_id: row.l2_id,
     app_name: row.app_name,
     overall_transformation_target: row.overall_transformation_target || 'AK',
-    dev_owner: row.dev_owner,
-    dev_team: row.dev_team,
+    dev_owner: row.dev_owner || '',
+    dev_team: row.dev_team || '',
+    ops_owner: row.ops_owner || '',
+    ops_team: row.ops_team || '',
     current_status: row.current_status || '待启动',
-    ak_supervision_acceptance_year: row.ak_supervision_acceptance_year || 2025
+    ak_supervision_acceptance_year: row.ak_supervision_acceptance_year || 2025,
+    app_tier: row.app_tier || undefined,
+    belonging_l1_name: row.belonging_l1_name || '',
+    belonging_projects: row.belonging_projects || '',
+    belonging_kpi: row.belonging_kpi || '',
+    acceptance_status: row.acceptance_status || '',
+    dev_mode: row.dev_mode || '',
+    ops_mode: row.ops_mode || '',
+    is_domain_transformation_completed: row.is_domain_transformation_completed || false,
+    is_dbpm_transformation_completed: row.is_dbpm_transformation_completed || false,
+    notes: row.notes || ''
   })
   showEditDialog.value = true
 }
@@ -866,7 +1152,10 @@ const handleCreate = async () => {
       dev_team: '',
       current_status: '待启动',
       ak_supervision_acceptance_year: 2025,
-      overall_transformation_target: 'AK'
+      overall_transformation_target: 'AK',
+      belonging_l1_name: '',
+      belonging_projects: '',
+      belonging_kpi: ''
     })
   } catch (error) {
     console.error('Failed to create application:', error)
@@ -968,6 +1257,12 @@ const handleSubTaskSizeChange = (size: number) => {
 const handleSubTaskCurrentChange = (page: number) => {
   subtaskCurrentPage.value = page
 }
+
+// Show application detail
+const showAppDetail = (row: Application) => {
+  detailData.value = { ...row }
+  showDetailDialog.value = true
+}
 </script>
 
 <style scoped>
@@ -1014,6 +1309,7 @@ const handleSubTaskCurrentChange = (page: number) => {
 
 .completed-date {
   color: #48bb78;
+  font-weight: 600;
 }
 
 .blocked-text {
@@ -1042,6 +1338,49 @@ const handleSubTaskCurrentChange = (page: number) => {
 }
 
 /* 移动端响应式设计 */
+/* 表格样式优化 */
+.el-table {
+  font-size: 13px;
+}
+
+.el-table th {
+  background-color: #f7fafc;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.el-table td {
+  padding: 8px 0;
+}
+
+/* 时间列样式 */
+.el-table-column[label*="计划"] .cell {
+  color: #667eea;
+}
+
+.el-table-column[label*="实际"] .cell {
+  color: #48bb78;
+}
+
+/* 详情弹窗样式 */
+.el-descriptions {
+  margin-top: 10px;
+}
+
+.el-descriptions-item__label {
+  font-weight: 600;
+  color: #4a5568;
+}
+
+/* 标签页样式 */
+.el-tabs__item {
+  font-size: 14px;
+}
+
+.el-tabs__content {
+  padding: 20px 10px;
+}
+
 @media (max-width: 768px) {
   .applications-view {
     padding: 10px;
