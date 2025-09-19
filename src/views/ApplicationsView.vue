@@ -136,19 +136,6 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="progress_percentage" label="进度" min-width="160">
-          <template #default="{ row }">
-            <div class="progress-cell">
-              <el-progress
-                :percentage="Number(row.progress_percentage) || 0"
-                :stroke-width="8"
-                :show-text="false"
-                :color="getProgressColor(row)"
-              />
-              <span class="progress-text">{{ Number(row.progress_percentage) || 0 }}%</span>
-            </div>
-          </template>
-        </el-table-column>
         <el-table-column prop="dev_team" label="开发团队" min-width="120">
           <template #default="{ row }">
             {{ row.dev_team || '-' }}

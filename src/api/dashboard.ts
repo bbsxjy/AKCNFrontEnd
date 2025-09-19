@@ -62,21 +62,21 @@ export class DashboardAPI {
 
       const stats: DashboardStats = {
         total: applications.total || 0,
-      active: 0,
-      completed: 0,
-      blocked: 0,
-      averageProgress: 0,
-      akTotal: 0,
-      akCompleted: 0,
-      akInProgress: 0,
-      cloudNativeTotal: 0,
-      cloudNativeCompleted: 0,
-      cloudNativeInProgress: 0,
-      notStarted: 0,
-      inDevelopment: 0,
-      inTesting: 0,
-      online: 0,
-      offline: 0
+        active: 0,
+        completed: 0,
+        blocked: 0,
+        averageProgress: 0,
+        akTotal: 0,
+        akCompleted: 0,
+        akInProgress: 0,
+        cloudNativeTotal: 0,
+        cloudNativeCompleted: 0,
+        cloudNativeInProgress: 0,
+        notStarted: 0,
+        inDevelopment: 0,
+        inTesting: 0,
+        online: 0,
+        offline: 0
     }
 
       if (applications.items && applications.items.length > 0) {

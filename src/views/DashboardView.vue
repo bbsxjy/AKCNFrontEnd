@@ -344,7 +344,6 @@ const loadDashboardData = async () => {
       DashboardAPI.getMyTasks(5),
       DashboardAPI.getDepartmentDistribution()
     ])
-
     stats.value = statsData
     myTasks.value = tasks
     chartData.value.departmentDistribution = deptData
