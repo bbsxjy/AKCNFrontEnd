@@ -5,7 +5,7 @@
         <div class="header">
           <div>
             <h2>{{ applicationName }} - 子任务详情</h2>
-            <div class="app-info">{{ l2Id }} | 负责人：{{ responsiblePerson }}</div>
+            <div class="app-info">{{ l2Id }}</div>
           </div>
           <div class="actions">
             <el-button @click="goBack">返回列表</el-button>
@@ -53,8 +53,13 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <!-- Version name column -->
-        <el-table-column prop="sub_target" label="改造目标" width="90">
+        <!-- 核心标识 -->
+        <el-table-column prop="version_name" label="版本名称" width="120" fixed="left">
+          <template #default="{ row }">
+            <strong>{{ row.version_name || '-' }}</strong>
+          </template>
+        </el-table-column>
+        <el-table-column prop="sub_target" label="改造目标" width="90" align="center">
           <template #default="{ row }">
             <el-tag size="small" :type="row.sub_target === 'AK' ? 'primary' : 'success'">
               {{ row.sub_target || 'AK' }}
@@ -62,95 +67,126 @@
           </template>
         </el-table-column>
         <!-- 负责人信息 -->
-        <el-table-column label="开发负责人" width="100">
+        <el-table-column label="开发负责人" width="100" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.dev_owner || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="开发团队" width="100">
-          <template #default="{ row }">
-            {{ row.dev_team || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="运维负责人" width="100">
+        <el-table-column label="运维负责人" width="100" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.ops_owner || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="运维团队" width="100">
-          <template #default="{ row }">
-            {{ row.ops_team || '-' }}
-          </template>
-        </el-table-column>
-        <!-- 状态和进度 -->
-        <el-table-column prop="task_status" label="状态" width="110">
+        <!-- 进度状态 -->
+        <el-table-column prop="task_status" label="当前状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.task_status || row.status)" size="small">
-              {{ row.task_status || row.status || '待启动' }}
+              {{ formatStatus(row.task_status || row.status) || '待启动' }}
             </el-tag>
-            <div v-if="row.is_blocked" class="block-warning">⚠️</div>
+            <div v-if="row.is_blocked" class="block-warning">⚠️ 阻塞中</div>
           </template>
         </el-table-column>
-        <el-table-column prop="progress_percentage" label="进度" width="100">
+        <el-table-column prop="progress_percentage" label="进度" width="120" align="center">
           <template #default="{ row }">
-            <el-progress
-              :percentage="Number(row.progress_percentage) || 0"
-              :stroke-width="6"
-              :color="getProgressColor(row)"
-            />
+            <div class="progress-cell">
+              <el-progress
+                :percentage="calculateProgress(row)"
+                :stroke-width="6"
+                :color="getProgressColor(row)"
+                :format="(percentage: number) => `${percentage}%`"
+              />
+              <div v-if="getWorkingDays(row) > 0" class="working-days">
+                已工作{{ getWorkingDays(row) }}天
+              </div>
+            </div>
           </template>
         </el-table-column>
-        <!-- 计划时间 -->
-        <el-table-column label="计划需求" width="95">
+        <!-- 关键计划时间点 -->
+        <el-table-column label="计划需求" width="120" align="center">
           <template #default="{ row }">
-            {{ formatShortDate(row.planned_requirement_date) }}
+            <div class="plan-date-cell">
+              {{ formatYearMonth(row.planned_requirement_date) }}
+              <el-icon v-if="hasDateAdjustment(row, 'requirement')" class="adjustment-indicator" title="计划已调整">
+                <el-icon-warning />
+              </el-icon>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划发版" width="95">
+        <el-table-column label="计划发版" width="120" align="center">
           <template #default="{ row }">
-            {{ formatShortDate(row.planned_release_date) }}
+            <div class="plan-date-cell">
+              {{ formatYearMonth(row.planned_release_date) }}
+              <el-icon v-if="hasDateAdjustment(row, 'release')" class="adjustment-indicator" title="计划已调整">
+                <el-icon-warning />
+              </el-icon>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划技术上线" width="110">
+        <el-table-column label="计划技术上线" width="120" align="center">
           <template #default="{ row }">
-            {{ formatShortDate(row.planned_tech_online_date) }}
+            <div class="plan-date-cell">
+              {{ formatYearMonth(row.planned_tech_online_date) }}
+              <el-icon v-if="hasDateAdjustment(row, 'tech')" class="adjustment-indicator" title="计划已调整">
+                <el-icon-warning />
+              </el-icon>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划业务上线" width="110">
+        <el-table-column label="计划业务上线" width="120" align="center">
           <template #default="{ row }">
-            {{ formatShortDate(row.planned_biz_online_date) }}
+            <div class="plan-date-cell">
+              <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
+              <el-icon v-if="hasDateAdjustment(row, 'biz')" class="adjustment-indicator" title="计划已调整">
+                <el-icon-warning />
+              </el-icon>
+            </div>
           </template>
         </el-table-column>
-        <!-- 实际时间 -->
-        <el-table-column label="实际需求" width="95">
+        <!-- 实际完成时间 -->
+        <el-table-column label="实际完成" width="150" align="center">
           <template #default="{ row }">
-            <span :class="{ 'completed-date': row.actual_requirement_date }">
-              {{ formatShortDate(row.actual_requirement_date) }}
-            </span>
+            <div class="actual-date-cell">
+              <div v-if="row.actual_biz_online_date" class="completed">
+                <el-icon class="status-icon"><el-icon-circle-check /></el-icon>
+                {{ formatYearMonth(row.actual_biz_online_date) }}
+              </div>
+              <div v-else-if="row.actual_tech_online_date" class="in-progress">
+                技术: {{ formatYearMonth(row.actual_tech_online_date) }}
+              </div>
+              <div v-else-if="row.actual_release_date" class="in-progress">
+                发版: {{ formatYearMonth(row.actual_release_date) }}
+              </div>
+              <div v-else-if="row.actual_requirement_date" class="in-progress">
+                需求: {{ formatYearMonth(row.actual_requirement_date) }}
+              </div>
+              <div v-else class="pending">-</div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="实际发版" width="95">
+        <!-- 延期状态 -->
+        <el-table-column label="延期状态" width="150" align="center">
           <template #default="{ row }">
-            <span :class="{ 'completed-date': row.actual_release_date }">
-              {{ formatShortDate(row.actual_release_date) }}
-            </span>
+            <div v-if="getDelayInfo(row).hasDelay" class="delay-button-wrapper">
+              <el-button
+                size="small"
+                :type="getDelayInfo(row).severity"
+                @click="showDelayDetails(row)"
+                class="delay-status-button"
+                plain
+                round
+              >
+                <el-icon class="delay-icon"><el-icon-warning /></el-icon>
+                <span class="delay-text">{{ getDelayInfo(row).text }}</span>
+                <el-icon class="arrow-icon"><el-icon-arrow-right /></el-icon>
+              </el-button>
+            </div>
+            <el-tag v-else type="success" size="small" effect="plain">
+              <el-icon class="status-icon"><el-icon-circle-check /></el-icon>
+              <span>正常</span>
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="实际技术上线" width="110">
-          <template #default="{ row }">
-            <span :class="{ 'completed-date': row.actual_tech_online_date }">
-              {{ formatShortDate(row.actual_tech_online_date) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="实际业务上线" width="110">
-          <template #default="{ row }">
-            <span :class="{ 'completed-date': row.actual_biz_online_date }">
-              {{ formatShortDate(row.actual_biz_online_date) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="row.is_blocked"
@@ -158,7 +194,7 @@
               type="danger"
               @click="resolveBlock(row)"
             >
-              解决阻塞
+              解除阻塞
             </el-button>
             <el-button v-else size="small" type="primary" @click="updateProgress(row)">
               更新
@@ -192,33 +228,33 @@
         <el-form-item label="版本名称" required>
           <el-input v-model="createForm.version_name" placeholder="请输入版本名称" />
         </el-form-item>
-        <el-form-item label="计划开始日期" required>
+        <el-form-item label="计划需求日期" required>
           <el-date-picker
-            v-model="createForm.planned_start_date"
+            v-model="createForm.planned_requirement_date"
             type="date"
-            placeholder="选择开始日期"
+            placeholder="选择需求日期"
             style="width: 100%"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
           />
         </el-form-item>
-        <el-form-item label="计划结束日期" required>
+        <el-form-item label="计划业务上线" required>
           <el-date-picker
-            v-model="createForm.planned_end_date"
+            v-model="createForm.planned_biz_online_date"
             type="date"
-            placeholder="选择结束日期"
+            placeholder="选择业务上线日期"
             style="width: 100%"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
           />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="createForm.status" placeholder="请选择状态">
-            <el-option value="planning" label="待启动" />
-            <el-option value="in_progress" label="研发进行中" />
-            <el-option value="testing" label="业务上线中" />
-            <el-option value="completed" label="已完成" />
-            <el-option value="blocked" label="存在阻塞" />
+          <el-select v-model="createForm.task_status" placeholder="请选择状态">
+            <el-option value="待启动" label="待启动" />
+            <el-option value="研发进行中" label="研发进行中" />
+            <el-option value="业务上线中" label="业务上线中" />
+            <el-option value="已完成" label="已完成" />
+            <el-option value="存在阻塞" label="存在阻塞" />
           </el-select>
         </el-form-item>
         <el-form-item label="备注">
@@ -242,53 +278,53 @@
         <el-form-item label="版本名称" required>
           <el-input v-model="editForm.version_name" placeholder="请输入版本名称" />
         </el-form-item>
-        <el-form-item label="计划开始日期">
+        <el-form-item label="计划需求日期">
           <el-date-picker
-            v-model="editForm.planned_start_date"
+            v-model="editForm.planned_requirement_date"
             type="date"
-            placeholder="选择开始日期"
+            placeholder="选择需求日期"
             style="width: 100%"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
           />
         </el-form-item>
-        <el-form-item label="计划结束日期">
+        <el-form-item label="计划业务上线">
           <el-date-picker
-            v-model="editForm.planned_end_date"
+            v-model="editForm.planned_biz_online_date"
             type="date"
-            placeholder="选择结束日期"
+            placeholder="选择业务上线日期"
             style="width: 100%"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
           />
         </el-form-item>
-        <el-form-item label="实际开始日期">
+        <el-form-item label="实际需求日期">
           <el-date-picker
-            v-model="editForm.actual_start_date"
+            v-model="editForm.actual_requirement_date"
             type="date"
-            placeholder="选择实际开始日期"
+            placeholder="选择实际需求日期"
             style="width: 100%"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
           />
         </el-form-item>
-        <el-form-item label="实际结束日期">
+        <el-form-item label="实际业务上线">
           <el-date-picker
-            v-model="editForm.actual_end_date"
+            v-model="editForm.actual_biz_online_date"
             type="date"
-            placeholder="选择实际结束日期"
+            placeholder="选择实际业务上线日期"
             style="width: 100%"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
           />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="editForm.status" placeholder="请选择状态">
-            <el-option value="planning" label="待启动" />
-            <el-option value="in_progress" label="研发进行中" />
-            <el-option value="testing" label="业务上线中" />
-            <el-option value="completed" label="已完成" />
-            <el-option value="blocked" label="存在阻塞" />
+          <el-select v-model="editForm.task_status" placeholder="请选择状态">
+            <el-option value="待启动" label="待启动" />
+            <el-option value="研发进行中" label="研发进行中" />
+            <el-option value="业务上线中" label="业务上线中" />
+            <el-option value="已完成" label="已完成" />
+            <el-option value="存在阻塞" label="存在阻塞" />
           </el-select>
         </el-form-item>
         <el-form-item label="进度百分比">
@@ -319,7 +355,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Warning as ElIconWarning, ArrowRight as ElIconArrowRight, CircleCheck as ElIconCircleCheck } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApplicationsAPI, type Application } from '@/api/applications'
 import { SubTasksAPI, type SubTask, type CreateSubTaskRequest, type UpdateSubTaskRequest } from '@/api/subtasks'
@@ -350,7 +386,7 @@ const createForm = reactive<CreateSubTaskRequest>({
   l2_id: Number(applicationId),
   sub_target: 'AK',
   version_name: '',
-  task_status: 'planning',
+  task_status: '待启动',
   planned_requirement_date: '',
   planned_release_date: '',
   planned_tech_online_date: '',
@@ -429,7 +465,7 @@ const loadSubTasks = async () => {
     subTasks.value = rawSubTasks.map(task => ({
       ...task,
       progress_percentage: Number(task.progress_percentage) || 0,
-      notes: task.notes || null
+      notes: task.notes || undefined
     }))
     await loadStatistics()
   } catch (error) {
@@ -475,58 +511,161 @@ const getStatusType = (status: string) => {
 }
 
 const getProgressColor = (row: SubTask) => {
-  if (row.status === '存在阻塞') return '#f56565'
-  if (row.progress_percentage >= 80) return '#48bb78'
+  if (row.is_blocked || row.task_status === '存在阻塞') return '#f56565'
+  const progress = calculateProgress(row)
+  if (progress >= 80) return '#48bb78'
   return '#667eea'
 }
 
-const formatDate = (dateString: string | null | undefined) => {
-  if (!dateString) return '-'
+// formatDate is no longer used, removed to clean up
 
-  try {
-    // Handle different date formats
-    let date: Date
-    if (dateString.includes('T')) {
-      // ISO format: 2024-01-01T00:00:00
-      date = new Date(dateString)
-    } else if (dateString.includes('-')) {
-      // Date format: 2024-01-01
-      date = new Date(dateString + 'T00:00:00')
-    } else {
-      // Fallback
-      date = new Date(dateString)
-    }
+// formatShortDate is no longer used, removed to clean up
 
-    if (isNaN(date.getTime())) {
-      return '-'
-    }
-
-    // Return formatted date
-    if (dateString.includes('T')) {
-      return date.toLocaleString('zh-CN')
-    } else {
-      return date.toLocaleDateString('zh-CN')
-    }
-  } catch (error) {
-    console.error('Date formatting error:', error, 'Input:', dateString)
-    return '-'
-  }
-}
-
-const formatShortDate = (dateString: string | null | undefined) => {
+const formatYearMonth = (dateString: string | null | undefined) => {
   if (!dateString) return '-'
 
   try {
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return '-'
 
-    // Format as MM-DD
+    // Format as YYYY-MM
+    const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${month}-${day}`
+    return `${year}-${month}`
   } catch (error) {
     return '-'
   }
+}
+
+const formatStatus = (status: string) => {
+  const statusMap: Record<string, string> = {
+    'planning': '待启动',
+    'in_progress': '研发进行中',
+    'testing': '业务上线中',
+    'completed': '已完成',
+    'blocked': '存在阻塞'
+  }
+  return statusMap[status] || status || '待启动'
+}
+
+const calculateProgress = (row: SubTask) => {
+  // If progress is explicitly set, use it
+  if (row.progress_percentage !== undefined && row.progress_percentage !== null) {
+    return Number(row.progress_percentage)
+  }
+
+  // Otherwise calculate based on actual dates
+  let progress = 0
+  if (row.actual_requirement_date) progress += 25
+  if (row.actual_release_date) progress += 25
+  if (row.actual_tech_online_date) progress += 25
+  if (row.actual_biz_online_date) progress += 25
+
+  return progress
+}
+
+const getWorkingDays = (row: SubTask) => {
+  // Calculate working days from earliest actual date to now
+  const actualDates = [
+    row.actual_requirement_date,
+    row.actual_release_date,
+    row.actual_tech_online_date,
+    row.actual_biz_online_date
+  ].filter(d => d && d !== null) as string[]
+
+  if (actualDates.length === 0) return 0
+
+  const earliestDate = new Date(actualDates.sort()[0])
+  const today = new Date()
+  const diffTime = Math.abs(today.getTime() - earliestDate.getTime())
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+  return diffDays
+}
+
+const hasDateAdjustment = (_row: SubTask, _type: string) => {
+  // Check if dates have been adjusted (simplified version)
+  // In a real app, you'd check against historical data
+  return false
+}
+
+const getDelayInfo = (row: SubTask) => {
+  // Calculate delay based on planned vs actual dates
+  const today = new Date()
+  let delayDays = 0
+  let delayType = ''
+
+  // Check each milestone for delays
+  if (row.planned_biz_online_date && !row.actual_biz_online_date) {
+    const plannedDate = new Date(row.planned_biz_online_date)
+    if (today > plannedDate) {
+      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayType = '业务上线'
+    }
+  } else if (row.planned_tech_online_date && !row.actual_tech_online_date) {
+    const plannedDate = new Date(row.planned_tech_online_date)
+    if (today > plannedDate) {
+      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayType = '技术上线'
+    }
+  } else if (row.planned_release_date && !row.actual_release_date) {
+    const plannedDate = new Date(row.planned_release_date)
+    if (today > plannedDate) {
+      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayType = '发版'
+    }
+  }
+
+  if (delayDays > 0) {
+    return {
+      hasDelay: true,
+      days: delayDays,
+      type: delayType,
+      text: `${delayType}延期${delayDays}天`,
+      severity: delayDays > 30 ? 'danger' : 'warning'
+    }
+  }
+
+  return {
+    hasDelay: false,
+    days: 0,
+    type: '',
+    text: '',
+    severity: ''
+  }
+}
+
+const showDelayDetails = (row: SubTask) => {
+  const delayInfo = getDelayInfo(row)
+
+  ElMessageBox.alert(
+    `<div style="line-height: 1.8;">
+      <p><strong>版本名称：</strong>${row.version_name}</p>
+      <p><strong>延期类型：</strong>${delayInfo.type}</p>
+      <p><strong>延期天数：</strong>${delayInfo.days}天</p>
+      <hr style="margin: 10px 0;">
+      <p><strong>计划日期：</strong></p>
+      <ul style="list-style: none; padding-left: 20px;">
+        <li>需求：${formatYearMonth(row.planned_requirement_date)}</li>
+        <li>发版：${formatYearMonth(row.planned_release_date)}</li>
+        <li>技术上线：${formatYearMonth(row.planned_tech_online_date)}</li>
+        <li>业务上线：${formatYearMonth(row.planned_biz_online_date)}</li>
+      </ul>
+      <p><strong>实际日期：</strong></p>
+      <ul style="list-style: none; padding-left: 20px;">
+        <li>需求：${formatYearMonth(row.actual_requirement_date)}</li>
+        <li>发版：${formatYearMonth(row.actual_release_date)}</li>
+        <li>技术上线：${formatYearMonth(row.actual_tech_online_date)}</li>
+        <li>业务上线：${formatYearMonth(row.actual_biz_online_date)}</li>
+      </ul>
+    </div>`,
+    '延期详情',
+    {
+      confirmButtonText: '确定',
+      dangerouslyUseHTMLString: true,
+      customClass: 'delay-details-dialog'
+    }
+  )
 }
 
 const goBack = () => {
@@ -540,7 +679,7 @@ const showCreateTaskDialog = () => {
     l2_id: Number(applicationId),
     sub_target: 'AK',
     version_name: '',
-    task_status: 'planning',
+    task_status: '待启动',
     planned_requirement_date: '',
     planned_release_date: '',
     planned_tech_online_date: '',
@@ -572,11 +711,15 @@ const editTask = (task: SubTask) => {
   editingTask.value = task
   Object.assign(editForm, {
     version_name: task.version_name || '',
-    planned_start_date: task.planned_start_date || '',
-    planned_end_date: task.planned_end_date || '',
-    actual_start_date: task.actual_start_date || '',
-    actual_end_date: task.actual_end_date || '',
-    status: task.status || '',
+    task_status: task.task_status || '',
+    planned_requirement_date: task.planned_requirement_date || '',
+    planned_release_date: task.planned_release_date || '',
+    planned_tech_online_date: task.planned_tech_online_date || '',
+    planned_biz_online_date: task.planned_biz_online_date || '',
+    actual_requirement_date: task.actual_requirement_date || '',
+    actual_release_date: task.actual_release_date || '',
+    actual_tech_online_date: task.actual_tech_online_date || '',
+    actual_biz_online_date: task.actual_biz_online_date || '',
     progress_percentage: Number(task.progress_percentage) || 0,
     notes: task.notes || ''
   })
@@ -590,33 +733,9 @@ const handleEdit = async () => {
   }
 
   try {
-    // Format dates to YYYY-MM-DD strings if they are Date objects
+    // Format dates to YYYY-MM-DD strings if needed
     const formattedData = {
       ...editForm,
-      planned_requirement_date: editForm.planned_requirement_date instanceof Date
-        ? editForm.planned_requirement_date.toISOString().split('T')[0]
-        : editForm.planned_requirement_date,
-      planned_release_date: editForm.planned_release_date instanceof Date
-        ? editForm.planned_release_date.toISOString().split('T')[0]
-        : editForm.planned_release_date,
-      planned_tech_online_date: editForm.planned_tech_online_date instanceof Date
-        ? editForm.planned_tech_online_date.toISOString().split('T')[0]
-        : editForm.planned_tech_online_date,
-      planned_biz_online_date: editForm.planned_biz_online_date instanceof Date
-        ? editForm.planned_biz_online_date.toISOString().split('T')[0]
-        : editForm.planned_biz_online_date,
-      actual_requirement_date: editForm.actual_requirement_date instanceof Date
-        ? editForm.actual_requirement_date.toISOString().split('T')[0]
-        : editForm.actual_requirement_date,
-      actual_release_date: editForm.actual_release_date instanceof Date
-        ? editForm.actual_release_date.toISOString().split('T')[0]
-        : editForm.actual_release_date,
-      actual_tech_online_date: editForm.actual_tech_online_date instanceof Date
-        ? editForm.actual_tech_online_date.toISOString().split('T')[0]
-        : editForm.actual_tech_online_date,
-      actual_biz_online_date: editForm.actual_biz_online_date instanceof Date
-        ? editForm.actual_biz_online_date.toISOString().split('T')[0]
-        : editForm.actual_biz_online_date,
       // Ensure progress_percentage is a number
       progress_percentage: Number(editForm.progress_percentage) || 0
     }
@@ -651,7 +770,8 @@ const resolveBlock = async (task: SubTask) => {
     })
 
     await SubTasksAPI.updateSubTask(task.id, {
-      status: 'in_progress'
+      task_status: 'in_progress',
+      is_blocked: false
     })
     safeMessage('阻塞已解决', 'success')
     await loadSubTasks()
@@ -730,7 +850,7 @@ const batchUpdateDates = async () => {
     })
 
     for (const task of selectedTasks.value) {
-      await SubTasksAPI.updateSubTask(task.id, { planned_end_date: endDate })
+      await SubTasksAPI.updateSubTask(task.id, { planned_biz_online_date: endDate })
     }
 
     ElMessage({
@@ -846,6 +966,109 @@ const deleteSubTaskInEdit = async () => {
 
 .blocked-text {
   color: #e53e3e;
+}
+
+.plan-date-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.adjustment-indicator {
+  color: #ed8936;
+  font-size: 14px;
+}
+
+.progress-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.working-days {
+  font-size: 11px;
+  color: #718096;
+}
+
+.actual-date-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.actual-date-cell .completed {
+  color: #48bb78;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.actual-date-cell .in-progress {
+  color: #3182ce;
+  font-size: 12px;
+}
+
+.actual-date-cell .pending {
+  color: #a0aec0;
+}
+
+.status-icon {
+  font-size: 14px;
+}
+
+.delay-button-wrapper {
+  display: inline-block;
+}
+
+.delay-status-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  transition: all 0.3s ease;
+  border-width: 1px;
+  cursor: pointer;
+}
+
+.delay-status-button:hover {
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.delay-icon {
+  font-size: 14px;
+  animation: pulse 2s infinite;
+}
+
+.delay-text {
+  font-weight: 500;
+}
+
+.arrow-icon {
+  font-size: 12px;
+  margin-left: 2px;
+  transition: transform 0.3s ease;
+}
+
+.delay-status-button:hover .arrow-icon {
+  transform: translateX(3px);
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 .batch-operations {

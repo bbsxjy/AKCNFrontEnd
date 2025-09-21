@@ -279,114 +279,124 @@
           @selection-change="handleSubTaskSelectionChange"
         >
           <el-table-column type="selection" width="55" />
-          <el-table-column label="L2 ID" width="100" fixed="left">
+          <!-- 核心标识 -->
+          <el-table-column label="L2 ID" width="110" fixed="left">
             <template #default="{ row }">
               <strong>{{ getApplicationL2Id(row.l2_id) }}</strong>
             </template>
           </el-table-column>
-          <el-table-column label="应用名称" min-width="120">
+          <el-table-column label="应用名称" min-width="90" show-overflow-tooltip>
             <template #default="{ row }">
               {{ getApplicationName(row.l2_id) }}
             </template>
           </el-table-column>
-          <el-table-column prop="version_name" label="版本名称" min-width="150">
+          <el-table-column prop="version_name" label="版本名称" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">
               <strong>{{ row.version_name || '未命名任务' }}</strong>
             </template>
           </el-table-column>
-          <el-table-column prop="sub_target" label="改造目标" width="80">
+          <!-- 管理信息 -->
+          <el-table-column prop="sub_target" label="改造目标" width="90" align="center">
             <template #default="{ row }">
               <el-tag size="small" :type="row.sub_target === 'AK' ? 'primary' : 'success'">
                 {{ row.sub_target || 'AK' }}
               </el-tag>
             </template>
           </el-table-column>
-          <!-- 负责人信息 -->
-          <el-table-column label="开发负责人" width="90">
-            <template #default="{ row }">
-              {{ row.dev_owner || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="开发团队" width="90">
-            <template #default="{ row }">
-              {{ row.dev_team || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="运维负责人" width="90">
-            <template #default="{ row }">
-              {{ row.ops_owner || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="运维团队" width="90">
-            <template #default="{ row }">
-              {{ row.ops_team || '-' }}
-            </template>
-          </el-table-column>
-          <!-- 状态和进度 -->
-          <el-table-column prop="task_status" label="状态" width="100">
+          <!-- 进度状态 -->
+          <el-table-column prop="task_status" label="当前状态" width="100" align="center">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.task_status || row.status)" size="small">
                 {{ row.task_status || row.status || '待启动' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="progress_percentage" label="进度" width="80">
+          <el-table-column prop="progress_percentage" label="进度" width="130" align="center">
             <template #default="{ row }">
-              <el-progress
-                :percentage="Number(row.progress_percentage) || 0"
-                :stroke-width="6"
-                :color="getSubTaskProgressColor(row)"
-              />
+              <div class="progress-cell">
+                <el-progress
+                  :percentage="calculateSubTaskProgress(row)"
+                  :stroke-width="6"
+                  :color="getSubTaskProgressColor(row)"
+                  :format="(percentage: number) => `${percentage}%`"
+                />
+                <div v-if="getSubTaskWorkingDays(row) > 0" class="working-days">
+                  工作{{ getSubTaskWorkingDays(row) }}天
+                </div>
+              </div>
             </template>
           </el-table-column>
-          <!-- 计划时间 -->
-          <el-table-column label="计划需求" width="95">
+          <!-- 关键计划时间点 -->
+          <el-table-column label="计划需求" width="120" align="center">
             <template #default="{ row }">
-              {{ formatShortDate(row.planned_requirement_date) }}
+              <div class="plan-date-cell">
+                {{ formatYearMonth(row.planned_requirement_date) }}
+              </div>
             </template>
           </el-table-column>
-          <el-table-column label="计划发版" width="95">
+          <el-table-column label="计划发版" width="120" align="center">
             <template #default="{ row }">
-              {{ formatShortDate(row.planned_release_date) }}
+              <div class="plan-date-cell">
+                {{ formatYearMonth(row.planned_release_date) }}
+              </div>
             </template>
           </el-table-column>
-          <el-table-column label="计划技术上线" width="95">
+          <el-table-column label="计划技术上线" width="120" align="center">
             <template #default="{ row }">
-              {{ formatShortDate(row.planned_tech_online_date) }}
+              <div class="plan-date-cell">
+                {{ formatYearMonth(row.planned_tech_online_date) }}
+              </div>
             </template>
           </el-table-column>
-          <el-table-column label="计划业务上线" width="95">
+          <el-table-column label="计划业务上线" width="120" align="center">
             <template #default="{ row }">
-              {{ formatShortDate(row.planned_biz_online_date) }}
+              <div class="plan-date-cell">
+                <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
+              </div>
             </template>
           </el-table-column>
-          <!-- 实际时间 -->
-          <el-table-column label="实际需求" width="95">
+          <!-- 实际完成时间 -->
+          <el-table-column label="实际完成" width="150" align="center">
             <template #default="{ row }">
-              <span :class="{ 'completed-date': row.actual_requirement_date }">
-                {{ formatShortDate(row.actual_requirement_date) }}
-              </span>
+              <div class="actual-date-cell">
+                <div v-if="row.actual_biz_online_date" class="completed">
+                  <el-icon class="status-icon"><el-icon-circle-check /></el-icon>
+                  {{ formatYearMonth(row.actual_biz_online_date) }}
+                </div>
+                <div v-else-if="row.actual_tech_online_date" class="in-progress">
+                  技术: {{ formatYearMonth(row.actual_tech_online_date) }}
+                </div>
+                <div v-else-if="row.actual_release_date" class="in-progress">
+                  发版: {{ formatYearMonth(row.actual_release_date) }}
+                </div>
+                <div v-else-if="row.actual_requirement_date" class="in-progress">
+                  需求: {{ formatYearMonth(row.actual_requirement_date) }}
+                </div>
+                <div v-else class="pending">-</div>
+              </div>
             </template>
           </el-table-column>
-          <el-table-column label="实际发版" width="95">
+          <!-- 延期状态 -->
+          <el-table-column label="延期状态" width="150" align="center">
             <template #default="{ row }">
-              <span :class="{ 'completed-date': row.actual_release_date }">
-                {{ formatShortDate(row.actual_release_date) }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column label="实际技术上线" width="95">
-            <template #default="{ row }">
-              <span :class="{ 'completed-date': row.actual_tech_online_date }">
-                {{ formatShortDate(row.actual_tech_online_date) }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column label="实际业务上线" width="95">
-            <template #default="{ row }">
-              <span :class="{ 'completed-date': row.actual_biz_online_date }">
-                {{ formatShortDate(row.actual_biz_online_date) }}
-              </span>
+              <div v-if="getSubTaskDelayInfo(row).hasDelay" class="delay-button-wrapper">
+                <el-button
+                  size="small"
+                  :type="getSubTaskDelayInfo(row).severity"
+                  @click="showSubTaskDelayDetails(row)"
+                  class="delay-status-button"
+                  plain
+                  round
+                >
+                  <el-icon class="delay-icon"><el-icon-warning /></el-icon>
+                  <span class="delay-text">{{ getSubTaskDelayInfo(row).text }}</span>
+                  <el-icon class="arrow-icon"><el-icon-arrow-right /></el-icon>
+                </el-button>
+              </div>
+              <el-tag v-else type="success" size="small" effect="plain">
+                <el-icon class="status-icon"><el-icon-circle-check /></el-icon>
+                <span>正常</span>
+              </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="100" fixed="right">
@@ -1745,9 +1755,124 @@ const getApplicationL2Id = (applicationId: number) => {
 }
 
 const getSubTaskProgressColor = (row: SubTask) => {
-  if (row.task_status === '存在阻塞') return '#f56565'
-  if (row.progress_percentage >= 80) return '#48bb78'
+  if (row.task_status === '存在阻塞' || row.is_blocked) return '#f56565'
+  const progress = calculateSubTaskProgress(row)
+  if (progress >= 80) return '#48bb78'
   return '#667eea'
+}
+
+const calculateSubTaskProgress = (row: SubTask) => {
+  // If progress is explicitly set, use it
+  if (row.progress_percentage !== undefined && row.progress_percentage !== null) {
+    return Number(row.progress_percentage)
+  }
+
+  // Otherwise calculate based on actual dates
+  let progress = 0
+  if (row.actual_requirement_date) progress += 25
+  if (row.actual_release_date) progress += 25
+  if (row.actual_tech_online_date) progress += 25
+  if (row.actual_biz_online_date) progress += 25
+
+  return progress
+}
+
+const getSubTaskWorkingDays = (row: SubTask) => {
+  // Calculate working days from earliest actual date to now
+  const actualDates = [
+    row.actual_requirement_date,
+    row.actual_release_date,
+    row.actual_tech_online_date,
+    row.actual_biz_online_date
+  ].filter(d => d && d !== null) as string[]
+
+  if (actualDates.length === 0) return 0
+
+  const earliestDate = new Date(actualDates.sort()[0])
+  const today = new Date()
+  const diffTime = Math.abs(today.getTime() - earliestDate.getTime())
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+  return diffDays
+}
+
+const getSubTaskDelayInfo = (row: SubTask) => {
+  // Calculate delay based on planned vs actual dates
+  const today = new Date()
+  let delayDays = 0
+  let delayType = ''
+
+  // Check each milestone for delays
+  if (row.planned_biz_online_date && !row.actual_biz_online_date) {
+    const plannedDate = new Date(row.planned_biz_online_date)
+    if (today > plannedDate) {
+      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayType = '业务上线'
+    }
+  } else if (row.planned_tech_online_date && !row.actual_tech_online_date) {
+    const plannedDate = new Date(row.planned_tech_online_date)
+    if (today > plannedDate) {
+      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayType = '技术上线'
+    }
+  } else if (row.planned_release_date && !row.actual_release_date) {
+    const plannedDate = new Date(row.planned_release_date)
+    if (today > plannedDate) {
+      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayType = '发版'
+    }
+  }
+
+  if (delayDays > 0) {
+    return {
+      hasDelay: true,
+      days: delayDays,
+      type: delayType,
+      text: `${delayType}延期${delayDays}天`,
+      severity: delayDays > 30 ? 'danger' : 'warning'
+    }
+  }
+
+  return {
+    hasDelay: false,
+    days: 0,
+    type: '',
+    text: '',
+    severity: ''
+  }
+}
+
+const showSubTaskDelayDetails = (row: SubTask) => {
+  const delayInfo = getSubTaskDelayInfo(row)
+
+  ElMessageBox.alert(
+    `<div style="line-height: 1.8;">
+      <p><strong>版本名称：</strong>${row.version_name}</p>
+      <p><strong>延期类型：</strong>${delayInfo.type}</p>
+      <p><strong>延期天数：</strong>${delayInfo.days}天</p>
+      <hr style="margin: 10px 0;">
+      <p><strong>计划日期：</strong></p>
+      <ul style="list-style: none; padding-left: 20px;">
+        <li>需求：${formatYearMonth(row.planned_requirement_date)}</li>
+        <li>发版：${formatYearMonth(row.planned_release_date)}</li>
+        <li>技术上线：${formatYearMonth(row.planned_tech_online_date)}</li>
+        <li>业务上线：${formatYearMonth(row.planned_biz_online_date)}</li>
+      </ul>
+      <p><strong>实际日期：</strong></p>
+      <ul style="list-style: none; padding-left: 20px;">
+        <li>需求：${formatYearMonth(row.actual_requirement_date)}</li>
+        <li>发版：${formatYearMonth(row.actual_release_date)}</li>
+        <li>技术上线：${formatYearMonth(row.actual_tech_online_date)}</li>
+        <li>业务上线：${formatYearMonth(row.actual_biz_online_date)}</li>
+      </ul>
+    </div>`,
+    '延期详情',
+    {
+      confirmButtonText: '确定',
+      dangerouslyUseHTMLString: true,
+      customClass: 'delay-details-dialog'
+    }
+  )
 }
 
 const resetSubtaskSearch = () => {
@@ -2396,6 +2521,43 @@ watch([currentPage, pageSize], async () => {
 .completed-date {
   color: #48bb78;
   font-weight: 600;
+}
+
+/* 子任务表格样式 */
+.progress-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.working-days {
+  font-size: 11px;
+  color: #718096;
+}
+
+.actual-date-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.actual-date-cell .completed {
+  color: #48bb78;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.actual-date-cell .in-progress {
+  color: #3182ce;
+  font-size: 12px;
+}
+
+.actual-date-cell .pending {
+  color: #a0aec0;
 }
 
 /* 操作按钮样式 */
