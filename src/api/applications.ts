@@ -98,6 +98,17 @@ export interface UpdateApplicationRequest {
   ops_mode?: string
   belonging_kpi?: string
   acceptance_status?: string
+  notes?: string
+  // 计划时间
+  planned_requirement_date?: string | null
+  planned_release_date?: string | null
+  planned_tech_online_date?: string | null
+  planned_biz_online_date?: string | null
+  // 实际时间
+  actual_requirement_date?: string | null
+  actual_release_date?: string | null
+  actual_tech_online_date?: string | null
+  actual_biz_online_date?: string | null
 }
 
 export interface BatchOperationRequest {

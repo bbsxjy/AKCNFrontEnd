@@ -540,6 +540,104 @@
             </el-form-item>
           </el-tab-pane>
 
+          <!-- 计划时间 -->
+          <el-tab-pane label="计划时间" name="planned">
+            <el-form-item label="计划需求完成">
+              <el-date-picker
+                v-model="editForm.planned_requirement_date"
+                type="date"
+                placeholder="选择计划需求完成日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+              />
+            </el-form-item>
+            <el-form-item label="计划发版时间">
+              <el-date-picker
+                v-model="editForm.planned_release_date"
+                type="date"
+                placeholder="选择计划发版日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+              />
+            </el-form-item>
+            <el-form-item label="计划技术上线">
+              <el-date-picker
+                v-model="editForm.planned_tech_online_date"
+                type="date"
+                placeholder="选择计划技术上线日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+              />
+            </el-form-item>
+            <el-form-item label="计划业务上线">
+              <el-date-picker
+                v-model="editForm.planned_biz_online_date"
+                type="date"
+                placeholder="选择计划业务上线日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+              />
+            </el-form-item>
+            <el-alert type="info" :closable="false" style="margin-top: 10px;">
+              <span style="font-size: 12px;">提示：修改计划时间会记录在审计日志中</span>
+            </el-alert>
+          </el-tab-pane>
+
+          <!-- 实际时间 -->
+          <el-tab-pane label="实际时间" name="actual">
+            <el-form-item label="实际需求完成">
+              <el-date-picker
+                v-model="editForm.actual_requirement_date"
+                type="date"
+                placeholder="选择实际需求完成日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                :disabled-date="(date: Date) => date > new Date()"
+              />
+            </el-form-item>
+            <el-form-item label="实际发版时间">
+              <el-date-picker
+                v-model="editForm.actual_release_date"
+                type="date"
+                placeholder="选择实际发版日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                :disabled-date="(date: Date) => date > new Date()"
+              />
+            </el-form-item>
+            <el-form-item label="实际技术上线">
+              <el-date-picker
+                v-model="editForm.actual_tech_online_date"
+                type="date"
+                placeholder="选择实际技术上线日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                :disabled-date="(date: Date) => date > new Date()"
+              />
+            </el-form-item>
+            <el-form-item label="实际业务上线">
+              <el-date-picker
+                v-model="editForm.actual_biz_online_date"
+                type="date"
+                placeholder="选择实际业务上线日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                :disabled-date="(date: Date) => date > new Date()"
+              />
+            </el-form-item>
+            <el-alert type="success" :closable="false" style="margin-top: 10px;">
+              <span style="font-size: 12px;">提示：填写实际时间表示该阶段已完成</span>
+            </el-alert>
+          </el-tab-pane>
+
           <!-- 其他信息 -->
           <el-tab-pane label="其他信息" name="other">
             <el-form-item label="当前状态">
@@ -1148,7 +1246,17 @@ const editForm = reactive({
   ops_mode: '',
   is_domain_transformation_completed: false,
   is_dbpm_transformation_completed: false,
-  notes: ''
+  notes: '',
+  // 计划时间
+  planned_requirement_date: '',
+  planned_release_date: '',
+  planned_tech_online_date: '',
+  planned_biz_online_date: '',
+  // 实际时间
+  actual_requirement_date: '',
+  actual_release_date: '',
+  actual_tech_online_date: '',
+  actual_biz_online_date: ''
 })
 
 // 前端筛选后的数据
@@ -1462,7 +1570,17 @@ const editApplication = (row: Application) => {
     ops_mode: row.ops_mode || '',
     is_domain_transformation_completed: row.is_domain_transformation_completed || false,
     is_dbpm_transformation_completed: row.is_dbpm_transformation_completed || false,
-    notes: row.notes || ''
+    notes: row.notes || '',
+    // 计划时间
+    planned_requirement_date: row.planned_requirement_date || '',
+    planned_release_date: row.planned_release_date || '',
+    planned_tech_online_date: row.planned_tech_online_date || '',
+    planned_biz_online_date: row.planned_biz_online_date || '',
+    // 实际时间
+    actual_requirement_date: row.actual_requirement_date || '',
+    actual_release_date: row.actual_release_date || '',
+    actual_tech_online_date: row.actual_tech_online_date || '',
+    actual_biz_online_date: row.actual_biz_online_date || ''
   })
   showEditDialog.value = true
 }
