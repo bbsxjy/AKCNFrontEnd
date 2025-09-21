@@ -176,20 +176,29 @@
           </template>
         </el-table-column>
         <!-- 延期状态（合并调整和延期） -->
-        <el-table-column label="延期状态" width="110" align="center">
+        <el-table-column label="延期状态" width="120" align="center">
           <template #default="{ row }">
-            <el-button
-              v-if="getDelayCount(row) > 0"
-              size="small"
-              type="text"
-              @click="showDelayDetails(row)"
-              class="delay-status-button"
-            >
-              <span :class="{ 'delay-danger': row.is_delayed }">
-                延期{{ getDelayCount(row) }}次
-              </span>
-            </el-button>
-            <span v-else class="status-normal">正常</span>
+            <div v-if="getDelayCount(row) > 0" class="delay-button-wrapper">
+              <el-button
+                size="small"
+                :type="row.is_delayed ? 'danger' : 'warning'"
+                @click="showDelayDetails(row)"
+                class="delay-status-button"
+                plain
+                round
+              >
+                <el-icon class="delay-icon"><el-icon-warning /></el-icon>
+                <span class="delay-text">延期{{ getDelayCount(row) }}次</span>
+                <el-icon class="arrow-icon"><el-icon-arrow-right /></el-icon>
+              </el-button>
+              <el-tooltip content="点击查看延期详情" placement="top">
+                <el-icon class="info-icon"><el-icon-info-filled /></el-icon>
+              </el-tooltip>
+            </div>
+            <el-tag v-else type="success" size="small" effect="plain">
+              <el-icon class="status-icon"><el-icon-circle-check /></el-icon>
+              <span>正常</span>
+            </el-tag>
           </template>
         </el-table-column>
         <!-- 操作按钮 -->
@@ -1013,7 +1022,16 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Upload, Download, Warning as ElIconWarning, Clock as ElIconClock } from '@element-plus/icons-vue'
+import {
+  Plus,
+  Upload,
+  Download,
+  Warning as ElIconWarning,
+  Clock as ElIconClock,
+  CircleCheck as ElIconCircleCheck,
+  ArrowRight as ElIconArrowRight,
+  InfoFilled as ElIconInfoFilled
+} from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApplicationsAPI, type Application, type CreateApplicationRequest } from '@/api/applications'
 import { SubTasksAPI, type SubTask } from '@/api/subtasks'
@@ -2558,20 +2576,149 @@ watch([currentPage, pageSize], async () => {
   text-align: center;
 }
 
+/* 延期按钮容器 */
+.delay-button-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
 /* 延期状态按钮样式 */
 .delay-status-button {
-  padding: 4px 8px;
-  font-size: 13px;
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+  min-width: 90px;
 }
 
-.delay-danger {
-  color: #f56565;
-  font-weight: 600;
+.delay-status-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
 }
 
-.status-normal {
-  color: #48bb78;
-  font-size: 13px;
+.delay-status-button:hover::before {
+  width: 120%;
+  height: 120%;
+}
+
+.delay-status-button:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.12);
+}
+
+.delay-status-button:active {
+  transform: translateY(0) scale(1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 延期按钮图标 */
+.delay-status-button .delay-icon {
+  margin-right: 3px;
+  font-size: 14px;
+  animation: pulse 2s infinite;
+}
+
+.delay-status-button .delay-text {
+  margin: 0 2px;
+}
+
+.delay-status-button .arrow-icon {
+  margin-left: 2px;
+  font-size: 12px;
+  transition: transform 0.3s;
+}
+
+.delay-status-button:hover .arrow-icon {
+  transform: translateX(3px);
+}
+
+/* 信息图标 */
+.info-icon {
+  color: #909399;
+  font-size: 14px;
+  cursor: help;
+  transition: color 0.3s;
+}
+
+.info-icon:hover {
+  color: #606266;
+}
+
+/* 危险级别按钮 */
+.delay-status-button.el-button--danger.is-plain {
+  background: linear-gradient(135deg, #fff5f5 0%, #fee2e2 100%);
+  border-color: #fca5a5;
+  color: #b91c1c;
+  animation: danger-pulse 3s infinite;
+}
+
+.delay-status-button.el-button--danger.is-plain:hover {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+/* 警告级别按钮 */
+.delay-status-button.el-button--warning.is-plain {
+  background: linear-gradient(135deg, #fffdf7 0%, #fef3c7 100%);
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.delay-status-button.el-button--warning.is-plain:hover {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-color: #fbbf24;
+  color: #78350f;
+}
+
+/* 正常状态标签 */
+.el-tag--success.is-plain {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-color: #86efac;
+  color: #15803d;
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.el-tag--success.is-plain .status-icon {
+  margin-right: 4px;
+  font-size: 14px;
+  color: #22c55e;
+}
+
+/* 动画 */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes danger-pulse {
+  0%, 100% {
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
+  }
+  50% {
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+  }
 }
 
 /* 延期详情对话框样式 */
