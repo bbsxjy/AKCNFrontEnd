@@ -135,7 +135,7 @@
           </template>
         </el-table-column>
         <!-- 关键计划时间点 -->
-        <el-table-column label="计划需求" width="95" align="center">
+        <el-table-column label="计划需求" width="120" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               {{ formatYearMonth(row.planned_requirement_date) }}
@@ -145,7 +145,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划发版" width="95" align="center">
+        <el-table-column label="计划发版" width="120" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               {{ formatYearMonth(row.planned_release_date) }}
@@ -155,7 +155,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划技术上线" width="110" align="center">
+        <el-table-column label="计划技术上线" width="120" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               {{ formatYearMonth(row.planned_tech_online_date) }}
@@ -165,7 +165,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划业务上线" width="110" align="center">
+        <el-table-column label="计划业务上线" width="120" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
@@ -415,7 +415,7 @@
     <el-dialog v-model="showCreateDialog" title="新增应用" width="700px">
       <el-form :model="createForm" label-width="120px">
         <el-form-item label="L2 ID" required>
-          <el-input v-model="createForm.l2_id" placeholder="如：L2_APP_001" />
+          <el-input v-model="createForm.l2_id" placeholder="如：CI000001" />
         </el-form-item>
         <el-form-item label="应用名称" required>
           <el-input v-model="createForm.app_name" placeholder="请输入应用名称" />
@@ -442,13 +442,8 @@
             <el-option :value="2027" label="2027年" />
           </el-select>
         </el-form-item>
-        <el-form-item label="开发团队" required>
-          <el-select v-model="createForm.dev_team" placeholder="请选择团队">
-            <el-option value="研发一部" label="研发一部" />
-            <el-option value="研发二部" label="研发二部" />
-            <el-option value="运维部" label="运维部" />
-            <el-option value="架构部" label="架构部" />
-          </el-select>
+        <el-form-item label="开发团队">
+          <el-input v-model="editForm.dev_team" placeholder="请输入开发团队"/>
         </el-form-item>
         <el-form-item label="开发负责人">
           <el-input v-model="createForm.dev_owner" placeholder="请输入开发负责人" />
@@ -469,7 +464,7 @@
           <!-- 基础信息 -->
           <el-tab-pane label="基础信息" name="basic">
             <el-form-item label="L2 ID">
-              <el-input v-model="editForm.l2_id" disabled />
+              <el-input v-model="editForm.l2_id" />
             </el-form-item>
             <el-form-item label="应用名称" required>
               <el-input v-model="editForm.app_name" />
@@ -496,6 +491,15 @@
                 <el-radio value="云原生">云原生</el-radio>
               </el-radio-group>
             </el-form-item>
+            <el-form-item label="当前状态">
+              <el-select v-model="editForm.current_status" placeholder="请选择状态">
+                <el-option value="待启动" label="待启动" />
+                <el-option value="研发进行中" label="研发进行中" />
+                <el-option value="业务上线中" label="业务上线中" />
+                <el-option value="全部完成" label="全部完成" />
+                <el-option value="存在阻塞" label="存在阻塞" />
+              </el-select>
+            </el-form-item>
             <el-form-item label="验收状态">
               <el-select v-model="editForm.acceptance_status" placeholder="请选择验收状态" clearable>
                 <el-option value="未验收" label="未验收" />
@@ -519,24 +523,14 @@
             <el-form-item label="开发负责人">
               <el-input v-model="editForm.dev_owner" placeholder="请输入开发负责人" />
             </el-form-item>
-            <el-form-item label="开发团队" required>
-              <el-select v-model="editForm.dev_team" placeholder="请选择团队">
-                <el-option value="研发一部" label="研发一部" />
-                <el-option value="研发二部" label="研发二部" />
-                <el-option value="运维部" label="运维部" />
-                <el-option value="架构部" label="架构部" />
-                <el-option value="测试部" label="测试部" />
-              </el-select>
+            <el-form-item label="开发团队">
+              <el-input v-model="editForm.dev_team" placeholder="请输入开发团队"/>
             </el-form-item>
             <el-form-item label="运维负责人">
               <el-input v-model="editForm.ops_owner" placeholder="请输入运维负责人" />
             </el-form-item>
             <el-form-item label="运维团队">
-              <el-select v-model="editForm.ops_team" placeholder="请选择运维团队" clearable>
-                <el-option value="运维一部" label="运维一部" />
-                <el-option value="运维二部" label="运维二部" />
-                <el-option value="云运维部" label="云运维部" />
-              </el-select>
+              <el-input v-model="editForm.ops_team" placeholder="请输入运维团队"/>
             </el-form-item>
           </el-tab-pane>
 
@@ -640,16 +634,7 @@
 
           <!-- 其他信息 -->
           <el-tab-pane label="其他信息" name="other">
-            <el-form-item label="当前状态">
-              <el-select v-model="editForm.current_status" placeholder="请选择状态">
-                <el-option value="待启动" label="待启动" />
-                <el-option value="研发进行中" label="研发进行中" />
-                <el-option value="业务上线中" label="业务上线中" />
-                <el-option value="全部完成" label="全部完成" />
-                <el-option value="存在阻塞" label="存在阻塞" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="域AK改造">
+            <el-form-item label="域名化改造">
               <el-switch v-model="editForm.is_domain_transformation_completed" active-text="完成" inactive-text="未完成" />
             </el-form-item>
             <el-form-item label="DBPM改造">
