@@ -293,8 +293,11 @@
           </div>
         </div>
 
-        <el-empty v-if="!loading && myTasks.length === 0" description="暂无待办任务">
-          <el-button type="primary" size="small" @click="goToApplications">去查看应用列表</el-button>
+        <el-empty v-if="!loading && myTasks.length === 0" description="暂无进行中的任务">
+          <div style="margin-top: 10px; color: #718096; font-size: 13px;">
+            只有"研发进行中"、"业务上线中"或"存在阻塞"的任务会显示在这里
+          </div>
+          <el-button type="primary" size="small" @click="goToApplications" style="margin-top: 15px;">去查看应用列表</el-button>
         </el-empty>
 
         <div v-if="myTasks.length > 5" class="todo-footer">
@@ -967,8 +970,9 @@ onMounted(async () => {
 }
 
 .header-badge {
-  margin-left: 4px;
+  margin-left: 0;
   vertical-align: middle;
+  margin-top: 10px;
 }
 
 .header-actions {
@@ -999,12 +1003,10 @@ onMounted(async () => {
 }
 
 .todo-item.urgent {
-  background: #fef5e7;
   border-left: 4px solid #f39c12;
 }
 
 .todo-item.overdue {
-  background: #fed7e5;
   border-left: 4px solid #e53e3e;
 }
 

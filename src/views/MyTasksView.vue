@@ -36,16 +36,22 @@
           全部 ({{ allTasks.length }})
         </el-button>
         <el-button
-          :type="activeFilter === 'pending' ? 'primary' : 'default'"
-          @click="setFilter('pending')"
-        >
-          待处理 ({{ pendingTasks.length }})
-        </el-button>
-        <el-button
           :type="activeFilter === 'progress' ? 'primary' : 'default'"
           @click="setFilter('progress')"
         >
-          进行中 ({{ progressTasks.length }})
+          研发中 ({{ progressTasks.length }})
+        </el-button>
+        <el-button
+          :type="activeFilter === 'testing' ? 'primary' : 'default'"
+          @click="setFilter('testing')"
+        >
+          上线中 ({{ testingTasks.length }})
+        </el-button>
+        <el-button
+          :type="activeFilter === 'blocked' ? 'primary' : 'default'"
+          @click="setFilter('blocked')"
+        >
+          阻塞中 ({{ blockedTasks.length }})
         </el-button>
         <el-button
           :type="activeFilter === 'delayed' ? 'primary' : 'default'"
@@ -115,15 +121,19 @@
               @click="updateTask(task)"
               :loading="task.updating"
             >
-              {{ task.isOverdue ? '立即处理' : task.isUrgent ? '优先处理' : '查看详情' }}
+              {{ task.isOverdue ? '立即处理' : task.isUrgent ? '优先处理' : '编辑' }}
             </el-button>
             <el-button size="small" @click="viewTaskDetails(task)">
-              进入应用
+              查看其他子任务
             </el-button>
           </div>
         </div>
 
-        <el-empty v-if="filteredTasks.length === 0" description="暂无任务" />
+        <el-empty v-if="filteredTasks.length === 0" :description="getEmptyDescription()">
+          <div v-if="activeFilter === 'all'" style="margin-top: 10px; color: #718096; font-size: 13px;">
+            只有"研发进行中"、"业务上线中"或"存在阻塞"的任务会显示在这里
+          </div>
+        </el-empty>
       </div>
     </el-card>
 
@@ -251,16 +261,19 @@ const allTasks = ref<MyTask[]>([])
 
 const totalTasks = computed(() => allTasks.value.length)
 const urgentTasksCount = computed(() => allTasks.value.filter(task => task.isUrgent).length)
-const pendingTasks = computed(() => allTasks.value.filter(t => t.status === '待启动'))
-const progressTasks = computed(() => allTasks.value.filter(t => t.status === '研发进行中'))
+const progressTasks = computed(() => allTasks.value.filter(t => t.status === '研发进行中' || t.status === 'in_progress'))
+const testingTasks = computed(() => allTasks.value.filter(t => t.status === '业务上线中' || t.status === 'testing'))
+const blockedTasks = computed(() => allTasks.value.filter(t => t.status === '存在阻塞' || t.status === 'blocked'))
 const delayedTasks = computed(() => allTasks.value.filter(t => t.isOverdue))
 
 const filteredTasks = computed(() => {
   switch (activeFilter.value) {
-    case 'pending':
-      return pendingTasks.value
     case 'progress':
       return progressTasks.value
+    case 'testing':
+      return testingTasks.value
+    case 'blocked':
+      return blockedTasks.value
     case 'delayed':
       return delayedTasks.value
     default:
@@ -302,6 +315,21 @@ const formatDate = (dateString: string | null | undefined) => {
     return `${year}-${month}-${day}`
   } catch (error) {
     return '-'
+  }
+}
+
+const getEmptyDescription = () => {
+  switch (activeFilter.value) {
+    case 'progress':
+      return '暂无研发进行中的任务'
+    case 'testing':
+      return '暂无业务上线中的任务'
+    case 'blocked':
+      return '暂无阻塞的任务'
+    case 'delayed':
+      return '暂无延期的任务'
+    default:
+      return '暂无进行中的任务'
   }
 }
 
@@ -429,8 +457,9 @@ onMounted(async () => {
 }
 
 .header-badge {
-  margin-left: 4px;
+  margin-left: 0;
   vertical-align: middle;
+  margin-top: 5px;
 }
 
 .header h2 {
@@ -475,12 +504,10 @@ onMounted(async () => {
 }
 
 .task-urgent {
-  background: #fef5e7;
   border-left: 4px solid #f39c12;
 }
 
 .task-overdue {
-  background: #fed7e5;
   border-left: 4px solid #e53e3e;
 }
 

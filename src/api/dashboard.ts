@@ -351,21 +351,28 @@ export class DashboardAPI {
         })
       }
 
-      // 过滤未完成的任务并排序
+      // 过滤真正需要处理的任务
       const pendingTasks = subtasks
       .filter(task => {
         // 过滤掉已完成的任务
         const isCompleted = task.task_status === '已完成' ||
                            task.task_status === '全部完成' ||
                            task.task_status === 'completed'
-
-        // 如果任务已完成，不显示在待办中（即使计划时间在过去）
         if (isCompleted) return false
 
-        // 只显示有计划完成时间的任务
-        if (!task.planned_biz_online_date) return false
+        // 只显示正在进行中或有阻塞的任务
+        const isInProgress = task.task_status === '研发进行中' ||
+                            task.task_status === '业务上线中' ||
+                            task.task_status === 'in_progress' ||
+                            task.task_status === 'testing'
 
-        return true
+        const isBlocked = task.task_status === '存在阻塞' ||
+                         task.task_status === 'blocked' ||
+                         task.is_blocked === true
+
+        // 只有在进行中或有阻塞的任务才是待办
+        // 待启动的任务不应该出现在待办中
+        return isInProgress || isBlocked
       })
       .sort((a, b) => {
         // 按计划结束日期排序，紧急的在前
