@@ -175,34 +175,21 @@
             </div>
           </template>
         </el-table-column>
-        <!-- 计划调整次数 -->
-        <el-table-column label="调整" width="65" align="center">
+        <!-- 延期状态（合并调整和延期） -->
+        <el-table-column label="延期状态" width="110" align="center">
           <template #default="{ row }">
-            <el-badge
-              v-if="getPlanAdjustmentCount(row) > 0"
-              :value="getPlanAdjustmentCount(row)"
-              type="warning"
-              class="adjustment-badge"
+            <el-button
+              v-if="getDelayCount(row) > 0"
+              size="small"
+              type="text"
+              @click="showDelayDetails(row)"
+              class="delay-status-button"
             >
-              <el-button
-                size="small"
-                type="text"
-                @click="showPlanHistory(row)"
-                title="查看调整历史"
-              >
-                <el-icon><el-icon-clock /></el-icon>
-              </el-button>
-            </el-badge>
-            <span v-else class="no-adjustment">-</span>
-          </template>
-        </el-table-column>
-        <!-- 延期预警 -->
-        <el-table-column label="延期状态" width="90" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.is_delayed" type="danger" size="small">
-              延期{{ row.delay_days }}天
-            </el-tag>
-            <el-tag v-else type="success" size="small">正常</el-tag>
+              <span :class="{ 'delay-danger': row.is_delayed }">
+                延期{{ getDelayCount(row) }}次
+              </span>
+            </el-button>
+            <span v-else class="status-normal">正常</span>
           </template>
         </el-table-column>
         <!-- 操作按钮 -->
@@ -797,6 +784,123 @@
       </template>
     </el-dialog>
 
+    <!-- Delay Details Dialog -->
+    <el-dialog v-model="showDelayDetailsDialog" title="延期详情" width="900px">
+      <div v-loading="delayDetailsLoading" style="min-height: 400px;">
+        <!-- 延期统计 -->
+        <div class="delay-summary">
+          <el-alert type="warning" :closable="false">
+            <template #title>
+              <div class="summary-content">
+                <span>该应用已延期 <strong>{{ delayDetailsData.totalDelayCount }}</strong> 次</span>
+                <span class="total-delay-days">累计延期 <strong>{{ delayDetailsData.totalDelayDays }}</strong> 天</span>
+              </div>
+            </template>
+          </el-alert>
+        </div>
+
+        <!-- 延期历史时间线 -->
+        <div class="delay-timeline" v-if="delayDetailsData.delayHistory && delayDetailsData.delayHistory.length > 0">
+          <h3>延期历史</h3>
+          <el-timeline>
+            <el-timeline-item
+              v-for="(item, index) in delayDetailsData.delayHistory"
+              :key="index"
+              :timestamp="formatDate(item.date)"
+              :type="item.type || 'primary'"
+              placement="top"
+            >
+              <div class="delay-record">
+                <div class="delay-header">
+                  <el-tag size="small" :type="getDelayType(item.delayDays)">
+                    延期 {{ Math.abs(item.delayDays) }} {{ item.delayUnit || '天' }}
+                  </el-tag>
+                  <span class="delay-phase">{{ getDelayPhaseLabel(item.phase) }}</span>
+                </div>
+                <div class="delay-content">
+                  <div class="delay-dates">
+                    <span class="original-date">原计划：{{ formatYearMonth(item.originalDate) }}</span>
+                    <span class="arrow">→</span>
+                    <span class="new-date">调整为：{{ formatYearMonth(item.newDate) }}</span>
+                  </div>
+                  <div class="delay-reason" v-if="item.reason">
+                    <span class="reason-label">延期原因：</span>
+                    <span class="reason-text">{{ item.reason }}</span>
+                  </div>
+                  <div class="delay-footer">
+                    <span class="operator">操作人：{{ item.operator || '系统' }}</span>
+                  </div>
+                </div>
+              </div>
+            </el-timeline-item>
+          </el-timeline>
+        </div>
+
+        <!-- 各阶段延期统计 -->
+        <div class="delay-statistics" v-if="delayDetailsData.phaseStatistics">
+          <h3>各阶段延期统计</h3>
+          <el-table :data="delayDetailsData.phaseStatistics" border>
+            <el-table-column prop="phase" label="阶段" width="120">
+              <template #default="{ row }">
+                {{ getDelayPhaseLabel(row.phase) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="delayCount" label="延期次数" width="100" align="center">
+              <template #default="{ row }">
+                <el-badge :value="row.delayCount" type="warning" />
+              </template>
+            </el-table-column>
+            <el-table-column prop="totalDelayDays" label="累计延期天数" width="120" align="center">
+              <template #default="{ row }">
+                <span :class="{ 'text-danger': row.totalDelayDays > 30 }">
+                  {{ row.totalDelayDays }} 天
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="currentStatus" label="当前状态" min-width="150">
+              <template #default="{ row }">
+                <div v-if="row.currentPlannedDate">
+                  计划：{{ formatYearMonth(row.currentPlannedDate) }}
+                  <el-tag
+                    v-if="row.isDelayed"
+                    type="danger"
+                    size="small"
+                    style="margin-left: 10px;"
+                  >
+                    延期中
+                  </el-tag>
+                </div>
+                <div v-else>-</div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <!-- 延期原因分析 -->
+        <div class="delay-analysis" v-if="delayDetailsData.reasonAnalysis && delayDetailsData.reasonAnalysis.length > 0">
+          <h3>延期原因分析</h3>
+          <div class="reason-tags">
+            <el-tag
+              v-for="(reason, index) in delayDetailsData.reasonAnalysis"
+              :key="index"
+              size="medium"
+              style="margin: 5px;"
+            >
+              {{ reason.reason }}（{{ reason.count }}次）
+            </el-tag>
+          </div>
+        </div>
+
+        <!-- 无延期记录 -->
+        <div v-if="!delayDetailsData.delayHistory || delayDetailsData.delayHistory.length === 0" class="no-delay-history">
+          <el-empty description="该应用暂无延期记录" />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showDelayDetailsDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
     <!-- Plan History Dialog -->
     <el-dialog v-model="showPlanHistoryDialog" title="计划调整历史" width="900px">
       <div v-loading="planHistoryLoading" style="min-height: 400px;">
@@ -923,6 +1027,9 @@ const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const showDetailDialog = ref(false)
 const showPlanHistoryDialog = ref(false)
+const showDelayDetailsDialog = ref(false)
+const delayDetailsData = ref<any>({})
+const delayDetailsLoading = ref(false)
 const selectedApplications = ref<Application[]>([])
 const editingId = ref<number | null>(null)
 const detailData = ref<Partial<Application>>({})
@@ -1144,7 +1251,48 @@ onMounted(async () => {
     loadApplications(),
     loadSubTasks()
   ])
+
+  // Load delay data after applications are loaded
+  if (allApplications.value.length > 0) {
+    // Load first batch of delay data for visible applications
+    const visibleApps = applications.value.slice(0, 10)
+    for (const app of visibleApps) {
+      loadDelayDataForApp(app)
+    }
+  }
 })
+
+// Load delay data for a specific application
+const loadDelayDataForApp = async (app: Application) => {
+  // Skip if already loaded or not delayed
+  if (planAdjustmentCache.value.has(app.id)) {
+    return
+  }
+
+  try {
+    const audits = await AuditAPI.getRecordHistory('applications', app.id)
+
+    const planAdjustments = audits.filter(audit =>
+      audit.changed_fields?.some(field =>
+        field.includes('planned_') && field.includes('_date')
+      )
+    ).map(audit => ({
+      adjusted_at: audit.created_at,
+      field: audit.changed_fields?.find(f => f.includes('planned_')),
+      user: audit.user_full_name
+    }))
+
+    if (planAdjustments.length > 0 || app.is_delayed) {
+      planAdjustmentCache.value.set(app.id, planAdjustments)
+    }
+  } catch (error) {
+    console.error(`Failed to load delay data for app ${app.id}:`, error)
+    // Set empty array to avoid re-fetching
+    if (app.is_delayed) {
+      planAdjustmentCache.value.set(app.id, [])
+    }
+  }
+}
 
 
 // 防抖处理关键词搜索
@@ -1837,31 +1985,193 @@ const getPhaseStyle = (history: any, phase: string) => {
   return {}
 }
 
-// Initialize plan adjustment cache on load
-const initializePlanAdjustmentCache = async () => {
-  // Load adjustment data for all applications
-  // This would be optimized to batch load or lazy load
-  for (const app of allApplications.value) {
-    try {
-      const audits = await AuditAPI.getRecordHistory('applications', app.id)
-      const planAdjustments = audits.filter(audit =>
-        audit.changed_fields?.some(field =>
-          field.includes('planned_') && field.includes('_date')
-        )
-      ).map(audit => ({
-        adjusted_at: audit.created_at,
-        field: audit.changed_fields?.find(f => f.includes('planned_')),
-        user: audit.user_full_name
-      }))
+// Get delay count for an application
+const getDelayCount = (row: Application) => {
+  // First check if application is currently delayed
+  if (!row.is_delayed && !planAdjustmentCache.value.has(row.id)) {
+    return 0
+  }
 
-      if (planAdjustments.length > 0) {
-        planAdjustmentCache.value.set(app.id, planAdjustments)
-      }
-    } catch (error) {
-      console.error(`Failed to load adjustments for app ${app.id}:`, error)
+  // Try to get from cache first
+  const adjustments = planAdjustmentCache.value.get(row.id)
+  if (adjustments && adjustments.length > 0) {
+    // Count unique delay events from adjustments
+    const delayEvents = adjustments.filter((adj: any) => {
+      return adj.field && adj.field.includes('planned_') && adj.field.includes('_date')
+    })
+
+    // Group by date to count unique delay events
+    const uniqueDates = new Set(delayEvents.map((adj: any) => adj.adjusted_at.split('T')[0]))
+    return Math.max(uniqueDates.size, row.is_delayed ? 1 : 0)
+  }
+
+  // If no cache data but is delayed, return at least 1
+  return row.is_delayed ? 1 : 0
+}
+
+// Get delay type for styling
+const getDelayType = (delayDays: number) => {
+  if (Math.abs(delayDays) > 30) return 'danger'
+  if (Math.abs(delayDays) > 15) return 'warning'
+  return 'info'
+}
+
+// Get delay phase label
+const getDelayPhaseLabel = (phase: string) => {
+  const labels: Record<string, string> = {
+    'requirement': '需求阶段',
+    'release': '发版阶段',
+    'tech': '技术上线',
+    'biz': '业务上线',
+    'planned_requirement_date': '需求阶段',
+    'planned_release_date': '发版阶段',
+    'planned_tech_online_date': '技术上线',
+    'planned_biz_online_date': '业务上线'
+  }
+  return labels[phase] || phase
+}
+
+// Show delay details dialog
+const showDelayDetails = async (row: Application) => {
+  delayDetailsLoading.value = true
+  showDelayDetailsDialog.value = true
+
+  try {
+    // Load audit records for this application
+    const audits = await AuditAPI.getRecordHistory('applications', row.id)
+
+    // Process delay history
+    const delayHistory = await processDelayHistory(audits, row)
+    const phaseStatistics = calculatePhaseStatistics(delayHistory, row)
+    const reasonAnalysis = analyzeDelayReasons(delayHistory)
+
+    // Calculate total delay metrics
+    const totalDelayCount = delayHistory.length
+    const totalDelayDays = calculateTotalDelayDays(delayHistory)
+
+    delayDetailsData.value = {
+      applicationName: row.app_name,
+      l2Id: row.l2_id,
+      totalDelayCount,
+      totalDelayDays,
+      delayHistory,
+      phaseStatistics,
+      reasonAnalysis,
+      currentDelayStatus: row.is_delayed ? `延期${row.delay_days}天` : '正常'
     }
+  } catch (error) {
+    console.error('Failed to load delay details:', error)
+    ElMessage.error('加载延期详情失败')
+    delayDetailsData.value = {
+      totalDelayCount: 0,
+      totalDelayDays: 0,
+      delayHistory: [],
+      phaseStatistics: [],
+      reasonAnalysis: []
+    }
+  } finally {
+    delayDetailsLoading.value = false
   }
 }
+
+// Process delay history from audit records
+const processDelayHistory = async (audits: AuditLog[], app: Application) => {
+  const delayHistory: any[] = []
+  const planFields = [
+    'planned_requirement_date',
+    'planned_release_date',
+    'planned_tech_online_date',
+    'planned_biz_online_date'
+  ]
+
+  // Filter and process audit records for plan date changes
+  audits.forEach(audit => {
+    if (!audit.changed_fields) return
+
+    audit.changed_fields.forEach(field => {
+      if (planFields.includes(field)) {
+        const oldDate = audit.old_values?.[field]
+        const newDate = audit.new_values?.[field]
+
+        if (oldDate && newDate) {
+          const delayDays = calculateDaysDiff(oldDate, newDate)
+
+          // Only record if there's an actual delay (positive days)
+          if (delayDays > 0) {
+            delayHistory.push({
+              date: audit.created_at,
+              phase: field,
+              originalDate: oldDate,
+              newDate: newDate,
+              delayDays: delayDays,
+              delayUnit: delayDays > 30 ? `${Math.floor(delayDays / 30)}个月` : '天',
+              reason: audit.new_values?.notes || audit.new_values?.adjustment_reason || '未说明原因',
+              operator: audit.user_full_name || '系统',
+              type: delayDays > 30 ? 'danger' : delayDays > 15 ? 'warning' : 'primary'
+            })
+          }
+        }
+      }
+    })
+  })
+
+  // Sort by date (newest first)
+  return delayHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+}
+
+// Calculate phase statistics
+const calculatePhaseStatistics = (delayHistory: any[], app: Application) => {
+  const phases = ['requirement', 'release', 'tech', 'biz']
+  const fieldMap: Record<string, string> = {
+    'requirement': 'planned_requirement_date',
+    'release': 'planned_release_date',
+    'tech': 'planned_tech_online_date',
+    'biz': 'planned_biz_online_date'
+  }
+
+  return phases.map(phase => {
+    const phaseField = fieldMap[phase]
+    const phaseDelays = delayHistory.filter(item => item.phase === phaseField)
+
+    return {
+      phase: phase,
+      delayCount: phaseDelays.length,
+      totalDelayDays: phaseDelays.reduce((sum, item) => sum + item.delayDays, 0),
+      currentPlannedDate: (app as any)[phaseField],
+      isDelayed: phase === 'biz' && app.is_delayed
+    }
+  })
+}
+
+// Analyze delay reasons
+const analyzeDelayReasons = (delayHistory: any[]) => {
+  const reasonMap = new Map<string, number>()
+
+  delayHistory.forEach(item => {
+    const reason = item.reason || '未说明原因'
+    reasonMap.set(reason, (reasonMap.get(reason) || 0) + 1)
+  })
+
+  return Array.from(reasonMap.entries())
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count)
+}
+
+// Calculate total delay days
+const calculateTotalDelayDays = (delayHistory: any[]) => {
+  return delayHistory.reduce((sum, item) => sum + item.delayDays, 0)
+}
+
+// Watch for page changes to load delay data
+watch([currentPage, pageSize], async () => {
+  // Load delay data for newly visible applications
+  const visibleApps = applications.value
+  for (const app of visibleApps) {
+    if (!planAdjustmentCache.value.has(app.id) && (app.is_delayed || getPlanAdjustmentCount(app) > 0)) {
+      loadDelayDataForApp(app)
+    }
+  }
+})
 </script>
 
 <style scoped>
@@ -2245,6 +2555,159 @@ const initializePlanAdjustmentCache = async () => {
 
 .no-adjustment-history {
   padding: 40px;
+  text-align: center;
+}
+
+/* 延期状态按钮样式 */
+.delay-status-button {
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.delay-danger {
+  color: #f56565;
+  font-weight: 600;
+}
+
+.status-normal {
+  color: #48bb78;
+  font-size: 13px;
+}
+
+/* 延期详情对话框样式 */
+.delay-summary {
+  margin-bottom: 20px;
+}
+
+.delay-summary .summary-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.total-delay-days {
+  color: #f56565;
+  margin-left: 20px;
+}
+
+/* 延期历史时间线 */
+.delay-timeline {
+  margin: 20px 0;
+  padding: 20px;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.delay-timeline h3 {
+  margin: 0 0 20px 0;
+  color: #2d3748;
+  font-size: 16px;
+}
+
+.delay-record {
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.delay-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.delay-phase {
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.delay-content {
+  padding: 10px 0;
+}
+
+.delay-dates {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.original-date {
+  color: #a0aec0;
+}
+
+.new-date {
+  color: #f56565;
+  font-weight: 600;
+}
+
+.delay-reason {
+  margin: 8px 0;
+  padding: 8px;
+  background: #f7fafc;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.reason-label {
+  color: #4a5568;
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+.reason-text {
+  color: #2d3748;
+}
+
+.delay-footer {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 12px;
+  color: #718096;
+}
+
+/* 各阶段延期统计 */
+.delay-statistics {
+  margin: 30px 0;
+}
+
+.delay-statistics h3 {
+  margin: 0 0 15px 0;
+  color: #2d3748;
+  font-size: 16px;
+}
+
+.text-danger {
+  color: #f56565;
+  font-weight: 600;
+}
+
+/* 延期原因分析 */
+.delay-analysis {
+  margin: 30px 0;
+  padding: 20px;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.delay-analysis h3 {
+  margin: 0 0 15px 0;
+  color: #2d3748;
+  font-size: 16px;
+}
+
+.reason-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.no-delay-history {
+  padding: 60px;
   text-align: center;
 }
 
