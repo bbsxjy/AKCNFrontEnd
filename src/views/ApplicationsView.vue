@@ -108,7 +108,7 @@
             <strong>{{ row.l2_id }}</strong>
           </template>
         </el-table-column>
-        <el-table-column prop="app_name" label="应用名称" min-width="180" show-overflow-tooltip>
+        <el-table-column prop="app_name" label="应用名称" min-width="90" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.app_name || row.application_name }}
           </template>
@@ -176,7 +176,7 @@
           </template>
         </el-table-column>
         <!-- 延期状态（合并调整和延期） -->
-        <el-table-column label="延期状态" width="120" align="center">
+        <el-table-column label="延期状态" width="150" align="center">
           <template #default="{ row }">
             <div v-if="getDelayCount(row) > 0" class="delay-button-wrapper">
               <el-button
@@ -191,9 +191,6 @@
                 <span class="delay-text">延期{{ getDelayCount(row) }}次</span>
                 <el-icon class="arrow-icon"><el-icon-arrow-right /></el-icon>
               </el-button>
-              <el-tooltip content="点击查看延期详情" placement="top">
-                <el-icon class="info-icon"><el-icon-info-filled /></el-icon>
-              </el-tooltip>
             </div>
             <el-tag v-else type="success" size="small" effect="plain">
               <el-icon class="status-icon"><el-icon-circle-check /></el-icon>
@@ -2064,8 +2061,30 @@ const showDelayDetails = async (row: Application) => {
     const reasonAnalysis = analyzeDelayReasons(delayHistory)
 
     // Calculate total delay metrics
-    const totalDelayCount = delayHistory.length
-    const totalDelayDays = calculateTotalDelayDays(delayHistory)
+    // If no history but currently delayed, use current delay_days
+    let totalDelayCount = delayHistory.length || (row.is_delayed ? 1 : 0)
+    let totalDelayDays = calculateTotalDelayDays(delayHistory)
+
+    // If current application is delayed but no history found, use current delay_days
+    if (row.is_delayed && totalDelayDays === 0) {
+      totalDelayDays = row.delay_days || 0
+
+      // Add current delay to history if not already included
+      if (delayHistory.length === 0) {
+        delayHistory.push({
+          date: new Date().toISOString(),
+          phase: 'planned_biz_online_date',
+          originalDate: row.planned_biz_online_date,
+          newDate: null,
+          delayDays: row.delay_days,
+          delayUnit: row.delay_days > 30 ? `${Math.floor(row.delay_days / 30)}个月` : '天',
+          reason: '当前延期状态',
+          operator: '系统',
+          type: row.delay_days > 30 ? 'danger' : row.delay_days > 15 ? 'warning' : 'primary'
+        })
+        totalDelayCount = 1
+      }
+    }
 
     delayDetailsData.value = {
       applicationName: row.app_name,
@@ -2080,12 +2099,37 @@ const showDelayDetails = async (row: Application) => {
   } catch (error) {
     console.error('Failed to load delay details:', error)
     ElMessage.error('加载延期详情失败')
-    delayDetailsData.value = {
-      totalDelayCount: 0,
-      totalDelayDays: 0,
-      delayHistory: [],
-      phaseStatistics: [],
-      reasonAnalysis: []
+
+    // Fallback to current delay information if available
+    if (row.is_delayed) {
+      delayDetailsData.value = {
+        applicationName: row.app_name,
+        l2Id: row.l2_id,
+        totalDelayCount: 1,
+        totalDelayDays: row.delay_days || 0,
+        delayHistory: [{
+          date: new Date().toISOString(),
+          phase: 'planned_biz_online_date',
+          originalDate: row.planned_biz_online_date,
+          newDate: null,
+          delayDays: row.delay_days || 0,
+          delayUnit: (row.delay_days || 0) > 30 ? `${Math.floor((row.delay_days || 0) / 30)}个月` : '天',
+          reason: '当前延期状态',
+          operator: '系统',
+          type: (row.delay_days || 0) > 30 ? 'danger' : (row.delay_days || 0) > 15 ? 'warning' : 'primary'
+        }],
+        phaseStatistics: [],
+        reasonAnalysis: [{ reason: '当前延期状态', count: 1 }],
+        currentDelayStatus: `延期${row.delay_days}天`
+      }
+    } else {
+      delayDetailsData.value = {
+        totalDelayCount: 0,
+        totalDelayDays: 0,
+        delayHistory: [],
+        phaseStatistics: [],
+        reasonAnalysis: []
+      }
     }
   } finally {
     delayDetailsLoading.value = false
@@ -2114,18 +2158,19 @@ const processDelayHistory = async (audits: AuditLog[], app: Application) => {
         if (oldDate && newDate) {
           const delayDays = calculateDaysDiff(oldDate, newDate)
 
-          // Only record if there's an actual delay (positive days)
-          if (delayDays > 0) {
+          // Record both delays (positive) and advances (negative)
+          if (delayDays !== 0) {
             delayHistory.push({
               date: audit.created_at,
               phase: field,
               originalDate: oldDate,
               newDate: newDate,
-              delayDays: delayDays,
-              delayUnit: delayDays > 30 ? `${Math.floor(delayDays / 30)}个月` : '天',
+              delayDays: Math.abs(delayDays),
+              delayUnit: Math.abs(delayDays) > 30 ? `${Math.floor(Math.abs(delayDays) / 30)}个月` : '天',
               reason: audit.new_values?.notes || audit.new_values?.adjustment_reason || '未说明原因',
               operator: audit.user_full_name || '系统',
-              type: delayDays > 30 ? 'danger' : delayDays > 15 ? 'warning' : 'primary'
+              type: delayDays > 30 ? 'danger' : delayDays > 15 ? 'warning' : 'primary',
+              isDelay: delayDays > 0  // true for delay, false for advance
             })
           }
         }
@@ -2147,18 +2192,29 @@ const calculatePhaseStatistics = (delayHistory: any[], app: Application) => {
     'biz': 'planned_biz_online_date'
   }
 
-  return phases.map(phase => {
+  const stats = phases.map(phase => {
     const phaseField = fieldMap[phase]
-    const phaseDelays = delayHistory.filter(item => item.phase === phaseField)
+    const phaseDelays = delayHistory.filter(item => item.phase === phaseField && item.isDelay !== false)
+
+    let totalDelayDays = phaseDelays.reduce((sum, item) => sum + item.delayDays, 0)
+    let delayCount = phaseDelays.length
+
+    // For biz phase, if app is currently delayed and no history, use current delay
+    if (phase === 'biz' && app.is_delayed && delayCount === 0) {
+      totalDelayDays = app.delay_days || 0
+      delayCount = 1
+    }
 
     return {
       phase: phase,
-      delayCount: phaseDelays.length,
-      totalDelayDays: phaseDelays.reduce((sum, item) => sum + item.delayDays, 0),
+      delayCount: delayCount,
+      totalDelayDays: totalDelayDays,
       currentPlannedDate: (app as any)[phaseField],
       isDelayed: phase === 'biz' && app.is_delayed
     }
   })
+
+  return stats
 }
 
 // Analyze delay reasons
