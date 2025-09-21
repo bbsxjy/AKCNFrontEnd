@@ -342,30 +342,68 @@ export class DashboardAPI {
       // 获取当前用户的子任务
       const subtasks = await SubTasksAPI.getMySubTasks()
 
+      // 获取所有应用信息以便获取应用名称
+      const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
+      const appMap = new Map<number, { l2_id: string, app_name: string }>()
+      if (applications.items) {
+        applications.items.forEach(app => {
+          appMap.set(app.id, { l2_id: app.l2_id, app_name: app.app_name })
+        })
+      }
+
       // 过滤未完成的任务并排序
       const pendingTasks = subtasks
-      .filter(task => task.task_status !== '已完成' && task.task_status !== 'completed')
+      .filter(task => {
+        // 过滤掉已完成的任务
+        const isCompleted = task.task_status === '已完成' ||
+                           task.task_status === '全部完成' ||
+                           task.task_status === 'completed'
+
+        // 如果任务已完成，不显示在待办中（即使计划时间在过去）
+        if (isCompleted) return false
+
+        // 只显示有计划完成时间的任务
+        if (!task.planned_biz_online_date) return false
+
+        return true
+      })
       .sort((a, b) => {
         // 按计划结束日期排序，紧急的在前
-        const dateA = new Date(a.planned_biz_online_date || '').getTime()
-        const dateB = new Date(b.planned_biz_online_date || '').getTime()
+        const dateA = new Date(a.planned_biz_online_date || '9999-12-31').getTime()
+        const dateB = new Date(b.planned_biz_online_date || '9999-12-31').getTime()
         return dateA - dateB
       })
-      .slice(0, limit)
 
     // 转换为仪表盘显示格式
     const now = Date.now()
-    const sevenDaysLater = now + 7 * 24 * 60 * 60 * 1000
+    const threeDaysLater = now + 3 * 24 * 60 * 60 * 1000  // 改为3天内的为紧急
+    const today = new Date()
+    today.setHours(23, 59, 59, 999)  // 今天结束时
 
-    return pendingTasks.map(task => ({
-      id: task.id,
-      title: task.version_name,
-      plannedDate: task.planned_biz_online_date,
-      isUrgent: new Date(task.planned_biz_online_date || '').getTime() < sevenDaysLater,
-      status: task.task_status,
-      progress: task.progress_percentage,
-        applicationId: task.l2_id
-      }))
+    const tasksWithAppInfo = pendingTasks.map(task => {
+      const app = appMap.get(task.l2_id)
+      const plannedDate = new Date(task.planned_biz_online_date || '')
+      const isOverdue = plannedDate < today
+      const isUrgent = plannedDate.getTime() <= threeDaysLater
+
+      return {
+        id: task.id,
+        title: app ? `[${app.l2_id}] ${app.app_name} - ${task.version_name}` : task.version_name,
+        appId: app?.l2_id || '',
+        appName: app?.app_name || '',
+        taskName: task.version_name,
+        plannedDate: task.planned_biz_online_date,
+        isUrgent: isUrgent || isOverdue,
+        isOverdue: isOverdue,
+        status: task.task_status,
+        progress: task.progress_percentage || 0,
+        applicationId: task.l2_id,
+        daysRemaining: Math.ceil((plannedDate.getTime() - now) / (24 * 60 * 60 * 1000))
+      }
+    })
+
+    // 限制返回数量
+    return tasksWithAppInfo.slice(0, limit)
     } catch (error) {
       console.error('Failed to get my tasks:', error)
       return []

@@ -211,35 +211,98 @@
     <el-card class="todo-card">
       <template #header>
         <div class="card-header">
-          <span>待办事项</span>
-          <el-button type="text" @click="refreshTodos">刷新</el-button>
+          <div class="header-title-with-badge">
+            <span>待办事项</span>
+            <el-badge
+              v-if="urgentTasksCount > 0"
+              :value="urgentTasksCount"
+              class="header-badge"
+              type="danger"
+            />
+            <el-badge
+              v-else-if="totalTasksCount > 0"
+              :value="totalTasksCount"
+              class="header-badge"
+              type="primary"
+            />
+          </div>
+          <div class="header-actions">
+            <el-button type="text" @click="viewAllTasks">查看全部</el-button>
+            <el-button type="text" @click="refreshTodos">刷新</el-button>
+          </div>
         </div>
       </template>
 
       <div class="todo-list" v-loading="loading">
-        <div 
-          v-for="task in myTasks" 
+        <div
+          v-for="task in displayedTasks"
           :key="task.id"
-          :class="['todo-item', { 'urgent': task.isUrgent }]"
+          :class="['todo-item', { 'urgent': task.isUrgent, 'overdue': task.isOverdue }]"
         >
           <div class="todo-content">
-            <div class="todo-title">
-              <strong>{{ task.title }}</strong>
+            <div class="todo-header">
+              <el-tag size="small" type="info">{{ task.appId }}</el-tag>
+              <el-tag
+                size="small"
+                :type="getTaskStatusType(task.status)"
+              >
+                {{ task.status }}
+              </el-tag>
+              <el-tag
+                v-if="task.isOverdue"
+                size="small"
+                type="danger"
+              >
+                逾期 {{ Math.abs(task.daysRemaining) }} 天
+              </el-tag>
+              <el-tag
+                v-else-if="task.daysRemaining <= 3"
+                size="small"
+                type="warning"
+              >
+                剩余 {{ task.daysRemaining }} 天
+              </el-tag>
             </div>
-            <div :class="['todo-detail', { 'danger': task.isUrgent }]">
-              {{ task.isUrgent ? '⏰ ' : '' }}计划完成日期：{{ task.plannedDate }}
-              <span v-if="task.isUrgent">（紧急）</span>
+            <div class="todo-title">
+              <strong>{{ task.appName }}</strong>
+              <span class="task-name">{{ task.taskName }}</span>
+            </div>
+            <div class="todo-meta">
+              <span class="meta-item">
+                <el-icon><Calendar /></el-icon>
+                计划完成：{{ formatDate(task.plannedDate) }}
+              </span>
+              <span class="meta-item">
+                <el-progress
+                  :percentage="task.progress"
+                  :stroke-width="4"
+                  :color="getProgressColor(task.progress)"
+                  style="width: 100px"
+                />
+              </span>
             </div>
           </div>
-          <el-button 
-            :type="task.isUrgent ? 'primary' : 'default'" 
-            @click="task.isUrgent ? handleTask(task) : viewDetails(task)"
-          >
-            {{ task.isUrgent ? '立即处理' : '查看详情' }}
+          <div class="todo-actions">
+            <el-button
+              size="small"
+              :type="task.isUrgent ? 'danger' : 'primary'"
+              @click="handleTask(task)"
+            >
+              {{ task.isOverdue ? '立即处理' : task.isUrgent ? '优先处理' : '查看详情' }}
+            </el-button>
+          </div>
+        </div>
+
+        <el-empty v-if="!loading && myTasks.length === 0" description="暂无待办任务">
+          <el-button type="primary" size="small" @click="goToApplications">去查看应用列表</el-button>
+        </el-empty>
+
+        <div v-if="myTasks.length > 5" class="todo-footer">
+          <el-button type="text" @click="viewAllTasks">
+            查看全部 {{ myTasks.length }} 个任务
+            <el-icon><ArrowRight /></el-icon>
           </el-button>
         </div>
-        
-        <el-empty v-if="!loading && myTasks.length === 0" description="暂无待办任务" />
       </div>
     </el-card>
   </div>
@@ -249,6 +312,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Calendar, ArrowRight } from '@element-plus/icons-vue'
 import { DashboardAPI } from '@/api/dashboard'
 import { useChart, getMonthlyCompletionOptions, getDepartmentPieOptions } from '@/composables/useCharts'
 
@@ -292,6 +356,20 @@ const chartData = ref({
   progressTrend: [] as any[],
   monthlyCompletion: [] as any[],
   departmentDistribution: [] as any[]
+})
+
+// Computed properties for task counts
+const urgentTasksCount = computed(() => {
+  return myTasks.value.filter(task => task.isUrgent).length
+})
+
+const totalTasksCount = computed(() => {
+  return myTasks.value.length
+})
+
+const displayedTasks = computed(() => {
+  // Display top 5 tasks
+  return myTasks.value.slice(0, 5)
 })
 
 // Chart data
@@ -433,6 +511,50 @@ const viewDetails = (task: any) => {
   if (task.applicationId) {
     router.push(`/subtasks/${task.applicationId}`)
   }
+}
+
+// Helper functions for todo items
+const viewAllTasks = () => {
+  router.push('/my-tasks')
+}
+
+const goToApplications = () => {
+  router.push('/applications')
+}
+
+const getTaskStatusType = (status: string) => {
+  const statusMap: Record<string, string> = {
+    '待启动': 'info',
+    '研发进行中': 'primary',
+    '业务上线中': 'warning',
+    '已完成': 'success',
+    '存在阻塞': 'danger'
+  }
+  return statusMap[status] || 'info'
+}
+
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) return '-'
+
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return '-'
+
+    // Format as YYYY-MM-DD
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  } catch (error) {
+    return '-'
+  }
+}
+
+const getProgressColor = (progress: number) => {
+  if (progress >= 80) return '#48bb78'
+  if (progress >= 50) return '#3182ce'
+  if (progress >= 30) return '#ed8936'
+  return '#a0aec0'
 }
 
 // Initialize WebSocket connection (disabled for testing)
@@ -838,6 +960,22 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+.header-title-with-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-badge {
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .todo-list {
   display: flex;
   flex-direction: column;
@@ -865,13 +1003,71 @@ onMounted(async () => {
   border-left: 4px solid #f39c12;
 }
 
+.todo-item.overdue {
+  background: #fed7e5;
+  border-left: 4px solid #e53e3e;
+}
+
 .todo-content {
   flex: 1;
 }
 
+.todo-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
 .todo-title {
-  font-size: 16px;
+  font-size: 14px;
   margin-bottom: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.todo-title strong {
+  color: #2d3748;
+  font-size: 15px;
+}
+
+.task-name {
+  color: #4a5568;
+  font-size: 13px;
+}
+
+.todo-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #718096;
+}
+
+.meta-item .el-icon {
+  font-size: 14px;
+  color: #a0aec0;
+}
+
+.todo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.todo-footer {
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 16px;
 }
 
 .todo-detail {
