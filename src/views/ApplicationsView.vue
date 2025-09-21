@@ -326,55 +326,74 @@
               </div>
             </template>
           </el-table-column>
-          <!-- 关键计划时间点 -->
-          <el-table-column label="计划需求" width="120" align="center">
-            <template #default="{ row }">
-              <div class="plan-date-cell">
-                {{ formatYearMonth(row.planned_requirement_date) }}
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="计划发版" width="120" align="center">
-            <template #default="{ row }">
-              <div class="plan-date-cell">
-                {{ formatYearMonth(row.planned_release_date) }}
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="计划技术上线" width="120" align="center">
-            <template #default="{ row }">
-              <div class="plan-date-cell">
-                {{ formatYearMonth(row.planned_tech_online_date) }}
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="计划业务上线" width="120" align="center">
-            <template #default="{ row }">
-              <div class="plan-date-cell">
-                <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
-              </div>
-            </template>
-          </el-table-column>
-          <!-- 实际完成时间 -->
-          <el-table-column label="实际完成" width="150" align="center">
-            <template #default="{ row }">
-              <div class="actual-date-cell">
-                <div v-if="row.actual_biz_online_date" class="completed">
-                  <el-icon class="status-icon"><el-icon-circle-check /></el-icon>
-                  {{ formatYearMonth(row.actual_biz_online_date) }}
+          <!-- 需求阶段对比 -->
+          <el-table-column label="需求阶段" align="center">
+            <el-table-column label="计划" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell planned">
+                  {{ formatYearMonth(row.planned_requirement_date) }}
                 </div>
-                <div v-else-if="row.actual_tech_online_date" class="in-progress">
-                  技术: {{ formatYearMonth(row.actual_tech_online_date) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="实际" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell" :class="getDateComparisonClass(row.planned_requirement_date, row.actual_requirement_date)">
+                  {{ formatYearMonth(row.actual_requirement_date) }}
                 </div>
-                <div v-else-if="row.actual_release_date" class="in-progress">
-                  发版: {{ formatYearMonth(row.actual_release_date) }}
+              </template>
+            </el-table-column>
+          </el-table-column>
+          <!-- 发版阶段对比 -->
+          <el-table-column label="发版阶段" align="center">
+            <el-table-column label="计划" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell planned">
+                  {{ formatYearMonth(row.planned_release_date) }}
                 </div>
-                <div v-else-if="row.actual_requirement_date" class="in-progress">
-                  需求: {{ formatYearMonth(row.actual_requirement_date) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="实际" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell" :class="getDateComparisonClass(row.planned_release_date, row.actual_release_date)">
+                  {{ formatYearMonth(row.actual_release_date) }}
                 </div>
-                <div v-else class="pending">-</div>
-              </div>
-            </template>
+              </template>
+            </el-table-column>
+          </el-table-column>
+          <!-- 技术上线阶段对比 -->
+          <el-table-column label="技术上线" align="center">
+            <el-table-column label="计划" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell planned">
+                  {{ formatYearMonth(row.planned_tech_online_date) }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="实际" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell" :class="getDateComparisonClass(row.planned_tech_online_date, row.actual_tech_online_date)">
+                  {{ formatYearMonth(row.actual_tech_online_date) }}
+                </div>
+              </template>
+            </el-table-column>
+          </el-table-column>
+          <!-- 业务上线阶段对比 -->
+          <el-table-column label="业务上线" align="center">
+            <el-table-column label="计划" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell planned">
+                  <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="实际" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell" :class="getDateComparisonClass(row.planned_biz_online_date, row.actual_biz_online_date)">
+                  <strong v-if="row.actual_biz_online_date">{{ formatYearMonth(row.actual_biz_online_date) }}</strong>
+                  <span v-else>-</span>
+                </div>
+              </template>
+            </el-table-column>
           </el-table-column>
           <!-- 延期状态 -->
           <el-table-column label="延期状态" width="150" align="center">
@@ -1842,6 +1861,25 @@ const getSubTaskDelayInfo = (row: SubTask) => {
   }
 }
 
+const getDateComparisonClass = (plannedDate: string | null | undefined, actualDate: string | null | undefined) => {
+  if (!actualDate) return 'pending'
+  if (!plannedDate) return 'completed'
+
+  const planned = new Date(plannedDate)
+  const actual = new Date(actualDate)
+
+  if (actual <= planned) {
+    return 'on-time' // 按时或提前完成
+  } else {
+    const delayDays = Math.ceil((actual.getTime() - planned.getTime()) / (1000 * 60 * 60 * 24))
+    if (delayDays > 30) {
+      return 'delayed-serious' // 严重延期
+    } else {
+      return 'delayed' // 轻度延期
+    }
+  }
+}
+
 const showSubTaskDelayDetails = (row: SubTask) => {
   const delayInfo = getSubTaskDelayInfo(row)
 
@@ -2558,6 +2596,62 @@ watch([currentPage, pageSize], async () => {
 
 .actual-date-cell .pending {
   color: #a0aec0;
+}
+
+/* 日期对比单元格样式 */
+.date-cell {
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 13px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.date-cell.planned {
+  color: #4a5568;
+  background-color: #f7fafc;
+  font-weight: 500;
+}
+
+.date-cell.on-time {
+  color: #22543d;
+  background-color: #c6f6d5;
+  font-weight: 600;
+}
+
+.date-cell.delayed {
+  color: #7c2d12;
+  background-color: #fed7aa;
+  font-weight: 600;
+}
+
+.date-cell.delayed-serious {
+  color: #7c2d12;
+  background-color: #feb2b2;
+  font-weight: 600;
+}
+
+.date-cell.pending {
+  color: #a0aec0;
+  background-color: #f7fafc;
+}
+
+.date-cell.completed {
+  color: #22543d;
+  background-color: #c6f6d5;
+  font-weight: 600;
+}
+
+/* 子任务表格列头样式 */
+:deep(.el-table__header-wrapper .el-table__header .is-group) {
+  background-color: #f8f9fa;
+}
+
+:deep(.el-table__header-wrapper .el-table__header .is-group > div) {
+  background-color: #f8f9fa;
+  font-weight: 600;
 }
 
 /* 操作按钮样式 */
