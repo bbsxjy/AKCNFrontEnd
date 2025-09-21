@@ -181,7 +181,7 @@
 
     <!-- Charts Section -->
     <el-row :gutter="20" class="charts-row">
-      <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <el-card>
           <template #header>
             <div class="card-header">
@@ -195,14 +195,19 @@
           <div ref="progressChartRef" style="height: 350px;"></div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>团队应用占比</span>
+              <span>月度问题统计</span>
+              <el-radio-group v-model="statisticsType" size="small" @change="updateStatisticsChart">
+                <el-radio-button value="all">全部</el-radio-button>
+                <el-radio-button value="app">应用</el-radio-button>
+                <el-radio-button value="task">子任务</el-radio-button>
+              </el-radio-group>
             </div>
           </template>
-          <div ref="departmentChartRef" style="height: 350px;"></div>
+          <div ref="statisticsChartRef" style="height: 350px;"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -317,7 +322,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Calendar, ArrowRight } from '@element-plus/icons-vue'
 import { DashboardAPI } from '@/api/dashboard'
-import { useChart, getMonthlyCompletionOptions, getDepartmentPieOptions } from '@/composables/useCharts'
+import { useChart, getMonthlyCompletionOptions, getMonthlyStatisticsOptions } from '@/composables/useCharts'
 
 const router = useRouter()
 
@@ -349,16 +354,17 @@ const loading = ref(false)
 
 // Chart toggle
 const trendType = ref<'actual' | 'planned'>('actual')
+const statisticsType = ref<'all' | 'app' | 'task'>('all')
 
 // Chart refs
 const progressChartRef = ref<HTMLElement | null>(null)
-const departmentChartRef = ref<HTMLElement | null>(null)
+const statisticsChartRef = ref<HTMLElement | null>(null)
 
 // Chart data from API
 const chartData = ref({
   progressTrend: [] as any[],
   monthlyCompletion: [] as any[],
-  departmentDistribution: [] as any[]
+  monthlyStatistics: [] as any[]
 })
 
 // Computed properties for task counts
@@ -400,18 +406,29 @@ const progressChartOptions = computed(() => {
   return getMonthlyCompletionOptions({ months, requirement, release, techOnline, bizOnline })
 })
 
-const departmentChartOptions = computed(() => {
-  if (chartData.value.departmentDistribution.length === 0) {
+const statisticsChartOptions = computed(() => {
+  if (chartData.value.monthlyStatistics.length === 0) {
     // 如果还没有数据，显示空图表
-    return getDepartmentPieOptions([])
+    return getMonthlyStatisticsOptions({
+      months: [],
+      delayed: [],
+      blocked: [],
+      newApps: [],
+      newTasks: []
+    }, statisticsType.value)
   }
 
-  return getDepartmentPieOptions(
-    chartData.value.departmentDistribution.map(dept => ({
-      name: dept.name,
-      value: dept.value
-    }))
-  )
+  const months = chartData.value.monthlyStatistics.map(item => {
+    const date = new Date(item.month + '-01')
+    return date.toLocaleDateString('zh-CN', { year: '2-digit', month: 'short' })
+  })
+
+  const delayed = chartData.value.monthlyStatistics.map(item => item.delayed || 0)
+  const blocked = chartData.value.monthlyStatistics.map(item => item.blocked || 0)
+  const newApps = chartData.value.monthlyStatistics.map(item => item.newApps || 0)
+  const newTasks = chartData.value.monthlyStatistics.map(item => item.newTasks || 0)
+
+  return getMonthlyStatisticsOptions({ months, delayed, blocked, newApps, newTasks }, statisticsType.value)
 })
 
 // Load dashboard data
@@ -420,14 +437,14 @@ const loadDashboardData = async () => {
     loading.value = true
 
     // 获取统计数据和任务
-    const [statsData, tasks, deptData] = await Promise.all([
+    const [statsData, tasks, monthlyStats] = await Promise.all([
       DashboardAPI.getDashboardStats(),
       DashboardAPI.getMyTasks(5),
-      DashboardAPI.getDepartmentDistribution()
+      DashboardAPI.getMonthlyStatistics()
     ])
     stats.value = statsData
     myTasks.value = tasks
-    chartData.value.departmentDistribution = deptData
+    chartData.value.monthlyStatistics = monthlyStats
 
     // 加载月度完成数据
     await loadMonthlyData()
@@ -435,7 +452,7 @@ const loadDashboardData = async () => {
     // 刷新图表
     setTimeout(() => {
       refreshProgressChart()
-      refreshDepartmentChart()
+      refreshStatisticsChart()
     }, 100)
 
   } catch (error) {
@@ -464,26 +481,31 @@ const updateProgressChart = async () => {
   refreshProgressChart()
 }
 
+// 更新统计图表（切换显示类型）
+const updateStatisticsChart = () => {
+  refreshStatisticsChart()
+}
+
 // 备用数据加载方法（如果主API失败）
 const loadDataFallback = async () => {
   try {
     // 并行加载各个数据
-    const [statsData, tasks, monthlyData, deptData] = await Promise.all([
+    const [statsData, tasks, monthlyData, monthlyStats] = await Promise.all([
       DashboardAPI.getDashboardStats(),
       DashboardAPI.getMyTasks(5),
       DashboardAPI.getMonthlyCompletionTrend(trendType.value),
-      DashboardAPI.getDepartmentDistribution()
+      DashboardAPI.getMonthlyStatistics()
     ])
 
     stats.value = statsData
     myTasks.value = tasks
     chartData.value.monthlyCompletion = monthlyData
-    chartData.value.departmentDistribution = deptData
+    chartData.value.monthlyStatistics = monthlyStats
 
     // 刷新图表
     setTimeout(() => {
       refreshProgressChart()
-      refreshDepartmentChart()
+      refreshStatisticsChart()
     }, 100)
 
   } catch (error) {
@@ -581,7 +603,7 @@ const startAutoRefresh = () => {
 
 // Initialize charts
 const { refresh: refreshProgressChart } = useChart(progressChartRef, progressChartOptions)
-const { refresh: refreshDepartmentChart } = useChart(departmentChartRef, departmentChartOptions)
+const { refresh: refreshStatisticsChart } = useChart(statisticsChartRef, statisticsChartOptions)
 
 onMounted(async () => {
   await loadDashboardData()
@@ -591,7 +613,7 @@ onMounted(async () => {
   // Refresh charts on window resize
   window.addEventListener('resize', () => {
     refreshProgressChart()
-    refreshDepartmentChart()
+    refreshStatisticsChart()
   })
 })
 </script>

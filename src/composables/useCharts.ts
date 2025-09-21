@@ -387,3 +387,104 @@ export function getMonthlyProgressOptions(data: { months: string[], values: numb
     ]
   }
 }
+
+// Monthly statistics bar chart options (delays, blocks, new apps, new tasks)
+export function getMonthlyStatisticsOptions(data: {
+  months: string[],
+  delayed: number[],
+  blocked: number[],
+  newApps: number[],
+  newTasks: number[]
+}, type: 'all' | 'app' | 'task' = 'all'): echarts.EChartsOption {
+  const series = []
+
+  if (type === 'all' || type === 'task') {
+    series.push({
+      name: '延期任务',
+      type: 'bar',
+      stack: 'task',
+      itemStyle: { color: '#f56565' },
+      data: data.delayed
+    })
+    series.push({
+      name: '阻塞任务',
+      type: 'bar',
+      stack: 'task',
+      itemStyle: { color: '#ed8936' },
+      data: data.blocked
+    })
+  }
+
+  if (type === 'all' || type === 'task') {
+    series.push({
+      name: '新增子任务',
+      type: 'bar',
+      stack: type === 'all' ? 'new' : 'task',
+      itemStyle: { color: '#48bb78' },
+      data: data.newTasks
+    })
+  }
+
+  if (type === 'all' || type === 'app') {
+    series.push({
+      name: '新增应用',
+      type: 'bar',
+      stack: type === 'all' ? 'new' : 'app',
+      itemStyle: { color: '#667eea' },
+      data: data.newApps
+    })
+  }
+
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow'
+      }
+    },
+    legend: {
+      data: series.map(s => s.name),
+      bottom: 0,
+      textStyle: {
+        color: '#718096'
+      }
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '12%',
+      top: '8%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: data.months,
+      axisLine: {
+        lineStyle: {
+          color: '#e2e8f0'
+        }
+      },
+      axisLabel: {
+        color: '#718096',
+        rotate: 0
+      }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: {
+        lineStyle: {
+          color: '#e2e8f0'
+        }
+      },
+      axisLabel: {
+        color: '#718096'
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#f7fafc'
+        }
+      }
+    },
+    series: series
+  }
+}

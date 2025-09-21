@@ -288,6 +288,114 @@ export class DashboardAPI {
     }))
   }
 
+  // 获取月度统计数据 - 延期、阻塞、新增应用、新增子任务
+  static async getMonthlyStatistics(): Promise<any[]> {
+    try {
+      // 获取所有应用和子任务数据
+      const [applications, subtasks] = await Promise.all([
+        ApplicationsAPI.getApplications({ limit: 1000 }),
+        SubTasksAPI.getSubTasks({ limit: 1000 })
+      ])
+
+      // 生成最近12个月的数据
+      const monthlyStats: any[] = []
+      const today = new Date()
+
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(today)
+        date.setMonth(date.getMonth() - i)
+        const year = date.getFullYear()
+        const month = date.getMonth() + 1
+        const monthStr = `${year}-${String(month).padStart(2, '0')}`
+
+        // 统计该月份的数据
+        let delayed = 0
+        let blocked = 0
+        let newApps = 0
+        let newTasks = 0
+
+        // 计算延期的任务（计划时间在该月，但实际完成时间晚于计划）
+        if (subtasks.items && subtasks.items.length > 0) {
+          subtasks.items.forEach((task: any) => {
+            // 检查延期
+            if (task.planned_biz_online_date) {
+              const plannedDate = new Date(task.planned_biz_online_date)
+              if (plannedDate.getFullYear() === year && plannedDate.getMonth() + 1 === month) {
+                if (task.actual_biz_online_date) {
+                  const actualDate = new Date(task.actual_biz_online_date)
+                  if (actualDate > plannedDate) {
+                    delayed++
+                  }
+                } else if (today > plannedDate && task.task_status !== '已完成') {
+                  // 还未完成且已过期
+                  delayed++
+                }
+              }
+            }
+
+            // 检查阻塞
+            if (task.is_blocked || task.task_status === '存在阻塞') {
+              // 检查任务创建或更新时间是否在该月
+              const updatedDate = new Date(task.updated_at)
+              if (updatedDate.getFullYear() === year && updatedDate.getMonth() + 1 === month) {
+                blocked++
+              }
+            }
+
+            // 统计新增子任务
+            const createdDate = new Date(task.created_at)
+            if (createdDate.getFullYear() === year && createdDate.getMonth() + 1 === month) {
+              newTasks++
+            }
+          })
+        }
+
+        // 统计新增应用
+        if (applications.items && applications.items.length > 0) {
+          applications.items.forEach(app => {
+            const createdDate = new Date(app.created_at)
+            if (createdDate.getFullYear() === year && createdDate.getMonth() + 1 === month) {
+              newApps++
+            }
+          })
+        }
+
+        monthlyStats.push({
+          month: monthStr,
+          delayed,
+          blocked,
+          newApps,
+          newTasks
+        })
+      }
+
+      console.log('Monthly statistics data:', monthlyStats.slice(-3))
+      return monthlyStats
+    } catch (error) {
+      console.error('Failed to get monthly statistics:', error)
+      // 返回空数据
+      const monthlyStats: any[] = []
+      const today = new Date()
+
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(today)
+        date.setMonth(date.getMonth() - i)
+        const year = date.getFullYear()
+        const month = date.getMonth() + 1
+
+        monthlyStats.push({
+          month: `${year}-${String(month).padStart(2, '0')}`,
+          delayed: 0,
+          blocked: 0,
+          newApps: 0,
+          newTasks: 0
+        })
+      }
+
+      return monthlyStats
+    }
+  }
+
   // 获取部门进度分布 - 使用现有API计算
   static async getDepartmentDistribution(): Promise<DepartmentProgress[]> {
     try {
