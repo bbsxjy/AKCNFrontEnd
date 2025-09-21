@@ -24,6 +24,10 @@ export interface SubTask {
   is_blocked: boolean
   block_reason?: string | null
 
+  // Owner fields
+  dev_owner?: string
+  ops_owner?: string
+
   // Date fields
   planned_requirement_date?: string | null
   planned_release_date?: string | null
@@ -71,14 +75,16 @@ export interface UpdateSubTaskRequest {
   progress_percentage?: number
   is_blocked?: boolean
   block_reason?: string
+  dev_owner?: string
+  ops_owner?: string
   planned_requirement_date?: string
   planned_release_date?: string
   planned_tech_online_date?: string
   planned_biz_online_date?: string
-  actual_requirement_date?: string
-  actual_release_date?: string
-  actual_tech_online_date?: string
-  actual_biz_online_date?: string
+  actual_requirement_date?: string | null
+  actual_release_date?: string | null
+  actual_tech_online_date?: string | null
+  actual_biz_online_date?: string | null
   notes?: string
   resource_applied?: boolean
   ops_requirement_submitted?: string

@@ -1,62 +1,151 @@
 <template>
   <div class="subtasks-view">
-    <el-card>
-      <template #header>
-        <div class="header">
-          <div>
-            <h2>{{ applicationName }} - 子任务详情</h2>
-            <div class="app-info">{{ l2Id }}</div>
-          </div>
-          <div class="actions">
-            <el-button @click="goBack">返回列表</el-button>
-            <el-button type="primary" @click="showCreateTaskDialog">
-              <el-icon><plus /></el-icon>
-              新增子任务
-            </el-button>
+    <!-- 顶部导航栏 -->
+    <div class="page-header">
+      <div class="header-content">
+        <el-button icon="ArrowLeft" @click="goBack" circle />
+        <div class="header-info">
+          <h1>{{ applicationName }}</h1>
+          <div class="header-meta">
+            <el-tag type="info">{{ l2Id }}</el-tag>
+            <el-tag :type="application?.overall_transformation_target === 'AK' ? 'primary' : 'success'">
+              {{ application?.overall_transformation_target || 'AK' }}
+            </el-tag>
+            <el-tag type="warning" v-if="application?.ak_supervision_acceptance_year">
+              {{ application.ak_supervision_acceptance_year }}年监管
+            </el-tag>
+            <span class="team-info" v-if="application?.dev_team">
+              <el-icon><User /></el-icon>
+              {{ application.dev_team }}
+            </span>
           </div>
         </div>
-      </template>
+      </div>
+      <div class="header-actions">
+        <el-button type="primary" @click="showCreateTaskDialog">
+          <el-icon><plus /></el-icon>
+          新增子任务
+        </el-button>
+        <el-dropdown trigger="click">
+          <el-button icon="More" circle />
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="exportData">
+                <el-icon><Download /></el-icon>
+                导出数据
+              </el-dropdown-item>
+              <el-dropdown-item @click="refreshData">
+                <el-icon><Refresh /></el-icon>
+                刷新数据
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+    </div>
 
-      <!-- Overview Statistics -->
-      <el-row :gutter="20" class="overview">
-        <el-col :span="6">
-          <div class="stat-item">
-            <div class="stat-value">{{ safeStatistics.total }}</div>
-            <div class="stat-label">子任务总数</div>
-          </div>
-        </el-col>
-        <el-col :span="6">
-          <div class="stat-item">
-            <div class="stat-value success">{{ safeStatistics.completed }}</div>
-            <div class="stat-label">已完成</div>
-          </div>
-        </el-col>
-        <el-col :span="6">
-          <div class="stat-item">
-            <div class="stat-value primary">{{ safeStatistics.inProgress }}</div>
-            <div class="stat-label">进行中</div>
-          </div>
-        </el-col>
-        <el-col :span="6">
-          <div class="stat-item">
-            <div class="stat-value danger">{{ safeStatistics.blocked }}</div>
-            <div class="stat-label">阻塞中</div>
-          </div>
-        </el-col>
-      </el-row>
+    <!-- 统计卡片 -->
+    <div class="stats-container">
+      <div class="stat-card">
+        <div class="stat-icon blue">
+          <el-icon><Document /></el-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ safeStatistics.total }}</div>
+          <div class="stat-label">总任务数</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">
+          <el-icon><CircleCheckFilled /></el-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ safeStatistics.completed }}</div>
+          <div class="stat-label">已完成</div>
+          <el-progress :percentage="completedPercentage" :stroke-width="4" :show-text="false" color="#48bb78" />
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon orange">
+          <el-icon><Clock /></el-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ safeStatistics.inProgress }}</div>
+          <div class="stat-label">进行中</div>
+          <el-progress :percentage="inProgressPercentage" :stroke-width="4" :show-text="false" color="#ed8936" />
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red">
+          <el-icon><WarningFilled /></el-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ safeStatistics.blocked }}</div>
+          <div class="stat-label">阻塞中</div>
+          <el-progress :percentage="blockedPercentage" :stroke-width="4" :show-text="false" color="#f56565" />
+        </div>
+      </div>
+    </div>
 
-      <!-- SubTasks Table -->
+    <!-- 主体内容区 -->
+    <el-card class="main-content">
+
+      <!-- 工具栏 -->
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <el-button-group>
+            <el-button :type="viewMode === 'table' ? 'primary' : 'default'" @click="viewMode = 'table'">
+              <el-icon><Grid /></el-icon>
+              表格视图
+            </el-button>
+            <el-button :type="viewMode === 'card' ? 'primary' : 'default'" @click="viewMode = 'card'">
+              <el-icon><Postcard /></el-icon>
+              卡片视图
+            </el-button>
+          </el-button-group>
+        </div>
+        <div class="toolbar-right">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索子任务..."
+            clearable
+            style="width: 200px"
+            @input="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          <el-select v-model="filterStatus" placeholder="全部状态" clearable style="width: 120px" @change="handleFilter">
+            <el-option label="待启动" value="待启动" />
+            <el-option label="研发进行中" value="研发进行中" />
+            <el-option label="业务上线中" value="业务上线中" />
+            <el-option label="已完成" value="已完成" />
+            <el-option label="存在阻塞" value="存在阻塞" />
+          </el-select>
+        </div>
+      </div>
+
+      <!-- 表格视图 -->
       <el-table
-        :data="subTasks"
+        v-if="viewMode === 'table'"
+        :data="filteredSubTasks"
         v-loading="loading"
         style="width: 100%"
         @selection-change="handleSelectionChange"
+        row-key="id"
       >
         <el-table-column type="selection" width="55" />
         <!-- 核心标识 -->
-        <el-table-column prop="version_name" label="版本名称" width="120" fixed="left">
+        <el-table-column prop="version_name" label="版本名称" width="150" fixed="left">
           <template #default="{ row }">
-            <strong>{{ row.version_name || '-' }}</strong>
+            <div v-if="editingRowId === row.id" class="editable-cell">
+              <el-input v-model="editingData.version_name" size="small" @blur="saveInlineEdit(row)" />
+            </div>
+            <div v-else class="clickable-cell" @dblclick="startInlineEdit(row)">
+              <strong>{{ row.version_name || '-' }}</strong>
+              <el-icon class="edit-hint"><el-icon-edit /></el-icon>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="sub_target" label="改造目标" width="90" align="center">
@@ -69,24 +158,45 @@
         <!-- 负责人信息 -->
         <el-table-column label="开发负责人" width="100" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.dev_owner || '-' }}
+            <div v-if="editingRowId === row.id" class="editable-cell">
+              <el-input v-model="editingData.dev_owner" size="small" @blur="saveInlineEdit(row)" />
+            </div>
+            <div v-else class="clickable-cell" @dblclick="startInlineEdit(row)">
+              {{ row.dev_owner || '-' }}
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="运维负责人" width="100" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.ops_owner || '-' }}
+            <div v-if="editingRowId === row.id" class="editable-cell">
+              <el-input v-model="editingData.ops_owner" size="small" @blur="saveInlineEdit(row)" />
+            </div>
+            <div v-else class="clickable-cell" @dblclick="startInlineEdit(row)">
+              {{ row.ops_owner || '-' }}
+            </div>
           </template>
         </el-table-column>
         <!-- 进度状态 -->
         <el-table-column prop="task_status" label="当前状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.task_status || row.status)" size="small">
-              {{ formatStatus(row.task_status || row.status) || '待启动' }}
-            </el-tag>
-            <div v-if="row.is_blocked" class="block-warning">⚠️ 阻塞中</div>
+            <div v-if="editingRowId === row.id" class="editable-cell">
+              <el-select v-model="editingData.task_status" size="small" @change="saveInlineEdit(row)">
+                <el-option value="待启动" label="待启动" />
+                <el-option value="研发进行中" label="研发进行中" />
+                <el-option value="业务上线中" label="业务上线中" />
+                <el-option value="已完成" label="已完成" />
+                <el-option value="存在阻塞" label="存在阻塞" />
+              </el-select>
+            </div>
+            <div v-else>
+              <el-tag :type="getStatusType(row.task_status || row.status)" size="small" class="clickable-cell" @dblclick="startInlineEdit(row)">
+                {{ formatStatus(row.task_status || row.status) || '待启动' }}
+              </el-tag>
+              <div v-if="row.is_blocked" class="block-warning">⚠️ 阻塞中</div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="progress_percentage" label="进度" width="120" align="center">
+        <el-table-column prop="progress_percentage" label="进度" width="140" align="center">
           <template #default="{ row }">
             <div class="progress-cell">
               <el-progress
@@ -95,73 +205,125 @@
                 :color="getProgressColor(row)"
                 :format="(percentage: number) => `${percentage}%`"
               />
-              <div v-if="getWorkingDays(row) > 0" class="working-days">
-                已工作{{ getWorkingDays(row) }}天
+              <div class="progress-info">
+                <span v-if="getWorkingDays(row) > 0" class="working-days">
+                  已工作 <strong>{{ getWorkingDays(row) }}</strong> 天
+                </span>
+                <span v-if="getRemainingDays(row) > 0" class="remaining-days">
+                  剩余 <strong>{{ getRemainingDays(row) }}</strong> 天
+                </span>
               </div>
             </div>
           </template>
         </el-table-column>
-        <!-- 关键计划时间点 -->
-        <el-table-column label="计划需求" width="120" align="center">
-          <template #default="{ row }">
-            <div class="plan-date-cell">
-              {{ formatYearMonth(row.planned_requirement_date) }}
-              <el-icon v-if="hasDateAdjustment(row, 'requirement')" class="adjustment-indicator" title="计划已调整">
-                <el-icon-warning />
-              </el-icon>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="计划发版" width="120" align="center">
-          <template #default="{ row }">
-            <div class="plan-date-cell">
-              {{ formatYearMonth(row.planned_release_date) }}
-              <el-icon v-if="hasDateAdjustment(row, 'release')" class="adjustment-indicator" title="计划已调整">
-                <el-icon-warning />
-              </el-icon>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="计划技术上线" width="120" align="center">
-          <template #default="{ row }">
-            <div class="plan-date-cell">
-              {{ formatYearMonth(row.planned_tech_online_date) }}
-              <el-icon v-if="hasDateAdjustment(row, 'tech')" class="adjustment-indicator" title="计划已调整">
-                <el-icon-warning />
-              </el-icon>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="计划业务上线" width="120" align="center">
-          <template #default="{ row }">
-            <div class="plan-date-cell">
-              <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
-              <el-icon v-if="hasDateAdjustment(row, 'biz')" class="adjustment-indicator" title="计划已调整">
-                <el-icon-warning />
-              </el-icon>
-            </div>
-          </template>
-        </el-table-column>
-        <!-- 实际完成时间 -->
-        <el-table-column label="实际完成" width="150" align="center">
-          <template #default="{ row }">
-            <div class="actual-date-cell">
-              <div v-if="row.actual_biz_online_date" class="completed">
-                <el-icon class="status-icon"><el-icon-circle-check /></el-icon>
-                {{ formatYearMonth(row.actual_biz_online_date) }}
+        <!-- 需求阶段对比 -->
+        <el-table-column label="需求阶段" align="center">
+          <el-table-column label="计划" width="95" align="center">
+            <template #default="{ row }">
+              <div class="date-cell planned">
+                {{ formatYearMonth(row.planned_requirement_date) }}
               </div>
-              <div v-else-if="row.actual_tech_online_date" class="in-progress">
-                技术: {{ formatYearMonth(row.actual_tech_online_date) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="实际" width="95" align="center">
+            <template #default="{ row }">
+              <div v-if="editingRowId === row.id" class="editable-cell">
+                <el-date-picker
+                  v-model="editingData.actual_requirement_date"
+                  type="date"
+                  size="small"
+                  format="YYYY-MM"
+                  value-format="YYYY-MM-DD"
+                  @change="saveInlineEdit(row)"
+                />
               </div>
-              <div v-else-if="row.actual_release_date" class="in-progress">
-                发版: {{ formatYearMonth(row.actual_release_date) }}
+              <div v-else class="date-cell clickable-cell" :class="getDateComparisonClass(row.planned_requirement_date, row.actual_requirement_date)" @dblclick="startInlineEdit(row)">
+                {{ formatYearMonth(row.actual_requirement_date) }}
               </div>
-              <div v-else-if="row.actual_requirement_date" class="in-progress">
-                需求: {{ formatYearMonth(row.actual_requirement_date) }}
+            </template>
+          </el-table-column>
+        </el-table-column>
+        <!-- 发版阶段对比 -->
+        <el-table-column label="发版阶段" align="center">
+          <el-table-column label="计划" width="95" align="center">
+            <template #default="{ row }">
+              <div class="date-cell planned">
+                {{ formatYearMonth(row.planned_release_date) }}
               </div>
-              <div v-else class="pending">-</div>
-            </div>
-          </template>
+            </template>
+          </el-table-column>
+          <el-table-column label="实际" width="95" align="center">
+            <template #default="{ row }">
+              <div v-if="editingRowId === row.id" class="editable-cell">
+                <el-date-picker
+                  v-model="editingData.actual_release_date"
+                  type="date"
+                  size="small"
+                  format="YYYY-MM"
+                  value-format="YYYY-MM-DD"
+                  @change="saveInlineEdit(row)"
+                />
+              </div>
+              <div v-else class="date-cell clickable-cell" :class="getDateComparisonClass(row.planned_release_date, row.actual_release_date)" @dblclick="startInlineEdit(row)">
+                {{ formatYearMonth(row.actual_release_date) }}
+              </div>
+            </template>
+          </el-table-column>
+        </el-table-column>
+        <!-- 技术上线阶段对比 -->
+        <el-table-column label="技术上线" align="center">
+          <el-table-column label="计划" width="95" align="center">
+            <template #default="{ row }">
+              <div class="date-cell planned">
+                {{ formatYearMonth(row.planned_tech_online_date) }}
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="实际" width="95" align="center">
+            <template #default="{ row }">
+              <div v-if="editingRowId === row.id" class="editable-cell">
+                <el-date-picker
+                  v-model="editingData.actual_tech_online_date"
+                  type="date"
+                  size="small"
+                  format="YYYY-MM"
+                  value-format="YYYY-MM-DD"
+                  @change="saveInlineEdit(row)"
+                />
+              </div>
+              <div v-else class="date-cell clickable-cell" :class="getDateComparisonClass(row.planned_tech_online_date, row.actual_tech_online_date)" @dblclick="startInlineEdit(row)">
+                {{ formatYearMonth(row.actual_tech_online_date) }}
+              </div>
+            </template>
+          </el-table-column>
+        </el-table-column>
+        <!-- 业务上线阶段对比 -->
+        <el-table-column label="业务上线" align="center">
+          <el-table-column label="计划" width="95" align="center">
+            <template #default="{ row }">
+              <div class="date-cell planned">
+                <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="实际" width="95" align="center">
+            <template #default="{ row }">
+              <div v-if="editingRowId === row.id" class="editable-cell">
+                <el-date-picker
+                  v-model="editingData.actual_biz_online_date"
+                  type="date"
+                  size="small"
+                  format="YYYY-MM"
+                  value-format="YYYY-MM-DD"
+                  @change="saveInlineEdit(row)"
+                />
+              </div>
+              <div v-else class="date-cell clickable-cell" :class="getDateComparisonClass(row.planned_biz_online_date, row.actual_biz_online_date)" @dblclick="startInlineEdit(row)">
+                <strong v-if="row.actual_biz_online_date">{{ formatYearMonth(row.actual_biz_online_date) }}</strong>
+                <span v-else>-</span>
+              </div>
+            </template>
+          </el-table-column>
         </el-table-column>
         <!-- 延期状态 -->
         <el-table-column label="延期状态" width="150" align="center">
@@ -202,6 +364,89 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 卡片视图 -->
+      <div v-if="viewMode === 'card'" class="card-grid" v-loading="loading">
+        <div v-for="task in filteredSubTasks" :key="task.id" class="task-card">
+          <div class="card-header">
+            <h3>{{ task.version_name }}</h3>
+            <el-tag :type="task.sub_target === 'AK' ? 'primary' : 'success'" size="small">
+              {{ task.sub_target || 'AK' }}
+            </el-tag>
+          </div>
+
+          <div class="card-status">
+            <el-tag :type="getStatusType(task.task_status || task.status)">
+              {{ formatStatus(task.task_status || task.status) || '待启动' }}
+            </el-tag>
+            <el-progress
+              :percentage="calculateProgress(task)"
+              :color="getProgressColor(task)"
+              style="margin-top: 10px"
+            />
+          </div>
+
+          <div class="card-timeline">
+            <div class="timeline-header">
+              <span>计划时间</span>
+              <span>实际完成</span>
+            </div>
+            <div class="timeline-item">
+              <span class="timeline-label">需求</span>
+              <span class="timeline-planned">{{ formatYearMonth(task.planned_requirement_date) }}</span>
+              <span class="timeline-actual" :class="getDateComparisonClass(task.planned_requirement_date, task.actual_requirement_date)">
+                {{ formatYearMonth(task.actual_requirement_date) }}
+              </span>
+            </div>
+            <div class="timeline-item">
+              <span class="timeline-label">发版</span>
+              <span class="timeline-planned">{{ formatYearMonth(task.planned_release_date) }}</span>
+              <span class="timeline-actual" :class="getDateComparisonClass(task.planned_release_date, task.actual_release_date)">
+                {{ formatYearMonth(task.actual_release_date) }}
+              </span>
+            </div>
+            <div class="timeline-item">
+              <span class="timeline-label">技术上线</span>
+              <span class="timeline-planned">{{ formatYearMonth(task.planned_tech_online_date) }}</span>
+              <span class="timeline-actual" :class="getDateComparisonClass(task.planned_tech_online_date, task.actual_tech_online_date)">
+                {{ formatYearMonth(task.actual_tech_online_date) }}
+              </span>
+            </div>
+            <div class="timeline-item">
+              <span class="timeline-label">业务上线</span>
+              <span class="timeline-planned"><strong>{{ formatYearMonth(task.planned_biz_online_date) }}</strong></span>
+              <span class="timeline-actual" :class="getDateComparisonClass(task.planned_biz_online_date, task.actual_biz_online_date)">
+                <strong v-if="task.actual_biz_online_date">{{ formatYearMonth(task.actual_biz_online_date) }}</strong>
+                <span v-else>-</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="card-info">
+            <div class="info-item" v-if="task.dev_owner">
+              <el-icon><User /></el-icon>
+              <span>开发: {{ task.dev_owner }}</span>
+            </div>
+            <div class="info-item" v-if="task.ops_owner">
+              <el-icon><Monitor /></el-icon>
+              <span>运维: {{ task.ops_owner }}</span>
+            </div>
+            <div class="info-item" v-if="getWorkingDays(task) > 0">
+              <el-icon><Clock /></el-icon>
+              <span>已工作 {{ getWorkingDays(task) }} 天</span>
+            </div>
+            <div class="info-item" v-if="getRemainingDays(task) > 0">
+              <el-icon><Calendar /></el-icon>
+              <span>剩余 {{ getRemainingDays(task) }} 天</span>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <el-button size="small" type="primary" @click="quickEdit(task)">快速编辑</el-button>
+            <el-button size="small" @click="viewDetails(task)">查看详情</el-button>
+          </div>
+        </div>
+      </div>
 
       <!-- Batch Operations -->
       <div class="batch-operations">
@@ -355,7 +600,27 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Plus, Warning as ElIconWarning, ArrowRight as ElIconArrowRight, CircleCheck as ElIconCircleCheck } from '@element-plus/icons-vue'
+import {
+  Plus,
+  Warning as ElIconWarning,
+  ArrowRight as ElIconArrowRight,
+  CircleCheck as ElIconCircleCheck,
+  Edit as ElIconEdit,
+  User,
+  More,
+  Download,
+  Refresh,
+  ArrowLeft,
+  CircleCheckFilled,
+  Clock,
+  WarningFilled,
+  Document,
+  Grid,
+  Postcard,
+  Search,
+  Monitor,
+  Calendar
+} from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApplicationsAPI, type Application } from '@/api/applications'
 import { SubTasksAPI, type SubTask, type CreateSubTaskRequest, type UpdateSubTaskRequest } from '@/api/subtasks'
@@ -374,6 +639,15 @@ const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const editingTask = ref<SubTask | null>(null)
 const selectedTasks = ref<SubTask[]>([])
+
+// Inline editing state
+const editingRowId = ref<number | null>(null)
+const editingData = reactive<Partial<SubTask>>({})
+
+// View mode and filter state
+const viewMode = ref<'table' | 'card'>('table')
+const searchKeyword = ref('')
+const filterStatus = ref<string | undefined>(undefined)
 
 const statistics = reactive({
   total: 0,
@@ -412,6 +686,50 @@ const editForm = reactive<UpdateSubTaskRequest>({
 // Computed properties
 const applicationName = computed(() => application.value?.app_name || 'Loading...')
 const l2Id = computed(() => application.value?.l2_id || '')
+
+// Filtered subtasks
+const filteredSubTasks = computed(() => {
+  let result = [...subTasks.value]
+
+  // Keyword search
+  if (searchKeyword.value) {
+    const keyword = searchKeyword.value.toLowerCase()
+    result = result.filter(task => {
+      const name = task.version_name || ''
+      const devOwner = task.dev_owner || ''
+      const opsOwner = task.ops_owner || ''
+      return name.toLowerCase().includes(keyword) ||
+             devOwner.toLowerCase().includes(keyword) ||
+             opsOwner.toLowerCase().includes(keyword)
+    })
+  }
+
+  // Status filter
+  if (filterStatus.value) {
+    result = result.filter(task => task.task_status === filterStatus.value)
+  }
+
+  return result
+})
+
+// Progress percentages for stats
+const completedPercentage = computed(() => {
+  const total = safeStatistics.value.total
+  if (total === 0) return 0
+  return Math.round((safeStatistics.value.completed / total) * 100)
+})
+
+const inProgressPercentage = computed(() => {
+  const total = safeStatistics.value.total
+  if (total === 0) return 0
+  return Math.round((safeStatistics.value.inProgress / total) * 100)
+})
+
+const blockedPercentage = computed(() => {
+  const total = safeStatistics.value.total
+  if (total === 0) return 0
+  return Math.round((safeStatistics.value.blocked / total) * 100)
+})
 
 // Computed property to ensure progress percentage is always a number
 const safeProgressPercentage = computed({
@@ -548,6 +866,21 @@ const formatStatus = (status: string) => {
   return statusMap[status] || status || '待启动'
 }
 
+// Date comparison for highlighting
+const getDateComparisonClass = (plannedDate: string | null | undefined, actualDate: string | null | undefined) => {
+  if (!actualDate) return ''
+  if (!plannedDate) return 'actual'
+
+  const planned = new Date(plannedDate)
+  const actual = new Date(actualDate)
+
+  if (actual <= planned) {
+    return 'on-time' // Green - on time or early
+  } else {
+    return 'delayed' // Red - delayed
+  }
+}
+
 const calculateProgress = (row: SubTask) => {
   // If progress is explicitly set, use it
   if (row.progress_percentage !== undefined && row.progress_percentage !== null) {
@@ -573,9 +906,41 @@ const getWorkingDays = (row: SubTask) => {
     row.actual_biz_online_date
   ].filter(d => d && d !== null) as string[]
 
-  if (actualDates.length === 0) return 0
+  if (actualDates.length === 0) {
+    // If no actual work started, calculate from first planned date
+    const plannedDates = [
+      row.planned_requirement_date,
+      row.planned_release_date,
+      row.planned_tech_online_date,
+      row.planned_biz_online_date
+    ].filter(d => d && d !== null) as string[]
 
-  const earliestDate = new Date(actualDates.sort()[0])
+    if (plannedDates.length === 0) return 0
+
+    const sortedPlanned = plannedDates.sort()
+    if (sortedPlanned.length === 0) return 0
+
+    const firstPlannedDate = sortedPlanned[0]
+    if (!firstPlannedDate) return 0
+
+    const earliestPlanned = new Date(firstPlannedDate)
+    const today = new Date()
+
+    // Only count if the work should have started
+    if (earliestPlanned > today) return 0
+
+    const diffTime = Math.abs(today.getTime() - earliestPlanned.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays
+  }
+
+  const sortedActual = actualDates.sort()
+  if (sortedActual.length === 0) return 0
+
+  const firstActualDate = sortedActual[0]
+  if (!firstActualDate) return 0
+
+  const earliestDate = new Date(firstActualDate)
   const today = new Date()
   const diffTime = Math.abs(today.getTime() - earliestDate.getTime())
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
@@ -583,11 +948,22 @@ const getWorkingDays = (row: SubTask) => {
   return diffDays
 }
 
-const hasDateAdjustment = (_row: SubTask, _type: string) => {
-  // Check if dates have been adjusted (simplified version)
-  // In a real app, you'd check against historical data
-  return false
+// Calculate remaining days
+const getRemainingDays = (row: SubTask) => {
+  if (row.actual_biz_online_date) return 0 // Already completed
+
+  const today = new Date()
+  const targetDate = row.planned_biz_online_date ? new Date(row.planned_biz_online_date) : null
+
+  if (!targetDate) return 0
+
+  const diffTime = targetDate.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+  return Math.max(0, diffDays)
 }
+
+// Removed hasDateAdjustment function since it's not being used
 
 const getDelayInfo = (row: SubTask) => {
   // Calculate delay based on planned vs actual dates
@@ -668,8 +1044,94 @@ const showDelayDetails = (row: SubTask) => {
   )
 }
 
+// Inline editing methods
+const startInlineEdit = (row: SubTask) => {
+  editingRowId.value = row.id
+  // Copy current row data to editing data
+  Object.assign(editingData, {
+    version_name: row.version_name,
+    task_status: row.task_status,
+    dev_owner: row.dev_owner,
+    ops_owner: row.ops_owner,
+    actual_requirement_date: row.actual_requirement_date,
+    actual_release_date: row.actual_release_date,
+    actual_tech_online_date: row.actual_tech_online_date,
+    actual_biz_online_date: row.actual_biz_online_date,
+    progress_percentage: row.progress_percentage
+  })
+}
+
+const saveInlineEdit = async (row: SubTask) => {
+  if (editingRowId.value !== row.id) return
+
+  try {
+    // Prepare update data
+    const updateData: UpdateSubTaskRequest = {
+      version_name: editingData.version_name || row.version_name,
+      task_status: editingData.task_status || row.task_status,
+      dev_owner: editingData.dev_owner,
+      ops_owner: editingData.ops_owner,
+      actual_requirement_date: editingData.actual_requirement_date || null,
+      actual_release_date: editingData.actual_release_date || null,
+      actual_tech_online_date: editingData.actual_tech_online_date || null,
+      actual_biz_online_date: editingData.actual_biz_online_date || null,
+      progress_percentage: calculateProgress({
+        ...row,
+        ...editingData
+      })
+    }
+
+    await SubTasksAPI.updateSubTask(row.id, updateData)
+
+    // Update local data
+    Object.assign(row, updateData)
+
+    // Clear editing state
+    editingRowId.value = null
+    Object.keys(editingData).forEach(key => delete editingData[key as keyof typeof editingData])
+
+    safeMessage('更新成功', 'success')
+  } catch (error) {
+    console.error('Failed to update subtask:', error)
+    safeMessage('更新失败', 'error')
+    // Revert changes
+    editingRowId.value = null
+  }
+}
+
 const goBack = () => {
   router.push('/applications')
+}
+
+// Export data
+const exportData = () => {
+  ElMessage.info('导出功能待实现')
+}
+
+// Refresh data
+const refreshData = async () => {
+  await loadSubTasks()
+  ElMessage.success('数据已刷新')
+}
+
+// Handle search
+const handleSearch = () => {
+  // Search is reactive through computed property
+}
+
+// Handle filter
+const handleFilter = () => {
+  // Filter is reactive through computed property
+}
+
+// Quick edit from card view
+const quickEdit = (task: SubTask) => {
+  editTask(task)
+}
+
+// View task details
+const viewDetails = (task: SubTask) => {
+  editTask(task)
 }
 
 // Create subtask
@@ -912,48 +1374,285 @@ const deleteSubTaskInEdit = async () => {
 
 <style scoped>
 .subtasks-view {
+  padding: 0;
+  background: #f5f6fa;
+  min-height: 100vh;
+}
+
+/* 页面头部 */
+.page-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px 24px;
+  box-shadow: 0 2px 12px rgba(102, 126, 234, 0.15);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-info {
+  flex: 1;
+}
+
+.header-info h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.header-meta .el-tag {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+}
+
+.team-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  font-size: 13px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* 统计卡片 */
+.stats-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  padding: 24px;
+  margin-bottom: 8px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+
+.stat-icon.blue {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.stat-icon.green {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+}
+
+.stat-icon.orange {
+  background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+  color: white;
+}
+
+.stat-icon.red {
+  background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+  color: white;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #718096;
+}
+
+.stat-content .el-progress {
+  margin-top: 8px;
+}
+
+/* 主内容区 */
+.main-content {
+  margin: 0 24px 24px;
+  background: white;
+  border-radius: 12px;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* 工具栏 */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fafbfc;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 卡片网格 */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 20px;
   padding: 20px;
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+.task-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s ease;
+  cursor: pointer;
 }
 
-.header h2 {
-  margin: 0 0 8px 0;
+.task-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
   color: #2d3748;
 }
 
-.app-info {
+.card-status {
+  margin-bottom: 16px;
+}
+
+.card-timeline {
+  background: #f7fafc;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.timeline-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 12px;
   color: #718096;
-  font-size: 14px;
+  font-weight: 600;
 }
 
-.overview {
-  margin-bottom: 30px;
-  text-align: center;
+.timeline-item {
+  display: grid;
+  grid-template-columns: 80px 1fr 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
 }
 
-.stat-item {
-  padding: 20px;
+.timeline-label {
+  color: #4a5568;
+  font-weight: 500;
 }
 
-.stat-value {
-  font-size: 2em;
-  font-weight: bold;
-  color: #667eea;
-  margin-bottom: 5px;
-}
-
-.stat-value.success { color: #48bb78; }
-.stat-value.primary { color: #3182ce; }
-.stat-value.danger { color: #e53e3e; }
-
-.stat-label {
+.timeline-planned {
   color: #718096;
 }
+
+.timeline-actual {
+  font-weight: 500;
+}
+
+.timeline-actual.on-time {
+  color: #48bb78;
+}
+
+.timeline-actual.delayed {
+  color: #f56565;
+}
+
+.card-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #4a5568;
+}
+
+.info-item .el-icon {
+  color: #cbd5e0;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+
 
 .block-warning {
   color: #e53e3e;
@@ -987,9 +1686,32 @@ const deleteSubTaskInEdit = async () => {
   gap: 4px;
 }
 
+.progress-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+}
+
 .working-days {
   font-size: 11px;
+  color: #4a5568;
+}
+
+.working-days strong {
+  color: #3182ce;
+  font-weight: 600;
+}
+
+.remaining-days {
+  font-size: 11px;
   color: #718096;
+}
+
+.remaining-days strong {
+  color: #ed8936;
+  font-weight: 600;
 }
 
 .actual-date-cell {
@@ -1080,6 +1802,76 @@ const deleteSubTaskInEdit = async () => {
 
 .batch-operations .el-button {
   margin-left: 10px;
+}
+
+/* Inline editing styles */
+.clickable-cell {
+  position: relative;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.clickable-cell:hover {
+  background-color: #f7fafc;
+}
+
+.clickable-cell .edit-hint {
+  position: absolute;
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: #cbd5e0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.clickable-cell:hover .edit-hint {
+  opacity: 1;
+}
+
+.editable-cell {
+  padding: 0;
+}
+
+.editable-cell .el-input,
+.editable-cell .el-select,
+.editable-cell .el-date-picker {
+  width: 100%;
+}
+
+.editable-cell .el-input__inner {
+  height: 28px;
+  line-height: 28px;
+  font-size: 13px;
+}
+
+/* Date comparison styles */
+.date-cell {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.date-cell.planned {
+  color: #4a5568;
+}
+
+.date-cell.on-time {
+  background-color: #c6f6d5;
+  color: #22543d;
+}
+
+.date-cell.delayed {
+  background-color: #fed7d7;
+  color: #742a2a;
+}
+
+.date-cell.actual {
+  color: #2d3748;
 }
 
 /* 移动端响应式设计 */
