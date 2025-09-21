@@ -204,7 +204,7 @@
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
+          :page-sizes="[20, 50, 100]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
@@ -967,7 +967,7 @@ const subtaskSearchForm = reactive({
 const allApplications = ref<Application[]>([]) // 存储所有原始数据
 const loading = ref(false)
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(20)
 
 const searchForm = reactive({
   keyword: '',

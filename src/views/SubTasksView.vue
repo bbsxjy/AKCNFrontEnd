@@ -2,8 +2,13 @@
   <div class="subtasks-view">
     <!-- 顶部导航栏 -->
     <div class="page-header">
-      <div class="header-content">
-        <el-button icon="ArrowLeft" @click="goBack" circle />
+      <div class="header-top">
+        <el-button class="back-button" @click="goBack" text>
+          <el-icon><ArrowLeft /></el-icon>
+          返回列表
+        </el-button>
+      </div>
+      <div class="header-main">
         <div class="header-info">
           <h1>{{ applicationName }}</h1>
           <div class="header-meta">
@@ -20,27 +25,29 @@
             </span>
           </div>
         </div>
-      </div>
-      <div class="header-actions">
-        <el-button type="primary" @click="showCreateTaskDialog">
-          <el-icon><plus /></el-icon>
-          新增子任务
-        </el-button>
-        <el-dropdown trigger="click">
-          <el-button icon="More" circle />
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item @click="exportData">
-                <el-icon><Download /></el-icon>
-                导出数据
-              </el-dropdown-item>
-              <el-dropdown-item @click="refreshData">
-                <el-icon><Refresh /></el-icon>
-                刷新数据
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+        <div class="header-actions">
+          <el-button type="primary" size="large" @click="showCreateTaskDialog">
+            <el-icon><plus /></el-icon>
+            新增子任务
+          </el-button>
+          <el-dropdown trigger="click" placement="bottom-end">
+            <el-button size="large" circle>
+              <el-icon><More /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="exportData">
+                  <el-icon><Download /></el-icon>
+                  导出数据
+                </el-dropdown-item>
+                <el-dropdown-item @click="refreshData">
+                  <el-icon><Refresh /></el-icon>
+                  刷新数据
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </div>
     </div>
 
@@ -88,7 +95,7 @@
     </div>
 
     <!-- 主体内容区 -->
-    <el-card class="main-content">
+    <div class="main-content">
 
       <!-- 工具栏 -->
       <div class="toolbar">
@@ -127,13 +134,14 @@
       </div>
 
       <!-- 表格视图 -->
+      <div v-if="viewMode === 'table'" class="table-container">
       <el-table
-        v-if="viewMode === 'table'"
         :data="filteredSubTasks"
         v-loading="loading"
         style="width: 100%"
         @selection-change="handleSelectionChange"
         row-key="id"
+        :height="tableHeight"
       >
         <el-table-column type="selection" width="55" />
         <!-- 核心标识 -->
@@ -364,6 +372,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
       <!-- 卡片视图 -->
       <div v-if="viewMode === 'card'" class="card-grid" v-loading="loading">
@@ -388,8 +397,9 @@
 
           <div class="card-timeline">
             <div class="timeline-header">
-              <span>计划时间</span>
-              <span>实际完成</span>
+              <span class="timeline-phase">工作阶段</span>
+              <span class="timeline-date">计划时间</span>
+              <span class="timeline-date">实际完成</span>
             </div>
             <div class="timeline-item">
               <span class="timeline-label">需求</span>
@@ -458,22 +468,27 @@
           批量修改日期
         </el-button>
       </div>
-    </el-card>
+    </div>
 
     <!-- Create SubTask Dialog -->
-    <el-dialog v-model="showCreateDialog" title="新增子任务" width="600px">
+    <el-dialog v-model="showCreateDialog" title="新增子任务" width="700px">
       <el-form :model="createForm" label-width="120px">
-        <!-- Module name field removed from new schema -->
+        <el-form-item label="版本名称" required>
+          <el-input v-model="createForm.version_name" placeholder="请输入版本名称" />
+        </el-form-item>
         <el-form-item label="改造目标" required>
           <el-radio-group v-model="createForm.sub_target">
             <el-radio value="AK">AK</el-radio>
             <el-radio value="云原生">云原生</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="版本名称" required>
-          <el-input v-model="createForm.version_name" placeholder="请输入版本名称" />
+        <el-form-item label="开发负责人">
+          <el-input v-model="createForm.dev_owner" placeholder="请输入开发负责人" />
         </el-form-item>
-        <el-form-item label="计划需求日期" required>
+        <el-form-item label="运维负责人">
+          <el-input v-model="createForm.ops_owner" placeholder="请输入运维负责人" />
+        </el-form-item>
+        <el-form-item label="计划需求日期">
           <el-date-picker
             v-model="createForm.planned_requirement_date"
             type="date"
@@ -483,7 +498,27 @@
             value-format="YYYY-MM-DD"
           />
         </el-form-item>
-        <el-form-item label="计划业务上线" required>
+        <el-form-item label="计划发版时间">
+          <el-date-picker
+            v-model="createForm.planned_release_date"
+            type="date"
+            placeholder="选择发版日期"
+            style="width: 100%"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+        <el-form-item label="计划技术上线">
+          <el-date-picker
+            v-model="createForm.planned_tech_online_date"
+            type="date"
+            placeholder="选择技术上线日期"
+            style="width: 100%"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+        <el-form-item label="计划业务上线">
           <el-date-picker
             v-model="createForm.planned_biz_online_date"
             type="date"
@@ -502,6 +537,9 @@
             <el-option value="存在阻塞" label="存在阻塞" />
           </el-select>
         </el-form-item>
+        <el-form-item label="资源申请">
+          <el-switch v-model="createForm.resource_applied" active-text="已申请" inactive-text="未申请" />
+        </el-form-item>
         <el-form-item label="备注">
           <el-input
             v-model="createForm.notes"
@@ -518,71 +556,173 @@
     </el-dialog>
 
     <!-- Edit SubTask Dialog -->
-    <el-dialog v-model="showEditDialog" title="编辑子任务" width="600px">
+    <el-dialog v-model="showEditDialog" title="编辑子任务" width="800px">
       <el-form :model="editForm" label-width="120px">
-        <el-form-item label="版本名称" required>
-          <el-input v-model="editForm.version_name" placeholder="请输入版本名称" />
-        </el-form-item>
-        <el-form-item label="计划需求日期">
-          <el-date-picker
-            v-model="editForm.planned_requirement_date"
-            type="date"
-            placeholder="选择需求日期"
-            style="width: 100%"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-          />
-        </el-form-item>
-        <el-form-item label="计划业务上线">
-          <el-date-picker
-            v-model="editForm.planned_biz_online_date"
-            type="date"
-            placeholder="选择业务上线日期"
-            style="width: 100%"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-          />
-        </el-form-item>
-        <el-form-item label="实际需求日期">
-          <el-date-picker
-            v-model="editForm.actual_requirement_date"
-            type="date"
-            placeholder="选择实际需求日期"
-            style="width: 100%"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-          />
-        </el-form-item>
-        <el-form-item label="实际业务上线">
-          <el-date-picker
-            v-model="editForm.actual_biz_online_date"
-            type="date"
-            placeholder="选择实际业务上线日期"
-            style="width: 100%"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-          />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="editForm.task_status" placeholder="请选择状态">
-            <el-option value="待启动" label="待启动" />
-            <el-option value="研发进行中" label="研发进行中" />
-            <el-option value="业务上线中" label="业务上线中" />
-            <el-option value="已完成" label="已完成" />
-            <el-option value="存在阻塞" label="存在阻塞" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="进度百分比">
-          <el-slider v-model="safeProgressPercentage" :max="100" :min="0" show-input />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input
-            v-model="editForm.notes"
-            type="textarea"
-            placeholder="请输入备注"
-            :rows="3"
-          />
-        </el-form-item>
+        <el-tabs v-model="activeEditTab" type="card">
+          <!-- 基础信息 -->
+          <el-tab-pane label="基础信息" name="basic">
+            <el-form-item label="版本名称" required>
+              <el-input v-model="editForm.version_name" placeholder="请输入版本名称" />
+            </el-form-item>
+            <el-form-item label="改造目标">
+              <el-radio-group v-model="editForm.sub_target">
+                <el-radio value="AK">AK</el-radio>
+                <el-radio value="云原生">云原生</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="当前状态">
+              <el-select v-model="editForm.task_status" placeholder="请选择状态">
+                <el-option value="待启动" label="待启动" />
+                <el-option value="研发进行中" label="研发进行中" />
+                <el-option value="业务上线中" label="业务上线中" />
+                <el-option value="已完成" label="已完成" />
+                <el-option value="存在阻塞" label="存在阻塞" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="进度百分比">
+              <el-slider v-model="safeProgressPercentage" :max="100" :min="0" show-input />
+            </el-form-item>
+            <el-form-item label="阻塞状态">
+              <el-switch v-model="editForm.is_blocked" active-text="阻塞" inactive-text="正常" />
+            </el-form-item>
+            <el-form-item label="阻塞原因" v-if="editForm.is_blocked">
+              <el-input v-model="editForm.block_reason" placeholder="请输入阻塞原因" />
+            </el-form-item>
+          </el-tab-pane>
+
+          <!-- 负责人信息 -->
+          <el-tab-pane label="负责人" name="owner">
+            <el-form-item label="开发负责人">
+              <el-input v-model="editForm.dev_owner" placeholder="请输入开发负责人" />
+            </el-form-item>
+            <el-form-item label="运维负责人">
+              <el-input v-model="editForm.ops_owner" placeholder="请输入运维负责人" />
+            </el-form-item>
+          </el-tab-pane>
+
+          <!-- 计划时间 -->
+          <el-tab-pane label="计划时间" name="planned">
+            <el-form-item label="计划需求完成">
+              <el-date-picker
+                v-model="editForm.planned_requirement_date"
+                type="date"
+                placeholder="选择需求日期"
+                style="width: 100%"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+              />
+            </el-form-item>
+            <el-form-item label="计划发版时间">
+              <el-date-picker
+                v-model="editForm.planned_release_date"
+                type="date"
+                placeholder="选择发版日期"
+                style="width: 100%"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+              />
+            </el-form-item>
+            <el-form-item label="计划技术上线">
+              <el-date-picker
+                v-model="editForm.planned_tech_online_date"
+                type="date"
+                placeholder="选择技术上线日期"
+                style="width: 100%"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+              />
+            </el-form-item>
+            <el-form-item label="计划业务上线">
+              <el-date-picker
+                v-model="editForm.planned_biz_online_date"
+                type="date"
+                placeholder="选择业务上线日期"
+                style="width: 100%"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+              />
+            </el-form-item>
+          </el-tab-pane>
+
+          <!-- 实际时间 -->
+          <el-tab-pane label="实际时间" name="actual">
+            <el-form-item label="实际需求完成">
+              <el-date-picker
+                v-model="editForm.actual_requirement_date"
+                type="date"
+                placeholder="选择实际需求日期"
+                style="width: 100%"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                :disabled-date="(date: Date) => date > new Date()"
+              />
+            </el-form-item>
+            <el-form-item label="实际发版时间">
+              <el-date-picker
+                v-model="editForm.actual_release_date"
+                type="date"
+                placeholder="选择实际发版日期"
+                style="width: 100%"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                :disabled-date="(date: Date) => date > new Date()"
+              />
+            </el-form-item>
+            <el-form-item label="实际技术上线">
+              <el-date-picker
+                v-model="editForm.actual_tech_online_date"
+                type="date"
+                placeholder="选择实际技术上线日期"
+                style="width: 100%"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                :disabled-date="(date: Date) => date > new Date()"
+              />
+            </el-form-item>
+            <el-form-item label="实际业务上线">
+              <el-date-picker
+                v-model="editForm.actual_biz_online_date"
+                type="date"
+                placeholder="选择实际业务上线日期"
+                style="width: 100%"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                :disabled-date="(date: Date) => date > new Date()"
+              />
+            </el-form-item>
+          </el-tab-pane>
+
+          <!-- 其他信息 -->
+          <el-tab-pane label="其他信息" name="other">
+            <el-form-item label="资源申请">
+              <el-switch v-model="editForm.resource_applied" active-text="已申请" inactive-text="未申请" />
+            </el-form-item>
+            <el-form-item label="运维需求提交">
+              <el-date-picker
+                v-model="editForm.ops_requirement_submitted"
+                type="datetime"
+                placeholder="选择提交时间"
+                style="width: 100%"
+                format="YYYY-MM-DD HH:mm:ss"
+                value-format="YYYY-MM-DD HH:mm:ss"
+              />
+            </el-form-item>
+            <el-form-item label="运维测试状态">
+              <el-input v-model="editForm.ops_testing_status" placeholder="请输入运维测试状态" />
+            </el-form-item>
+            <el-form-item label="上线检查状态">
+              <el-input v-model="editForm.launch_check_status" placeholder="请输入上线检查状态" />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input
+                v-model="editForm.notes"
+                type="textarea"
+                placeholder="请输入备注"
+                :rows="4"
+              />
+            </el-form-item>
+          </el-tab-pane>
+        </el-tabs>
       </el-form>
       <template #footer>
         <div style="display: flex; justify-content: space-between; width: 100%;">
@@ -598,7 +738,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   Plus,
@@ -621,7 +761,7 @@ import {
   Monitor,
   Calendar
 } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, ElTabs, ElTabPane } from 'element-plus'
 import { ApplicationsAPI, type Application } from '@/api/applications'
 import { SubTasksAPI, type SubTask, type CreateSubTaskRequest, type UpdateSubTaskRequest } from '@/api/subtasks'
 
@@ -639,6 +779,7 @@ const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const editingTask = ref<SubTask | null>(null)
 const selectedTasks = ref<SubTask[]>([])
+const activeEditTab = ref('basic')
 
 // Inline editing state
 const editingRowId = ref<number | null>(null)
@@ -665,8 +806,11 @@ const createForm = reactive<CreateSubTaskRequest>({
   planned_release_date: '',
   planned_tech_online_date: '',
   planned_biz_online_date: '',
-  notes: ''
-})
+  notes: '',
+  resource_applied: false,
+  dev_owner: '',
+  ops_owner: ''
+} as any)
 
 const editForm = reactive<UpdateSubTaskRequest>({
   version_name: '',
@@ -680,12 +824,35 @@ const editForm = reactive<UpdateSubTaskRequest>({
   actual_tech_online_date: '',
   actual_biz_online_date: '',
   progress_percentage: 0,
-  notes: ''
-})
+  notes: '',
+  dev_owner: '',
+  ops_owner: '',
+  resource_applied: false,
+  is_blocked: false,
+  block_reason: '',
+  ops_requirement_submitted: '',
+  ops_testing_status: '',
+  launch_check_status: '',
+  sub_target: 'AK'
+} as any)
 
 // Computed properties
 const applicationName = computed(() => application.value?.app_name || 'Loading...')
 const l2Id = computed(() => application.value?.l2_id || '')
+
+// Dynamic table height calculation
+const tableHeight = computed(() => {
+  // Calculate available height based on viewport
+  const viewportHeight = window.innerHeight
+  const headerHeight = 180 // Header approximate height
+  const statsHeight = 120 // Stats cards height
+  const toolbarHeight = 80 // Toolbar height
+  const paginationHeight = 80 // Batch operations height
+  const margin = 48 // Top and bottom margins
+
+  const availableHeight = viewportHeight - headerHeight - statsHeight - toolbarHeight - paginationHeight - margin
+  return Math.max(400, availableHeight) // Minimum height of 400px
+})
 
 // Filtered subtasks
 const filteredSubTasks = computed(() => {
@@ -798,14 +965,28 @@ const loadSubTasks = async () => {
 // Load statistics
 const loadStatistics = async () => {
   try {
-    const stats = await SubTasksAPI.getSubTaskStats(applicationId)
-    statistics.total = stats.total
-    statistics.completed = stats.completed
-    statistics.inProgress = stats.inProgress
-    statistics.blocked = stats.blocked
+    // Calculate statistics from loaded subtasks
+    const tasks = subTasks.value
+    statistics.total = tasks.length
+    statistics.completed = tasks.filter(t =>
+      t.task_status === '已完成' || t.task_status === 'completed'
+    ).length
+    statistics.inProgress = tasks.filter(t =>
+      t.task_status === '研发进行中' || t.task_status === '业务上线中' ||
+      t.task_status === 'in_progress' || t.task_status === 'testing'
+    ).length
+    statistics.blocked = tasks.filter(t =>
+      t.task_status === '存在阻塞' || t.task_status === 'blocked' || t.is_blocked
+    ).length
   } catch (error) {
-    console.error('Failed to load statistics:', error)
+    console.error('Failed to calculate statistics:', error)
   }
+}
+
+// Window resize handler
+const handleResize = () => {
+  // Force re-computation of table height
+  window.dispatchEvent(new Event('resize'))
 }
 
 // Initialize data
@@ -814,6 +995,14 @@ onMounted(async () => {
     loadApplication(),
     loadSubTasks()
   ])
+
+  // Add resize listener
+  window.addEventListener('resize', handleResize)
+})
+
+// Cleanup
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
 })
 
 const getStatusType = (status: string) => {
@@ -1146,7 +1335,10 @@ const showCreateTaskDialog = () => {
     planned_release_date: '',
     planned_tech_online_date: '',
     planned_biz_online_date: '',
-    notes: ''
+    notes: '',
+    resource_applied: false,
+    dev_owner: '',
+    ops_owner: ''
   })
   showCreateDialog.value = true
 }
@@ -1171,6 +1363,7 @@ const handleCreate = async () => {
 // Edit subtask
 const editTask = (task: SubTask) => {
   editingTask.value = task
+  activeEditTab.value = 'basic'
   Object.assign(editForm, {
     version_name: task.version_name || '',
     task_status: task.task_status || '',
@@ -1183,7 +1376,16 @@ const editTask = (task: SubTask) => {
     actual_tech_online_date: task.actual_tech_online_date || '',
     actual_biz_online_date: task.actual_biz_online_date || '',
     progress_percentage: Number(task.progress_percentage) || 0,
-    notes: task.notes || ''
+    notes: task.notes || '',
+    dev_owner: task.dev_owner || '',
+    ops_owner: task.ops_owner || '',
+    resource_applied: task.resource_applied || false,
+    is_blocked: task.is_blocked || false,
+    block_reason: task.block_reason || '',
+    ops_requirement_submitted: task.ops_requirement_submitted || '',
+    ops_testing_status: task.ops_testing_status || '',
+    launch_check_status: task.launch_check_status || '',
+    sub_target: task.sub_target || 'AK'
   })
   showEditDialog.value = true
 }
@@ -1383,17 +1585,34 @@ const deleteSubTaskInEdit = async () => {
 .page-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 20px 24px;
+  padding: 0;
   box-shadow: 0 2px 12px rgba(102, 126, 234, 0.15);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
-.header-content {
+.header-top {
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.back-button {
+  color: white !important;
+  font-size: 14px;
+  padding: 4px 8px;
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.header-main {
+  padding: 20px 24px;
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 16px;
 }
 
 .header-info {
@@ -1401,8 +1620,8 @@ const deleteSubTaskInEdit = async () => {
 }
 
 .header-info h1 {
-  margin: 0;
-  font-size: 24px;
+  margin: 0 0 8px 0;
+  font-size: 26px;
   font-weight: 600;
   letter-spacing: -0.5px;
 }
@@ -1433,41 +1652,71 @@ const deleteSubTaskInEdit = async () => {
 .header-actions {
   display: flex;
   gap: 12px;
+  align-items: center;
+}
+
+.header-actions .el-button {
+  height: 40px;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.header-actions .el-button--primary {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.header-actions .el-button--primary:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.header-actions .el-button--default {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 1);
+  color: #667eea;
+}
+
+.header-actions .el-button--default:hover {
+  background: rgba(255, 255, 255, 1);
+  color: #764ba2;
 }
 
 /* 统计卡片 */
 .stats-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
-  padding: 24px;
-  margin-bottom: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  padding: 20px 24px;
+  margin-bottom: 0;
 }
 
 .stat-card {
   background: white;
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: 8px;
+  padding: 16px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  gap: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   transition: all 0.3s ease;
 }
 
 .stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .stat-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 24px;
 }
 
 .stat-icon.blue {
@@ -1495,14 +1744,14 @@ const deleteSubTaskInEdit = async () => {
 }
 
 .stat-number {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   color: #2d3748;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 13px;
   color: #718096;
 }
 
@@ -1512,11 +1761,12 @@ const deleteSubTaskInEdit = async () => {
 
 /* 主内容区 */
 .main-content {
-  margin: 0 24px 24px;
+  margin: 24px;
   background: white;
   border-radius: 12px;
-  padding: 0;
+  overflow: visible;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  min-height: calc(100vh - 400px);
 }
 
 /* 工具栏 */
@@ -1527,6 +1777,7 @@ const deleteSubTaskInEdit = async () => {
   padding: 16px 20px;
   border-bottom: 1px solid #e2e8f0;
   background: #fafbfc;
+  border-radius: 12px 12px 0 0;
 }
 
 .toolbar-left,
@@ -1536,12 +1787,26 @@ const deleteSubTaskInEdit = async () => {
   gap: 12px;
 }
 
+/* 表格容器 */
+.table-container {
+  padding: 0;
+  width: 100%;
+  overflow: auto;
+}
+
+.table-container .el-table {
+  width: 100%;
+  min-width: 100%;
+}
+
 /* 卡片网格 */
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
   gap: 20px;
   padding: 20px;
+  max-height: calc(100vh - 420px);
+  overflow-y: auto;
 }
 
 .task-card {
@@ -1587,7 +1852,7 @@ const deleteSubTaskInEdit = async () => {
 
 .timeline-header {
   display: grid;
-  grid-template-columns: 80px 1fr 1fr;
+  grid-template-columns: 90px 1fr 1fr;
   gap: 8px;
   margin-bottom: 8px;
   padding-bottom: 8px;
@@ -1595,14 +1860,24 @@ const deleteSubTaskInEdit = async () => {
   font-size: 12px;
   color: #718096;
   font-weight: 600;
+  text-align: left;
+}
+
+.timeline-header .timeline-phase {
+  text-align: left;
+}
+
+.timeline-header .timeline-date {
+  text-align: center;
 }
 
 .timeline-item {
   display: grid;
-  grid-template-columns: 80px 1fr 1fr;
+  grid-template-columns: 90px 1fr 1fr;
   gap: 8px;
   padding: 6px 0;
   font-size: 13px;
+  align-items: center;
 }
 
 .timeline-label {
@@ -1612,10 +1887,12 @@ const deleteSubTaskInEdit = async () => {
 
 .timeline-planned {
   color: #718096;
+  text-align: center;
 }
 
 .timeline-actual {
   font-weight: 500;
+  text-align: center;
 }
 
 .timeline-actual.on-time {
@@ -1794,10 +2071,13 @@ const deleteSubTaskInEdit = async () => {
 }
 
 .batch-operations {
-  margin-top: 20px;
-  padding: 15px;
+  padding: 15px 20px;
   background: #f8f9fa;
-  border-radius: 8px;
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0 0 12px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .batch-operations .el-button {
