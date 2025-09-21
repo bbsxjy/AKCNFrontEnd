@@ -3,11 +3,20 @@
     <el-card>
       <template #header>
         <div class="header">
-          <div>
+          <div class="header-title-with-badge">
             <h2>我的任务</h2>
-            <div class="user-info">
-              共 <strong>{{ totalTasks }}</strong> 个待处理任务
-            </div>
+            <el-badge
+              v-if="urgentTasksCount > 0"
+              :value="urgentTasksCount"
+              class="header-badge"
+              type="danger"
+            />
+            <el-badge
+              v-else-if="totalTasks > 0"
+              :value="totalTasks"
+              class="header-badge"
+              type="primary"
+            />
           </div>
           <div class="actions">
             <el-button @click="refreshTasks">
@@ -51,70 +60,65 @@
         <div
           v-for="task in filteredTasks"
           :key="task.id"
-          :class="['task-item', { 'task-urgent': task.isUrgent, 'task-delayed': task.isDelayed }]"
+          :class="['task-item', { 'task-urgent': task.isUrgent, 'task-overdue': task.isOverdue }]"
         >
           <div class="task-content">
             <div class="task-header">
-              <span class="task-priority-icon">{{ task.priorityIcon }}</span>
-              <div class="task-title">
-                <strong>{{ task.appName }} - {{ task.versionName }}</strong>
-                <el-tag
-                  :type="getStatusTagType(task.status)"
-                  size="small"
-                  class="status-tag"
-                >
-                  {{ task.status }}
-                </el-tag>
-              </div>
+              <el-tag size="small" type="info">{{ task.appId }}</el-tag>
+              <el-tag
+                size="small"
+                :type="getStatusTagType(task.status)"
+              >
+                {{ task.status }}
+              </el-tag>
+              <el-tag
+                v-if="task.isOverdue"
+                size="small"
+                type="danger"
+              >
+                逾期 {{ Math.abs(task.daysRemaining) }} 天
+              </el-tag>
+              <el-tag
+                v-else-if="task.daysRemaining <= 3"
+                size="small"
+                type="warning"
+              >
+                剩余 {{ task.daysRemaining }} 天
+              </el-tag>
+            </div>
+            <div class="task-title">
+              <strong>{{ task.appName }}</strong>
+              <span class="task-name">{{ task.taskName }}</span>
             </div>
 
-            <div class="task-details">
-              <div class="detail-row">
-                <div class="detail-item">
-                  <span class="label">L2 ID:</span>
-                  <span>{{ task.l2Id }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">版本:</span>
-                  <span>{{ task.versionName }}</span>
-                </div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-item">
-                  <span class="label">计划日期:</span>
-                  <span :class="{ 'date-overdue': task.isDelayed }">
-                    {{ task.plannedDate }}
-                    <span v-if="task.isDelayed" class="overdue-text">
-                      （已延期{{ task.delayDays }}天）
-                    </span>
-                  </span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">当前进度:</span>
-                  <span>{{ task.progress }}%</span>
-                </div>
-              </div>
+            <div class="task-meta">
+              <span class="meta-item">
+                <el-icon><Calendar /></el-icon>
+                计划完成：{{ formatDate(task.plannedDate) }}
+              </span>
+              <span class="meta-item">
+                <el-progress
+                  :percentage="task.progress"
+                  :stroke-width="4"
+                  :color="getProgressColor(task)"
+                  style="width: 100px"
+                />
+              </span>
             </div>
 
-            <div class="progress-section">
-              <el-progress
-                :percentage="task.progress"
-                :stroke-width="8"
-                :color="getProgressColor(task)"
-              />
-            </div>
           </div>
 
           <div class="task-actions">
             <el-button
-              type="primary"
+              size="small"
+              :type="task.isUrgent ? 'danger' : 'primary'"
               @click="updateTask(task)"
               :loading="task.updating"
             >
-              {{ task.isDelayed ? '立即更新' : '更新进度' }}
+              {{ task.isOverdue ? '立即处理' : task.isUrgent ? '优先处理' : '查看详情' }}
             </el-button>
-            <el-button @click="viewTaskDetails(task)">
-              查看详情
+            <el-button size="small" @click="viewTaskDetails(task)">
+              进入应用
             </el-button>
           </div>
         </div>
@@ -127,8 +131,8 @@
     <el-dialog v-model="showUpdateDialog" title="更新任务进度" width="500px">
       <div v-if="selectedTask" class="update-form">
         <div class="task-info">
-          <h4>{{ selectedTask.appName }} - {{ selectedTask.versionName }}</h4>
-          <p class="task-l2id">L2 ID: {{ selectedTask.l2Id }}</p>
+          <h4>{{ selectedTask.appName }} - {{ selectedTask.taskName }}</h4>
+          <p class="task-l2id">应用ID: {{ selectedTask.appId }}</p>
         </div>
 
         <el-form :model="updateForm" label-width="100px">
@@ -203,29 +207,30 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { Refresh } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { useAuthStore } from '@/stores/auth'
+import { Refresh, Calendar } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { SubTasksAPI } from '@/api/subtasks'
+import { DashboardAPI } from '@/api/dashboard'
 
 interface MyTask {
   id: number
-  l2Id: string
+  appId: string
   appName: string
-  versionName: string
+  taskName: string
   status: string
   progress: number
   plannedDate: string
-  isDelayed: boolean
-  delayDays: number
+  isOverdue: boolean
   isUrgent: boolean
-  priorityIcon: string
+  daysRemaining: number
+  applicationId: number
   isBlocked: boolean
   blockReason?: string
   updating?: boolean
 }
 
-const authStore = useAuthStore()
+const router = useRouter()
 
 const activeFilter = ref('all')
 const showUpdateDialog = ref(false)
@@ -245,9 +250,10 @@ const updateForm = reactive({
 const allTasks = ref<MyTask[]>([])
 
 const totalTasks = computed(() => allTasks.value.length)
+const urgentTasksCount = computed(() => allTasks.value.filter(task => task.isUrgent).length)
 const pendingTasks = computed(() => allTasks.value.filter(t => t.status === '待启动'))
 const progressTasks = computed(() => allTasks.value.filter(t => t.status === '研发进行中'))
-const delayedTasks = computed(() => allTasks.value.filter(t => t.isDelayed))
+const delayedTasks = computed(() => allTasks.value.filter(t => t.isOverdue))
 
 const filteredTasks = computed(() => {
   switch (activeFilter.value) {
@@ -278,47 +284,60 @@ const getStatusTagType = (status: string) => {
 }
 
 const getProgressColor = (task: MyTask) => {
-  if (task.isDelayed) return '#f56565'
+  if (task.isOverdue) return '#f56565'
   if (task.progress >= 80) return '#48bb78'
-  if (task.progress >= 50) return '#ed8936'
-  return '#667eea'
+  if (task.progress >= 50) return '#3182ce'
+  if (task.progress >= 30) return '#ed8936'
+  return '#a0aec0'
+}
+
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) return '-'
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return '-'
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  } catch (error) {
+    return '-'
+  }
 }
 
 const loadMyTasks = async () => {
   try {
     loading.value = true
-    
-    // Get subtasks assigned to current user
-    const mySubtasks = await SubTasksAPI.getMySubTasks()
-    
-    // Transform API data to MyTask format
-    allTasks.value = mySubtasks.map((task: any) => {
-      const plannedDate = new Date(task.planned_end_date)
-      const today = new Date()
-      const isDelayed = plannedDate < today && task.status !== '已完成'
-      const delayDays = isDelayed ? Math.floor((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24)) : 0
-      const daysUntilDue = Math.floor((plannedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-      const isUrgent = daysUntilDue <= 7 && daysUntilDue >= 0
-      
-      return {
+
+    // Use DashboardAPI to get properly formatted tasks
+    const tasks = await DashboardAPI.getMyTasks(100) // Get more tasks for My Tasks view
+
+    // Transform to MyTask format
+    allTasks.value = tasks
+      .filter(task => {
+        // Filter out completed tasks
+        const isCompleted = task.status === '已完成' ||
+                           task.status === '全部完成' ||
+                           task.status === 'completed'
+        return !isCompleted
+      })
+      .map((task: any) => ({
         id: task.id,
-        l2Id: task.l2_id || 'N/A',
-        appName: task.app_name || '未知应用',
-        versionName: task.version_name,
+        appId: task.appId,
+        appName: task.appName,
+        taskName: task.taskName,
         status: task.status,
-        progress: task.progress_percentage || 0,
-        plannedDate: task.planned_end_date,
-        isDelayed,
-        delayDays,
-        isUrgent: isUrgent || isDelayed,
-        priorityIcon: isDelayed ? '🔴' : (isUrgent ? '🟡' : '🟢'),
+        progress: task.progress,
+        plannedDate: task.plannedDate,
+        isOverdue: task.isOverdue,
+        isUrgent: task.isUrgent,
+        daysRemaining: task.daysRemaining,
+        applicationId: task.applicationId,
         isBlocked: task.status === '存在阻塞',
-        blockReason: task.notes
-      }
-    })
+        blockReason: ''
+      }))
   } catch (error) {
     console.error('Failed to load my tasks:', error)
-    // No fallback - show empty state
     allTasks.value = []
   } finally {
     loading.value = false
@@ -346,7 +365,9 @@ const updateTask = (task: MyTask) => {
 }
 
 const viewTaskDetails = (task: MyTask) => {
-  ElMessage.info(`查看任务详情：${task.appName} - ${task.versionName}`)
+  if (task.applicationId) {
+    router.push(`/subtasks/${task.applicationId}`)
+  }
 }
 
 const confirmUpdate = async () => {
@@ -358,10 +379,11 @@ const confirmUpdate = async () => {
 
     // Update via API
     await SubTasksAPI.updateSubTask(selectedTask.value.id, {
-      status: updateForm.status,
+      task_status: updateForm.status,
       progress_percentage: updateForm.progress,
-      notes: updateForm.isBlocked ? updateForm.blockReason : '',
-      actual_end_date: updateForm.actualDate ? updateForm.actualDate.toISOString().split('T')[0] : undefined
+      is_blocked: updateForm.isBlocked,
+      block_reason: updateForm.isBlocked ? updateForm.blockReason : '',
+      actual_biz_online_date: updateForm.actualDate ? updateForm.actualDate.toISOString().split('T')[0] : undefined
     })
 
     ElMessage.success('任务更新成功')
@@ -397,7 +419,18 @@ onMounted(async () => {
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+}
+
+.header-title-with-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-badge {
+  margin-left: 4px;
+  vertical-align: middle;
 }
 
 .header h2 {
@@ -446,8 +479,9 @@ onMounted(async () => {
   border-left: 4px solid #f39c12;
 }
 
-.task-delayed {
-  border-left: 4px solid #f56565;
+.task-overdue {
+  background: #fed7e5;
+  border-left: 4px solid #e53e3e;
 }
 
 .task-content {
@@ -457,68 +491,58 @@ onMounted(async () => {
 
 .task-header {
   display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
-.task-priority-icon {
-  font-size: 24px;
 }
 
 .task-title {
+  font-size: 14px;
+  margin-bottom: 8px;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .task-title strong {
-  font-size: 16px;
+  color: #2d3748;
+  font-size: 15px;
+}
+
+.task-name {
+  color: #4a5568;
+  font-size: 13px;
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #718096;
+}
+
+.meta-item .el-icon {
+  font-size: 14px;
+  color: #a0aec0;
 }
 
 .status-tag {
   margin-left: 10px;
 }
 
-.task-details {
-  margin-bottom: 15px;
-}
-
-.detail-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 8px;
-}
-
-.detail-item {
-  display: flex;
-  gap: 8px;
-}
-
-.label {
-  color: #718096;
-  font-weight: 500;
-  min-width: 70px;
-}
-
-.date-overdue {
-  color: #e53e3e;
-}
-
-.overdue-text {
-  font-weight: bold;
-}
-
-.progress-section {
-  margin-top: 10px;
-}
 
 .task-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  align-self: flex-start;
+  gap: 8px;
 }
 
 .confirmation-notice {
