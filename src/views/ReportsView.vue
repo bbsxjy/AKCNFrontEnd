@@ -92,13 +92,25 @@
           </el-col>
         </el-row>
 
-        <!-- 项目维度统计 -->
-        <el-card class="project-stats">
-          <template #header>
-            <h3>项目完成情况</h3>
-          </template>
-          <div ref="projectChartRef" style="height: 400px;"></div>
-        </el-card>
+        <!-- 项目统计和优先级分布 -->
+        <el-row :gutter="20" class="charts-section">
+          <el-col :xs="24" :sm="24" :md="12">
+            <el-card>
+              <template #header>
+                <h3>项目完成情况</h3>
+              </template>
+              <div ref="projectChartRef" style="height: 400px;"></div>
+            </el-card>
+          </el-col>
+          <el-col :xs="24" :sm="24" :md="12">
+            <el-card>
+              <template #header>
+                <h3>应用优先级分布</h3>
+              </template>
+              <div ref="priorityChartRef" style="height: 400px;"></div>
+            </el-card>
+          </el-col>
+        </el-row>
       </div>
 
       <!-- Progress Report -->
@@ -230,6 +242,7 @@ const exporting = ref(false)
 const typeChartRef = ref<HTMLElement | null>(null)
 const trendChartRef = ref<HTMLElement | null>(null)
 const projectChartRef = ref<HTMLElement | null>(null)
+const priorityChartRef = ref<HTMLElement | null>(null)
 const progressDistChartRef = ref<HTMLElement | null>(null)
 const phaseChartRef = ref<HTMLElement | null>(null)
 
@@ -237,6 +250,7 @@ const phaseChartRef = ref<HTMLElement | null>(null)
 const { refresh: refreshTypeChart } = useChart(typeChartRef, computed(() => getTypeChartOptions()))
 const { refresh: refreshTrendChart } = useChart(trendChartRef, computed(() => getTrendChartOptions()))
 const { refresh: refreshProjectChart } = useChart(projectChartRef, computed(() => getProjectChartOptions()))
+const { refresh: refreshPriorityChart } = useChart(priorityChartRef, computed(() => getPriorityChartOptions()))
 const { refresh: refreshProgressDistChart } = useChart(progressDistChartRef, computed(() => getProgressDistChartOptions()))
 const { refresh: refreshPhaseChart } = useChart(phaseChartRef, computed(() => getPhaseChartOptions()))
 
@@ -261,6 +275,7 @@ const chartData = reactive({
   typeDistribution: [] as any[],
   monthlyTrend: [] as any[],
   projectStats: [] as any[],
+  priorityDistribution: [] as any[],
   progressDistribution: [] as any[],
   phaseCompletion: [] as any[]
 })
@@ -400,11 +415,16 @@ const loadSummaryData = async (apps: any[], tasks: any[]) => {
   const projectStats = await DashboardAPI.getProjectStatistics()
   chartData.projectStats = projectStats
 
+  // 优先级分布
+  const priorityData = await DashboardAPI.getPriorityDistribution()
+  chartData.priorityDistribution = priorityData
+
   // 刷新图表
   setTimeout(() => {
     refreshTypeChart()
     refreshTrendChart()
     refreshProjectChart()
+    refreshPriorityChart()
   }, 100)
 }
 
@@ -663,12 +683,33 @@ const getTrendChartOptions = (): echarts.EChartsOption => ({
 })
 
 const getProjectChartOptions = (): echarts.EChartsOption => {
-  const data = chartData.projectStats.slice(0, 10)
+  // 反转数据顺序，让最大的项目在最上面
+  const reversedData = [...chartData.projectStats].reverse().slice(0, 10)
+  const projects = reversedData.map(item => {
+    // 截断过长的项目名称
+    const maxLength = 25
+    const name = item.name
+    return name.length > maxLength ? name.substring(0, maxLength) + '...' : name
+  })
+  const completed = reversedData.map(item => item.completed)
+  const inProgress = reversedData.map(item => item.inProgress)
+  const notStarted = reversedData.map(item => item.notStarted)
+
   return {
     tooltip: {
       trigger: 'axis',
       axisPointer: {
         type: 'shadow'
+      },
+      formatter: (params: any) => {
+        const projectData = reversedData[params[0].dataIndex]
+        return `<div style="padding: 8px; max-width: 300px;">
+          <strong style="word-wrap: break-word;">${projectData.name}</strong><br/>
+          总数: ${projectData.total}<br/>
+          已完成: ${projectData.completed} (${projectData.completionRate}%)<br/>
+          进行中: ${projectData.inProgress}<br/>
+          未开始: ${projectData.notStarted}
+        </div>`
       }
     },
     legend: {
@@ -677,36 +718,62 @@ const getProjectChartOptions = (): echarts.EChartsOption => {
     },
     grid: {
       left: '3%',
-      right: '4%',
+      right: '15%',
       bottom: '3%',
       top: '10%',
       containLabel: true
     },
     xAxis: {
-      type: 'value'
+      type: 'value',
+      axisLine: {
+        lineStyle: {
+          color: '#e2e8f0'
+        }
+      },
+      axisLabel: {
+        color: '#718096'
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#f7fafc'
+        }
+      }
     },
     yAxis: {
       type: 'category',
-      data: data.map(item => item.name)
+      data: projects,
+      axisLine: {
+        lineStyle: {
+          color: '#e2e8f0'
+        }
+      },
+      axisLabel: {
+        color: '#718096',
+        fontSize: 11
+      }
     },
     series: [
       {
         name: '已完成',
         type: 'bar',
         stack: 'total',
-        data: data.map(item => item.completed)
+        barWidth: '50%',
+        itemStyle: { color: '#48bb78' },
+        data: completed
       },
       {
         name: '进行中',
         type: 'bar',
         stack: 'total',
-        data: data.map(item => item.inProgress)
+        itemStyle: { color: '#3182ce' },
+        data: inProgress
       },
       {
         name: '未开始',
         type: 'bar',
         stack: 'total',
-        data: data.map(item => item.notStarted)
+        itemStyle: { color: '#cbd5e0' },
+        data: notStarted
       }
     ]
   }
@@ -758,6 +825,57 @@ const getPhaseChartOptions = (): echarts.EChartsOption => ({
     },
     data: chartData.phaseCompletion.map(item => item.value)
   }]
+})
+
+const getPriorityChartOptions = (): echarts.EChartsOption => ({
+  tooltip: {
+    trigger: 'item',
+    formatter: (params: any) => {
+      const total = chartData.priorityDistribution.reduce((sum, item) => sum + item.value, 0)
+      const percentage = total > 0 ? ((params.value / total) * 100).toFixed(1) : 0
+      return `${params.name}<br/>
+              数量: ${params.value}<br/>
+              占比: ${percentage}%`
+    }
+  },
+  legend: {
+    orient: 'vertical',
+    left: 'left'
+  },
+  series: [
+    {
+      name: '优先级分布',
+      type: 'pie',
+      radius: ['40%', '70%'],
+      center: ['55%', '50%'],
+      avoidLabelOverlap: true,
+      itemStyle: {
+        borderRadius: 10,
+        borderColor: '#fff',
+        borderWidth: 2
+      },
+      label: {
+        show: true,
+        formatter: '{b}\n{c} ({d}%)'
+      },
+      emphasis: {
+        label: {
+          show: true,
+          fontSize: 14,
+          fontWeight: 'bold'
+        },
+        itemStyle: {
+          shadowBlur: 10,
+          shadowOffsetX: 0,
+          shadowColor: 'rgba(0, 0, 0, 0.5)'
+        }
+      },
+      data: chartData.priorityDistribution.map(item => ({
+        name: item.name,
+        value: item.value
+      }))
+    }
+  ]
 })
 
 // Helper functions
