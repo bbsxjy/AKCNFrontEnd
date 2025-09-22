@@ -246,14 +246,6 @@ const priorityChartRef = ref<HTMLElement | null>(null)
 const progressDistChartRef = ref<HTMLElement | null>(null)
 const phaseChartRef = ref<HTMLElement | null>(null)
 
-// Initialize charts
-const { refresh: refreshTypeChart } = useChart(typeChartRef, computed(() => getTypeChartOptions()))
-const { refresh: refreshTrendChart } = useChart(trendChartRef, computed(() => getTrendChartOptions()))
-const { refresh: refreshProjectChart } = useChart(projectChartRef, computed(() => getProjectChartOptions()))
-const { refresh: refreshPriorityChart } = useChart(priorityChartRef, computed(() => getPriorityChartOptions()))
-const { refresh: refreshProgressDistChart } = useChart(progressDistChartRef, computed(() => getProgressDistChartOptions()))
-const { refresh: refreshPhaseChart } = useChart(phaseChartRef, computed(() => getPhaseChartOptions()))
-
 // Data
 const summaryStats = reactive({
   total: 0,
@@ -877,6 +869,14 @@ const getPriorityChartOptions = (): echarts.EChartsOption => ({
     }
   ]
 })
+
+// Initialize charts - MUST be after function definitions
+const { refresh: refreshTypeChart } = useChart(typeChartRef, computed(() => getTypeChartOptions()))
+const { refresh: refreshTrendChart } = useChart(trendChartRef, computed(() => getTrendChartOptions()))
+const { refresh: refreshProjectChart } = useChart(projectChartRef, computed(() => getProjectChartOptions()))
+const { refresh: refreshPriorityChart } = useChart(priorityChartRef, computed(() => getPriorityChartOptions()))
+const { refresh: refreshProgressDistChart } = useChart(progressDistChartRef, computed(() => getProgressDistChartOptions()))
+const { refresh: refreshPhaseChart } = useChart(phaseChartRef, computed(() => getPhaseChartOptions()))
 
 // Helper functions
 const formatDate = (dateStr: string) => {
