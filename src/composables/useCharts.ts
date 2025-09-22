@@ -388,6 +388,176 @@ export function getMonthlyProgressOptions(data: { months: string[], values: numb
   }
 }
 
+// Project statistics bar chart options
+export function getProjectStatisticsOptions(data: any[]): echarts.EChartsOption {
+  const projects = data.map(item => item.name)
+  const total = data.map(item => item.total)
+  const completed = data.map(item => item.completed)
+  const inProgress = data.map(item => item.inProgress)
+  const notStarted = data.map(item => item.notStarted)
+
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow'
+      },
+      formatter: (params: any) => {
+        const projectData = data[params[0].dataIndex]
+        return `<div style="padding: 8px;">
+          <strong>${params[0].name}</strong><br/>
+          总数: ${projectData.total}<br/>
+          已完成: ${projectData.completed} (${projectData.completionRate}%)<br/>
+          进行中: ${projectData.inProgress}<br/>
+          未开始: ${projectData.notStarted}
+        </div>`
+      }
+    },
+    legend: {
+      data: ['已完成', '进行中', '未开始'],
+      bottom: 0
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '12%',
+      top: '8%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: projects,
+      axisLine: {
+        lineStyle: {
+          color: '#e2e8f0'
+        }
+      },
+      axisLabel: {
+        color: '#718096',
+        rotate: 30,
+        interval: 0
+      }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: {
+        lineStyle: {
+          color: '#e2e8f0'
+        }
+      },
+      axisLabel: {
+        color: '#718096'
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#f7fafc'
+        }
+      }
+    },
+    series: [
+      {
+        name: '已完成',
+        type: 'bar',
+        stack: 'total',
+        barWidth: '60%',
+        itemStyle: { color: '#48bb78' },
+        data: completed
+      },
+      {
+        name: '进行中',
+        type: 'bar',
+        stack: 'total',
+        itemStyle: { color: '#3182ce' },
+        data: inProgress
+      },
+      {
+        name: '未开始',
+        type: 'bar',
+        stack: 'total',
+        itemStyle: { color: '#cbd5e0' },
+        data: notStarted
+      }
+    ]
+  }
+}
+
+// Priority distribution pie chart options
+export function getPriorityDistributionOptions(data: any[], type: 'all' | 'AK' | 'cloud' = 'all'): echarts.EChartsOption {
+  let chartData: any[] = []
+
+  if (type === 'all') {
+    // 显示所有应用的优先级分布
+    chartData = data.map(item => ({
+      name: item.name,
+      value: item.value
+    }))
+  } else if (type === 'AK') {
+    // 只显示AK改造的应用
+    chartData = data.map(item => ({
+      name: item.name,
+      value: item.akCount
+    })).filter(item => item.value > 0)
+  } else {
+    // 只显示云原生改造的应用
+    chartData = data.map(item => ({
+      name: item.name,
+      value: item.cloudCount
+    })).filter(item => item.value > 0)
+  }
+
+  return {
+    color: ['#667eea', '#764ba2', '#48bb78', '#ed8936', '#f56565'],
+    tooltip: {
+      trigger: 'item',
+      formatter: (params: any) => {
+        const total = chartData.reduce((sum, item) => sum + item.value, 0)
+        const percentage = total > 0 ? ((params.value / total) * 100).toFixed(1) : 0
+        return `${params.name}<br/>
+                数量: ${params.value}<br/>
+                占比: ${percentage}%`
+      }
+    },
+    legend: {
+      orient: 'vertical',
+      left: 'left',
+      textStyle: {
+        color: '#718096'
+      }
+    },
+    series: [
+      {
+        name: '优先级分布',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        center: ['55%', '50%'],
+        avoidLabelOverlap: true,
+        itemStyle: {
+          borderRadius: 10,
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        label: {
+          show: true,
+          formatter: '{b}\n{c} ({d}%)'
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 14,
+            fontWeight: 'bold'
+          },
+          itemStyle: {
+            shadowBlur: 10,
+            shadowOffsetX: 0,
+            shadowColor: 'rgba(0, 0, 0, 0.5)'
+          }
+        },
+        data: chartData
+      }
+    ]
+  }
+}
+
 // Monthly statistics bar chart options (delays, blocks, new apps, new tasks)
 export function getMonthlyStatisticsOptions(data: {
   months: string[],

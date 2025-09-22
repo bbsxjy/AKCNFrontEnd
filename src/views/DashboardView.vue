@@ -179,6 +179,36 @@
       </div>
     </div>
 
+    <!-- Project Statistics Section -->
+    <el-row :gutter="20" class="charts-row">
+      <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
+        <el-card>
+          <template #header>
+            <div class="card-header">
+              <span>项目统计</span>
+              <span class="header-subtitle">各项目应用改造进度</span>
+            </div>
+          </template>
+          <div ref="projectChartRef" style="height: 300px;"></div>
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+        <el-card>
+          <template #header>
+            <div class="card-header">
+              <span>应用优先级分布</span>
+              <el-radio-group v-model="priorityType" size="small" @change="updatePriorityChart">
+                <el-radio-button value="all">全部</el-radio-button>
+                <el-radio-button value="AK">AK</el-radio-button>
+                <el-radio-button value="cloud">云原生</el-radio-button>
+              </el-radio-group>
+            </div>
+          </template>
+          <div ref="priorityChartRef" style="height: 300px;"></div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <!-- Charts Section -->
     <el-row :gutter="20" class="charts-row">
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
@@ -322,7 +352,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Calendar, ArrowRight } from '@element-plus/icons-vue'
 import { DashboardAPI } from '@/api/dashboard'
-import { useChart, getMonthlyCompletionOptions, getMonthlyStatisticsOptions } from '@/composables/useCharts'
+import { useChart, getMonthlyCompletionOptions, getMonthlyStatisticsOptions, getProjectStatisticsOptions, getPriorityDistributionOptions } from '@/composables/useCharts'
 
 const router = useRouter()
 
@@ -355,16 +385,21 @@ const loading = ref(false)
 // Chart toggle
 const trendType = ref<'actual' | 'planned'>('actual')
 const statisticsType = ref<'all' | 'app' | 'task'>('all')
+const priorityType = ref<'all' | 'AK' | 'cloud'>('all')
 
 // Chart refs
 const progressChartRef = ref<HTMLElement | null>(null)
 const statisticsChartRef = ref<HTMLElement | null>(null)
+const projectChartRef = ref<HTMLElement | null>(null)
+const priorityChartRef = ref<HTMLElement | null>(null)
 
 // Chart data from API
 const chartData = ref({
   progressTrend: [] as any[],
   monthlyCompletion: [] as any[],
-  monthlyStatistics: [] as any[]
+  monthlyStatistics: [] as any[],
+  projectStatistics: [] as any[],
+  priorityDistribution: [] as any[]
 })
 
 // Computed properties for task counts
@@ -431,20 +466,38 @@ const statisticsChartOptions = computed(() => {
   return getMonthlyStatisticsOptions({ months, delayed, blocked, newApps, newTasks }, statisticsType.value)
 })
 
+const projectChartOptions = computed(() => {
+  if (chartData.value.projectStatistics.length === 0) {
+    return getProjectStatisticsOptions([])
+  }
+  return getProjectStatisticsOptions(chartData.value.projectStatistics)
+})
+
+const priorityChartOptions = computed(() => {
+  if (chartData.value.priorityDistribution.length === 0) {
+    return getPriorityDistributionOptions([], priorityType.value)
+  }
+  return getPriorityDistributionOptions(chartData.value.priorityDistribution, priorityType.value)
+})
+
 // Load dashboard data
 const loadDashboardData = async () => {
   try {
     loading.value = true
 
     // 获取统计数据和任务
-    const [statsData, tasks, monthlyStats] = await Promise.all([
+    const [statsData, tasks, monthlyStats, projectStats, priorityData] = await Promise.all([
       DashboardAPI.getDashboardStats(),
       DashboardAPI.getMyTasks(5),
-      DashboardAPI.getMonthlyStatistics()
+      DashboardAPI.getMonthlyStatistics(),
+      DashboardAPI.getProjectStatistics(),
+      DashboardAPI.getPriorityDistribution()
     ])
     stats.value = statsData
     myTasks.value = tasks
     chartData.value.monthlyStatistics = monthlyStats
+    chartData.value.projectStatistics = projectStats
+    chartData.value.priorityDistribution = priorityData
 
     // 加载月度完成数据
     await loadMonthlyData()
@@ -453,6 +506,8 @@ const loadDashboardData = async () => {
     setTimeout(() => {
       refreshProgressChart()
       refreshStatisticsChart()
+      refreshProjectChart()
+      refreshPriorityChart()
     }, 100)
 
   } catch (error) {
@@ -486,26 +541,37 @@ const updateStatisticsChart = () => {
   refreshStatisticsChart()
 }
 
+// 更新优先级图表（切换改造类型）
+const updatePriorityChart = () => {
+  refreshPriorityChart()
+}
+
 // 备用数据加载方法（如果主API失败）
 const loadDataFallback = async () => {
   try {
     // 并行加载各个数据
-    const [statsData, tasks, monthlyData, monthlyStats] = await Promise.all([
+    const [statsData, tasks, monthlyData, monthlyStats, projectStats, priorityData] = await Promise.all([
       DashboardAPI.getDashboardStats(),
       DashboardAPI.getMyTasks(5),
       DashboardAPI.getMonthlyCompletionTrend(trendType.value),
-      DashboardAPI.getMonthlyStatistics()
+      DashboardAPI.getMonthlyStatistics(),
+      DashboardAPI.getProjectStatistics(),
+      DashboardAPI.getPriorityDistribution()
     ])
 
     stats.value = statsData
     myTasks.value = tasks
     chartData.value.monthlyCompletion = monthlyData
     chartData.value.monthlyStatistics = monthlyStats
+    chartData.value.projectStatistics = projectStats
+    chartData.value.priorityDistribution = priorityData
 
     // 刷新图表
     setTimeout(() => {
       refreshProgressChart()
       refreshStatisticsChart()
+      refreshProjectChart()
+      refreshPriorityChart()
     }, 100)
 
   } catch (error) {
@@ -604,6 +670,8 @@ const startAutoRefresh = () => {
 // Initialize charts
 const { refresh: refreshProgressChart } = useChart(progressChartRef, progressChartOptions)
 const { refresh: refreshStatisticsChart } = useChart(statisticsChartRef, statisticsChartOptions)
+const { refresh: refreshProjectChart } = useChart(projectChartRef, projectChartOptions)
+const { refresh: refreshPriorityChart } = useChart(priorityChartRef, priorityChartOptions)
 
 onMounted(async () => {
   await loadDashboardData()

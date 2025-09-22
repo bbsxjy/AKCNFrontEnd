@@ -540,6 +540,137 @@ export class DashboardAPI {
     }
   }
 
+  // 获取项目统计数据 - 按项目分组的应用完成情况
+  static async getProjectStatistics(): Promise<any[]> {
+    try {
+      // 获取所有应用数据
+      const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
+
+      // 按项目分组统计
+      const projectMap = new Map<string, { total: number; completed: number; inProgress: number; notStarted: number }>()
+
+      if (applications.items && applications.items.length > 0) {
+        applications.items.forEach(app => {
+          // 使用项目名或部门名作为分组依据
+          const project = app.project_name || app.dev_team || '未分配'
+
+          const existing = projectMap.get(project) || {
+            total: 0,
+            completed: 0,
+            inProgress: 0,
+            notStarted: 0
+          }
+
+          existing.total++
+
+          // 根据状态分类
+          const status = app.current_status
+          if (status === '全部完成' || status === 'completed') {
+            existing.completed++
+          } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
+            existing.inProgress++
+          } else if (status === '待启动' || status === 'not_started') {
+            existing.notStarted++
+          } else if (status === '存在阻塞' || status === 'blocked') {
+            existing.inProgress++ // 阻塞也算进行中
+          }
+
+          projectMap.set(project, existing)
+        })
+      }
+
+      // 转换为数组格式
+      const projectStats: any[] = []
+      projectMap.forEach((data, project) => {
+        projectStats.push({
+          name: project,
+          total: data.total,
+          completed: data.completed,
+          inProgress: data.inProgress,
+          notStarted: data.notStarted,
+          completionRate: data.total > 0 ? Math.round((data.completed / data.total) * 100) : 0
+        })
+      })
+
+      // 按总数排序，取前10个项目
+      return projectStats.sort((a, b) => b.total - a.total).slice(0, 10)
+    } catch (error) {
+      console.error('Failed to get project statistics:', error)
+      return []
+    }
+  }
+
+  // 获取应用优先级分布 - 按档位（1-5级）和改造类型（AK/云原生）分组
+  static async getPriorityDistribution(): Promise<any[]> {
+    try {
+      // 获取所有应用数据
+      const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
+
+      // 初始化统计结构
+      const priorityData = [
+        { name: '第一级', value: 0, akCount: 0, cloudCount: 0 },
+        { name: '第二级', value: 0, akCount: 0, cloudCount: 0 },
+        { name: '第三级', value: 0, akCount: 0, cloudCount: 0 },
+        { name: '第四级', value: 0, akCount: 0, cloudCount: 0 },
+        { name: '第五级', value: 0, akCount: 0, cloudCount: 0 }
+      ]
+
+      if (applications.items && applications.items.length > 0) {
+        applications.items.forEach(app => {
+          // 根据优先级字段或其他标识判断档位
+          // 这里使用优先级字段，如果没有则根据监管年份等信息推断
+          let priority = app.priority_level || 3 // 默认第三级
+
+          // 如果有监管年份，根据年份设置优先级
+          if (app.ak_supervision_acceptance_year) {
+            const year = parseInt(app.ak_supervision_acceptance_year)
+            const currentYear = new Date().getFullYear()
+            if (year <= currentYear) {
+              priority = 1 // 当年或过期的为最高优先级
+            } else if (year === currentYear + 1) {
+              priority = 2 // 明年的为第二优先级
+            } else if (year === currentYear + 2) {
+              priority = 3 // 后年的为第三优先级
+            } else {
+              priority = 4 // 更远的为第四优先级
+            }
+          }
+
+          // 确保优先级在1-5范围内
+          priority = Math.max(1, Math.min(5, priority))
+          const index = priority - 1
+
+          // 统计总数
+          priorityData[index].value++
+
+          // 按改造类型分类
+          const transformTarget = app.overall_transformation_target
+          if (transformTarget === 'AK' || transformTarget === 'ak') {
+            priorityData[index].akCount++
+          } else if (transformTarget === '云原生' || transformTarget === 'cloud_native') {
+            priorityData[index].cloudCount++
+          } else {
+            // 默认算作AK
+            priorityData[index].akCount++
+          }
+        })
+      }
+
+      console.log('Priority distribution data:', priorityData)
+      return priorityData
+    } catch (error) {
+      console.error('Failed to get priority distribution:', error)
+      // 返回默认结构
+      return [
+        { name: '第一级', value: 0, akCount: 0, cloudCount: 0 },
+        { name: '第二级', value: 0, akCount: 0, cloudCount: 0 },
+        { name: '第三级', value: 0, akCount: 0, cloudCount: 0 },
+        { name: '第四级', value: 0, akCount: 0, cloudCount: 0 },
+        { name: '第五级', value: 0, akCount: 0, cloudCount: 0 }
+      ]
+    }
+  }
+
   // 获取完整的仪表盘数据
   static async getDashboardData() {
     const [stats, chartData, myTasks, notifications] = await Promise.all([
