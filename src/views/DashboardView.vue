@@ -185,8 +185,44 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>项目统计</span>
-              <span class="header-subtitle">各项目应用改造进度</span>
+              <div class="header-left">
+                <span>项目统计</span>
+                <span class="header-subtitle">各项目应用改造进度</span>
+              </div>
+              <div class="header-filters">
+                <el-select
+                  v-model="projectTimeType"
+                  size="small"
+                  style="width: 80px; margin-right: 8px"
+                  @change="updateProjectChart"
+                >
+                  <el-option value="all" label="全部" />
+                  <el-option value="year" label="按年" />
+                  <el-option value="month" label="按月" />
+                </el-select>
+                <el-date-picker
+                  v-if="projectTimeType === 'year'"
+                  v-model="projectSelectedYear"
+                  type="year"
+                  placeholder="选择年"
+                  size="small"
+                  format="YYYY"
+                  value-format="YYYY"
+                  style="width: 120px"
+                  @change="updateProjectChart"
+                />
+                <el-date-picker
+                  v-if="projectTimeType === 'month'"
+                  v-model="projectSelectedMonth"
+                  type="month"
+                  placeholder="选择月"
+                  size="small"
+                  format="YYYY-MM"
+                  value-format="YYYY-MM"
+                  style="width: 120px"
+                  @change="updateProjectChart"
+                />
+              </div>
             </div>
           </template>
           <div ref="projectChartRef" style="height: 350px;"></div>
@@ -196,12 +232,48 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>应用优先级分布</span>
-              <el-radio-group v-model="priorityType" size="small" @change="updatePriorityChart">
-                <el-radio-button value="all">全部</el-radio-button>
-                <el-radio-button value="AK">AK</el-radio-button>
-                <el-radio-button value="cloud">云原生</el-radio-button>
-              </el-radio-group>
+              <div class="header-left">
+                <span>应用优先级分布</span>
+              </div>
+              <div class="header-filters">
+                <el-select
+                  v-model="priorityTimeType"
+                  size="small"
+                  style="width: 80px; margin-right: 8px"
+                  @change="updatePriorityChart"
+                >
+                  <el-option value="all" label="全部" />
+                  <el-option value="year" label="按年" />
+                  <el-option value="month" label="按月" />
+                </el-select>
+                <el-date-picker
+                  v-if="priorityTimeType === 'year'"
+                  v-model="prioritySelectedYear"
+                  type="year"
+                  placeholder="选择年"
+                  size="small"
+                  format="YYYY"
+                  value-format="YYYY"
+                  style="width: 100px; margin-right: 8px"
+                  @change="updatePriorityChart"
+                />
+                <el-date-picker
+                  v-if="priorityTimeType === 'month'"
+                  v-model="prioritySelectedMonth"
+                  type="month"
+                  placeholder="选择月"
+                  size="small"
+                  format="YYYY-MM"
+                  value-format="YYYY-MM"
+                  style="width: 120px; margin-right: 8px"
+                  @change="updatePriorityChart"
+                />
+                <el-radio-group v-model="priorityType" size="small" @change="updatePriorityChart">
+                  <el-radio-button value="all">全部</el-radio-button>
+                  <el-radio-button value="AK">AK</el-radio-button>
+                  <el-radio-button value="cloud">云原生</el-radio-button>
+                </el-radio-group>
+              </div>
             </div>
           </template>
           <div ref="priorityChartRef" style="height: 350px;"></div>
@@ -352,6 +424,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Calendar, ArrowRight } from '@element-plus/icons-vue'
 import { DashboardAPI } from '@/api/dashboard'
+import { ApplicationsAPI } from '@/api/applications'
 import { useChart, getMonthlyCompletionOptions, getMonthlyStatisticsOptions, getProjectStatisticsOptions, getPriorityDistributionOptions } from '@/composables/useCharts'
 
 const router = useRouter()
@@ -386,6 +459,15 @@ const loading = ref(false)
 const trendType = ref<'actual' | 'planned'>('actual')
 const statisticsType = ref<'all' | 'app' | 'task'>('all')
 const priorityType = ref<'all' | 'AK' | 'cloud'>('all')
+
+// Time dimension filters
+const projectTimeType = ref<'all' | 'year' | 'month'>('all')
+const projectSelectedYear = ref(new Date().getFullYear().toString())
+const projectSelectedMonth = ref(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`)
+
+const priorityTimeType = ref<'all' | 'year' | 'month'>('all')
+const prioritySelectedYear = ref(new Date().getFullYear().toString())
+const prioritySelectedMonth = ref(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`)
 
 // Chart refs
 const progressChartRef = ref<HTMLElement | null>(null)
@@ -467,17 +549,19 @@ const statisticsChartOptions = computed(() => {
 })
 
 const projectChartOptions = computed(() => {
-  if (chartData.value.projectStatistics.length === 0) {
+  const filteredData = filterProjectDataByTime(chartData.value.projectStatistics)
+  if (filteredData.length === 0) {
     return getProjectStatisticsOptions([])
   }
-  return getProjectStatisticsOptions(chartData.value.projectStatistics)
+  return getProjectStatisticsOptions(filteredData)
 })
 
 const priorityChartOptions = computed(() => {
-  if (chartData.value.priorityDistribution.length === 0) {
+  const filteredData = filterPriorityDataByTime(chartData.value.priorityDistribution)
+  if (filteredData.length === 0) {
     return getPriorityDistributionOptions([], priorityType.value)
   }
-  return getPriorityDistributionOptions(chartData.value.priorityDistribution, priorityType.value)
+  return getPriorityDistributionOptions(filteredData, priorityType.value)
 })
 
 // Load dashboard data
@@ -542,8 +626,248 @@ const updateStatisticsChart = () => {
 }
 
 // 更新优先级图表（切换改造类型）
-const updatePriorityChart = () => {
+const updatePriorityChart = async () => {
+  // 如果切换到年或月视图，重新加载数据
+  if (priorityTimeType.value !== 'all') {
+    await loadFilteredPriorityData()
+  }
   refreshPriorityChart()
+}
+
+// 更新项目统计图表
+const updateProjectChart = async () => {
+  // 如果切换到年或月视图，重新加载数据
+  if (projectTimeType.value !== 'all') {
+    await loadFilteredProjectData()
+  }
+  refreshProjectChart()
+}
+
+// 过滤项目数据by时间
+const filterProjectDataByTime = (data: any[]) => {
+  // 如果是全部，直接返回数据
+  if (projectTimeType.value === 'all') {
+    return data
+  }
+  // 年月过滤已在加载时完成，直接返回
+  return data
+}
+
+// 过滤优先级数据by时间
+const filterPriorityDataByTime = (data: any[]) => {
+  // 如果是全部，直接返回数据
+  if (priorityTimeType.value === 'all') {
+    return data
+  }
+  // 年月过滤已在加载时完成，直接返回
+  return data
+}
+
+// 加载过滤后的项目数据
+const loadFilteredProjectData = async () => {
+  try {
+    // 获取所有应用数据
+    const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
+
+    // 根据选择的时间范围过滤
+    let filteredApps = applications.items || []
+
+    if (projectTimeType.value === 'year') {
+      const year = parseInt(projectSelectedYear.value)
+      filteredApps = filteredApps.filter((app: any) => {
+        // 检查任何实际完成日期是否在指定年份
+        const dates = [
+          app.actual_biz_online_date,
+          app.actual_tech_online_date,
+          app.actual_release_date,
+          app.actual_requirement_date
+        ].filter(d => d)
+
+        if (dates.length === 0 && app.created_at) {
+          // 对于未完成的，检查创建时间
+          return new Date(app.created_at).getFullYear() === year
+        }
+
+        return dates.some(dateStr => {
+          return new Date(dateStr).getFullYear() === year
+        })
+      })
+    } else if (projectTimeType.value === 'month') {
+      const [year, month] = projectSelectedMonth.value.split('-').map(Number)
+      filteredApps = filteredApps.filter((app: any) => {
+        // 检查任何实际完成日期是否在指定月份
+        const dates = [
+          app.actual_biz_online_date,
+          app.actual_tech_online_date,
+          app.actual_release_date,
+          app.actual_requirement_date
+        ].filter(d => d)
+
+        if (dates.length === 0 && app.created_at) {
+          // 对于未完成的，检查创建时间
+          const createdDate = new Date(app.created_at)
+          return createdDate.getFullYear() === year && createdDate.getMonth() + 1 === month
+        }
+
+        return dates.some(dateStr => {
+          const date = new Date(dateStr)
+          return date.getFullYear() === year && date.getMonth() + 1 === month
+        })
+      })
+    }
+
+    // 计算项目统计
+    const projectMap = new Map<string, { total: number; completed: number; inProgress: number; notStarted: number }>()
+
+    filteredApps.forEach((app: any) => {
+      const projectsField = app.belonging_projects || '未分配项目'
+      const projects = projectsField.split(/[,;，；]/).map((p: string) => p.trim()).filter((p: string) => p.length > 0)
+
+      if (projects.length === 0) {
+        projects.push('未分配项目')
+      }
+
+      projects.forEach((project: string) => {
+        const existing = projectMap.get(project) || {
+          total: 0,
+          completed: 0,
+          inProgress: 0,
+          notStarted: 0
+        }
+
+        existing.total++
+
+        const status = app.current_status
+        if (status === '全部完成' || status === 'completed') {
+          existing.completed++
+        } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
+          existing.inProgress++
+        } else if (status === '待启动' || status === 'not_started') {
+          existing.notStarted++
+        } else if (status === '存在阻塞' || status === 'blocked') {
+          existing.inProgress++
+        }
+
+        projectMap.set(project, existing)
+      })
+    })
+
+    chartData.value.projectStatistics = Array.from(projectMap.entries())
+      .map(([name, data]) => ({
+        name,
+        total: data.total,
+        completed: data.completed,
+        inProgress: data.inProgress,
+        notStarted: data.notStarted,
+        completionRate: data.total > 0 ? Math.round((data.completed / data.total) * 100) : 0
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 15)
+
+  } catch (error) {
+    console.error('Failed to load filtered project data:', error)
+  }
+}
+
+// 加载过滤后的优先级数据
+const loadFilteredPriorityData = async () => {
+  try {
+    // 获取所有应用数据
+    const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
+
+    // 根据选择的时间范围过滤
+    let filteredApps = applications.items || []
+
+    if (priorityTimeType.value === 'year') {
+      const year = parseInt(prioritySelectedYear.value)
+      filteredApps = filteredApps.filter((app: any) => {
+        // 检查任何实际完成日期是否在指定年份
+        const dates = [
+          app.actual_biz_online_date,
+          app.actual_tech_online_date,
+          app.actual_release_date,
+          app.actual_requirement_date
+        ].filter(d => d)
+
+        if (dates.length === 0 && app.created_at) {
+          // 对于未完成的，检查创建时间
+          return new Date(app.created_at).getFullYear() === year
+        }
+
+        return dates.some(dateStr => {
+          return new Date(dateStr).getFullYear() === year
+        })
+      })
+    } else if (priorityTimeType.value === 'month') {
+      const [year, month] = prioritySelectedMonth.value.split('-').map(Number)
+      filteredApps = filteredApps.filter((app: any) => {
+        // 检查任何实际完成日期是否在指定月份
+        const dates = [
+          app.actual_biz_online_date,
+          app.actual_tech_online_date,
+          app.actual_release_date,
+          app.actual_requirement_date
+        ].filter(d => d)
+
+        if (dates.length === 0 && app.created_at) {
+          // 对于未完成的，检查创建时间
+          const createdDate = new Date(app.created_at)
+          return createdDate.getFullYear() === year && createdDate.getMonth() + 1 === month
+        }
+
+        return dates.some(dateStr => {
+          const date = new Date(dateStr)
+          return date.getFullYear() === year && date.getMonth() + 1 === month
+        })
+      })
+    }
+
+    // 计算优先级分布
+    const priorityData = [
+      { name: '第一级', value: 0, akCount: 0, cloudCount: 0 },
+      { name: '第二级', value: 0, akCount: 0, cloudCount: 0 },
+      { name: '第三级', value: 0, akCount: 0, cloudCount: 0 },
+      { name: '第四级', value: 0, akCount: 0, cloudCount: 0 },
+      { name: '第五级', value: 0, akCount: 0, cloudCount: 0 }
+    ]
+
+    filteredApps.forEach((app: any) => {
+      let priority = 3 // 默认第三级
+
+      if (app.ak_supervision_acceptance_year) {
+        const yearValue = parseInt(app.ak_supervision_acceptance_year)
+        const currentYear = new Date().getFullYear()
+        if (yearValue <= currentYear) {
+          priority = 1
+        } else if (yearValue === currentYear + 1) {
+          priority = 2
+        } else if (yearValue === currentYear + 2) {
+          priority = 3
+        } else {
+          priority = 4
+        }
+      }
+
+      priority = Math.max(1, Math.min(5, priority))
+      const index = priority - 1
+
+      priorityData[index].value++
+
+      const transformTarget = app.overall_transformation_target
+      if (transformTarget === 'AK' || transformTarget === 'ak') {
+        priorityData[index].akCount++
+      } else if (transformTarget === '云原生' || transformTarget === 'cloud_native') {
+        priorityData[index].cloudCount++
+      } else {
+        priorityData[index].akCount++
+      }
+    })
+
+    chartData.value.priorityDistribution = priorityData
+
+  } catch (error) {
+    console.error('Failed to load filtered priority data:', error)
+  }
 }
 
 // 备用数据加载方法（如果主API失败）
@@ -1051,6 +1375,27 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header-subtitle {
+  font-size: 12px;
+  color: #718096;
+  font-weight: normal;
+}
+
+.header-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .header-title-with-badge {
