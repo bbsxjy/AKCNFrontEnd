@@ -216,7 +216,6 @@ import { ElMessage } from 'element-plus'
 import { ApplicationsAPI } from '@/api/applications'
 import { SubTasksAPI } from '@/api/subtasks'
 import { DashboardAPI } from '@/api/dashboard'
-import { ExcelAPI } from '@/api/excel'
 import { useChart } from '@/composables/useCharts'
 import * as echarts from 'echarts'
 
@@ -563,15 +562,21 @@ const exportReport = async () => {
     const exportData = {
       summary: summaryStats,
       data: activeTab.value === 'delay' ? delayData.value : progressData.value,
+      charts: chartData,
       type: activeTab.value,
       generatedAt: new Date().toLocaleString('zh-CN')
     }
 
-    // 调用导出API
-    await ExcelAPI.exportApplications({
-      format: 'xlsx',
-      filters: { report_type: activeTab.value }
-    })
+    // 创建导出内容
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `report_${activeTab.value}_${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
 
     ElMessage.success('报表导出成功')
   } catch (error) {
