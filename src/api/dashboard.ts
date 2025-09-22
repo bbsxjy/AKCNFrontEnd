@@ -551,8 +551,8 @@ export class DashboardAPI {
 
       if (applications.items && applications.items.length > 0) {
         applications.items.forEach(app => {
-          // 使用项目名或部门名作为分组依据
-          const project = app.project_name || app.dev_team || '未分配'
+          // 使用belonging_projects字段作为分组依据
+          const project = app.belonging_projects || '未分配项目'
 
           const existing = projectMap.get(project) || {
             total: 0,
