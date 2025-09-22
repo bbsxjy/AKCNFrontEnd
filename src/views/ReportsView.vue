@@ -227,7 +227,6 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ApplicationsAPI } from '@/api/applications'
 import { SubTasksAPI } from '@/api/subtasks'
-import { DashboardAPI } from '@/api/dashboard'
 import { useChart } from '@/composables/useCharts'
 import * as echarts from 'echarts'
 
@@ -305,8 +304,8 @@ const loadReportData = async () => {
     ])
 
     // 根据时间范围过滤数据
-    const filteredApps = filterByTimeRange(applications.items)
-    const filteredTasks = filterByTimeRange(subtasks.items)
+    const filteredApps = filterByTimeRange(applications.items || [])
+    const filteredTasks = filterByTimeRange(subtasks.items || [])
 
     // 调试输出
     console.log(`Time range: ${timeRange.value}`, {
@@ -438,15 +437,15 @@ const loadSummaryData = async (apps: any[], tasks: any[]) => {
   // 项目统计 - 基于过滤后的数据
   const projectMap = new Map<string, { total: number; completed: number; inProgress: number; notStarted: number }>()
 
-  apps.forEach(app => {
+  apps.forEach((app: any) => {
     const projectsField = app.belonging_projects || '未分配项目'
-    const projects = projectsField.split(/[,;，；]/).map(p => p.trim()).filter(p => p.length > 0)
+    const projects = projectsField.split(/[,;，；]/).map((p: string) => p.trim()).filter((p: string) => p.length > 0)
 
     if (projects.length === 0) {
       projects.push('未分配项目')
     }
 
-    projects.forEach(project => {
+    projects.forEach((project: string) => {
       const existing = projectMap.get(project) || {
         total: 0,
         completed: 0,
@@ -492,7 +491,7 @@ const loadSummaryData = async (apps: any[], tasks: any[]) => {
     { name: '第五级', value: 0, akCount: 0, cloudCount: 0 }
   ]
 
-  apps.forEach(app => {
+  apps.forEach((app: any) => {
     let priority = 3 // 默认第三级
 
     if (app.ak_supervision_acceptance_year) {
@@ -545,7 +544,7 @@ const loadProgressData = async (apps: any[], tasks: any[]) => {
     { name: '100%', count: 0 }
   ]
 
-  apps.forEach(app => {
+  apps.forEach((app: any) => {
     const progress = app.progress_percentage || 0
     if (progress === 100) progressRanges[4].count++
     else if (progress >= 76) progressRanges[3].count++
@@ -582,10 +581,10 @@ const loadProgressData = async (apps: any[], tasks: any[]) => {
   // 按项目统计进度
   const projectMap = new Map<string, any>()
 
-  apps.forEach(app => {
-    const projects = (app.belonging_projects || '未分配项目').split(/[,;，；]/).map(p => p.trim())
+  apps.forEach((app: any) => {
+    const projects = (app.belonging_projects || '未分配项目').split(/[,;，；]/).map((p: string) => p.trim())
 
-    projects.forEach(project => {
+    projects.forEach((project: string) => {
       if (!projectMap.has(project)) {
         projectMap.set(project, {
           projectName: project,
@@ -603,7 +602,7 @@ const loadProgressData = async (apps: any[], tasks: any[]) => {
       stat.totalProgress += app.progress_percentage || 0
 
       // 统计各阶段完成数
-      const appTasks = tasks.filter(t => t.l2_id === app.id)
+      const appTasks = tasks.filter((t: any) => t.l2_id === app.id)
       if (appTasks.some(t => t.actual_requirement_date)) stat.requirement++
       if (appTasks.some(t => t.actual_release_date)) stat.release++
       if (appTasks.some(t => t.actual_tech_online_date)) stat.techOnline++
@@ -627,11 +626,11 @@ const loadDelayData = async (apps: any[], tasks: any[]) => {
   const today = new Date()
   const delayedItems: any[] = []
 
-  apps.forEach(app => {
-    const appTasks = tasks.filter(t => t.l2_id === app.id)
+  apps.forEach((app: any) => {
+    const appTasks = tasks.filter((t: any) => t.l2_id === app.id)
 
     // 检查延期的子任务
-    const delayedTasks = appTasks.filter(task => {
+    const delayedTasks = appTasks.filter((task: any) => {
       if (task.planned_biz_online_date && !task.actual_biz_online_date) {
         const plannedDate = new Date(task.planned_biz_online_date)
         return plannedDate < today && task.task_status !== '已完成'
@@ -679,8 +678,8 @@ const loadMonthlyTrend = async () => {
   ])
 
   // 根据时间范围过滤数据
-  const filteredApps = filterByTimeRange(applications.items)
-  const filteredTasks = filterByTimeRange(subtasks.items)
+  const filteredApps = filterByTimeRange(applications.items || [])
+  const filteredTasks = filterByTimeRange(subtasks.items || [])
 
   // 生成月度数据
   const monthlyMap = new Map<string, { requirement: number, release: number, techOnline: number, bizOnline: number }>()
@@ -724,7 +723,7 @@ const loadMonthlyTrend = async () => {
   })
 
   // 统计完成数据
-  filteredTasks.forEach(task => {
+  filteredTasks.forEach((task: any) => {
     if (task.actual_requirement_date) {
       const date = new Date(task.actual_requirement_date)
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
