@@ -551,31 +551,42 @@ export class DashboardAPI {
 
       if (applications.items && applications.items.length > 0) {
         applications.items.forEach(app => {
-          // 使用belonging_projects字段作为分组依据
-          const project = app.belonging_projects || '未分配项目'
+          // 获取项目字段，可能包含逗号分隔的多个项目
+          const projectsField = app.belonging_projects || '未分配项目'
 
-          const existing = projectMap.get(project) || {
-            total: 0,
-            completed: 0,
-            inProgress: 0,
-            notStarted: 0
+          // 分割项目名称（支持逗号、分号等分隔符）
+          const projects = projectsField.split(/[,;，；]/).map(p => p.trim()).filter(p => p.length > 0)
+
+          // 如果没有有效的项目名，使用默认值
+          if (projects.length === 0) {
+            projects.push('未分配项目')
           }
 
-          existing.total++
+          // 为每个项目增加统计
+          projects.forEach(project => {
+            const existing = projectMap.get(project) || {
+              total: 0,
+              completed: 0,
+              inProgress: 0,
+              notStarted: 0
+            }
 
-          // 根据状态分类
-          const status = app.current_status
-          if (status === '全部完成' || status === 'completed') {
-            existing.completed++
-          } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
-            existing.inProgress++
-          } else if (status === '待启动' || status === 'not_started') {
-            existing.notStarted++
-          } else if (status === '存在阻塞' || status === 'blocked') {
-            existing.inProgress++ // 阻塞也算进行中
-          }
+            existing.total++
 
-          projectMap.set(project, existing)
+            // 根据状态分类
+            const status = app.current_status
+            if (status === '全部完成' || status === 'completed') {
+              existing.completed++
+            } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
+              existing.inProgress++
+            } else if (status === '待启动' || status === 'not_started') {
+              existing.notStarted++
+            } else if (status === '存在阻塞' || status === 'blocked') {
+              existing.inProgress++ // 阻塞也算进行中
+            }
+
+            projectMap.set(project, existing)
+          })
         })
       }
 
@@ -592,8 +603,8 @@ export class DashboardAPI {
         })
       })
 
-      // 按总数排序，取前10个项目
-      return projectStats.sort((a, b) => b.total - a.total).slice(0, 10)
+      // 按总数排序，取前15个项目（由于可能分割后项目数增多）
+      return projectStats.sort((a, b) => b.total - a.total).slice(0, 15)
     } catch (error) {
       console.error('Failed to get project statistics:', error)
       return []

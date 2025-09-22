@@ -388,13 +388,19 @@ export function getMonthlyProgressOptions(data: { months: string[], values: numb
   }
 }
 
-// Project statistics bar chart options
+// Project statistics horizontal bar chart options (better for long project names)
 export function getProjectStatisticsOptions(data: any[]): echarts.EChartsOption {
-  const projects = data.map(item => item.name)
-  const total = data.map(item => item.total)
-  const completed = data.map(item => item.completed)
-  const inProgress = data.map(item => item.inProgress)
-  const notStarted = data.map(item => item.notStarted)
+  // 反转数据顺序，让最大的项目在最上面
+  const reversedData = [...data].reverse()
+  const projects = reversedData.map(item => {
+    // 截断过长的项目名称
+    const maxLength = 30
+    const name = item.name
+    return name.length > maxLength ? name.substring(0, maxLength) + '...' : name
+  })
+  const completed = reversedData.map(item => item.completed)
+  const inProgress = reversedData.map(item => item.inProgress)
+  const notStarted = reversedData.map(item => item.notStarted)
 
   return {
     tooltip: {
@@ -403,9 +409,9 @@ export function getProjectStatisticsOptions(data: any[]): echarts.EChartsOption 
         type: 'shadow'
       },
       formatter: (params: any) => {
-        const projectData = data[params[0].dataIndex]
-        return `<div style="padding: 8px;">
-          <strong>${params[0].name}</strong><br/>
+        const projectData = reversedData[params[0].dataIndex]
+        return `<div style="padding: 8px; max-width: 300px;">
+          <strong style="word-wrap: break-word;">${projectData.name}</strong><br/>
           总数: ${projectData.total}<br/>
           已完成: ${projectData.completed} (${projectData.completionRate}%)<br/>
           进行中: ${projectData.inProgress}<br/>
@@ -415,30 +421,16 @@ export function getProjectStatisticsOptions(data: any[]): echarts.EChartsOption 
     },
     legend: {
       data: ['已完成', '进行中', '未开始'],
-      bottom: 0
+      top: 0
     },
     grid: {
       left: '3%',
-      right: '4%',
-      bottom: '12%',
-      top: '8%',
+      right: '15%',
+      bottom: '3%',
+      top: '10%',
       containLabel: true
     },
     xAxis: {
-      type: 'category',
-      data: projects,
-      axisLine: {
-        lineStyle: {
-          color: '#e2e8f0'
-        }
-      },
-      axisLabel: {
-        color: '#718096',
-        rotate: 30,
-        interval: 0
-      }
-    },
-    yAxis: {
       type: 'value',
       axisLine: {
         lineStyle: {
@@ -454,12 +446,29 @@ export function getProjectStatisticsOptions(data: any[]): echarts.EChartsOption 
         }
       }
     },
+    yAxis: {
+      type: 'category',
+      data: projects,
+      axisLine: {
+        lineStyle: {
+          color: '#e2e8f0'
+        }
+      },
+      axisLabel: {
+        color: '#718096',
+        fontSize: 11,
+        formatter: (value: string) => {
+          // 如果需要，可以在这里再次处理标签
+          return value
+        }
+      }
+    },
     series: [
       {
         name: '已完成',
         type: 'bar',
         stack: 'total',
-        barWidth: '60%',
+        barWidth: '50%',
         itemStyle: { color: '#48bb78' },
         data: completed
       },
