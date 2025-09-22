@@ -308,6 +308,14 @@ const loadReportData = async () => {
     const filteredApps = filterByTimeRange(applications.items)
     const filteredTasks = filterByTimeRange(subtasks.items)
 
+    // 调试输出
+    console.log(`Time range: ${timeRange.value}`, {
+      totalApps: applications.items?.length || 0,
+      filteredApps: filteredApps.length,
+      totalTasks: subtasks.items?.length || 0,
+      filteredTasks: filteredTasks.length
+    })
+
     // 根据当前标签加载对应数据
     switch (activeTab.value) {
       case 'summary':
@@ -332,38 +340,62 @@ const filterByTimeRange = (items: any[]) => {
   if (timeRange.value === 'all') return items
 
   const now = new Date()
-  const startDate = new Date()
+  let startDate = new Date()
+  let endDate = new Date()
 
   switch (timeRange.value) {
     case 'week':
-      startDate.setDate(now.getDate() - 7)
+      // 本周（周一到周日）
+      const currentDay = now.getDay()
+      const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay
+      startDate = new Date(now)
+      startDate.setDate(now.getDate() + daysToMonday)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(startDate)
+      endDate.setDate(startDate.getDate() + 6)
+      endDate.setHours(23, 59, 59, 999)
       break
     case 'month':
-      startDate.setMonth(now.getMonth() - 1)
+      // 本月（1号到月末）
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
       break
     case 'quarter':
-      startDate.setMonth(now.getMonth() - 3)
+      // 本季度
+      const currentQuarter = Math.floor(now.getMonth() / 3)
+      startDate = new Date(now.getFullYear(), currentQuarter * 3, 1)
+      endDate = new Date(now.getFullYear(), currentQuarter * 3 + 3, 0, 23, 59, 59, 999)
       break
     case 'year':
-      startDate.setFullYear(now.getFullYear() - 1)
+      // 本年（1月1日到12月31日）
+      startDate = new Date(now.getFullYear(), 0, 1)
+      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
       break
   }
 
   return items.filter(item => {
-    // 检查各种日期字段
-    const dates = [
-      item.created_at,
-      item.updated_at,
+    // 只检查实际完成日期字段，不检查创建和更新时间
+    const completionDates = [
       item.actual_biz_online_date,
       item.actual_tech_online_date,
       item.actual_release_date,
       item.actual_requirement_date
     ].filter(d => d)
 
-    // 如果有任何日期在范围内，就包含该项
-    return dates.some(dateStr => {
+    // 如果没有任何完成日期，检查是否在进行中
+    if (completionDates.length === 0) {
+      // 对于进行中的项目，检查创建时间是否在范围内
+      if (item.created_at) {
+        const createdDate = new Date(item.created_at)
+        return createdDate >= startDate && createdDate <= endDate
+      }
+      return false
+    }
+
+    // 检查是否有任何完成日期在指定范围内
+    return completionDates.some(dateStr => {
       const date = new Date(dateStr)
-      return date >= startDate && date <= now
+      return date >= startDate && date <= endDate
     })
   })
 }
@@ -403,12 +435,95 @@ const loadSummaryData = async (apps: any[], tasks: any[]) => {
   // 月度完成趋势
   await loadMonthlyTrend()
 
-  // 项目统计
-  const projectStats = await DashboardAPI.getProjectStatistics()
-  chartData.projectStats = projectStats
+  // 项目统计 - 基于过滤后的数据
+  const projectMap = new Map<string, { total: number; completed: number; inProgress: number; notStarted: number }>()
 
-  // 优先级分布
-  const priorityData = await DashboardAPI.getPriorityDistribution()
+  apps.forEach(app => {
+    const projectsField = app.belonging_projects || '未分配项目'
+    const projects = projectsField.split(/[,;，；]/).map(p => p.trim()).filter(p => p.length > 0)
+
+    if (projects.length === 0) {
+      projects.push('未分配项目')
+    }
+
+    projects.forEach(project => {
+      const existing = projectMap.get(project) || {
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        notStarted: 0
+      }
+
+      existing.total++
+
+      const status = app.current_status
+      if (status === '全部完成' || status === 'completed') {
+        existing.completed++
+      } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
+        existing.inProgress++
+      } else if (status === '待启动' || status === 'not_started') {
+        existing.notStarted++
+      } else if (status === '存在阻塞' || status === 'blocked') {
+        existing.inProgress++
+      }
+
+      projectMap.set(project, existing)
+    })
+  })
+
+  chartData.projectStats = Array.from(projectMap.entries())
+    .map(([name, data]) => ({
+      name,
+      total: data.total,
+      completed: data.completed,
+      inProgress: data.inProgress,
+      notStarted: data.notStarted,
+      completionRate: data.total > 0 ? Math.round((data.completed / data.total) * 100) : 0
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 15)
+
+  // 优先级分布 - 基于过滤后的数据
+  const priorityData = [
+    { name: '第一级', value: 0, akCount: 0, cloudCount: 0 },
+    { name: '第二级', value: 0, akCount: 0, cloudCount: 0 },
+    { name: '第三级', value: 0, akCount: 0, cloudCount: 0 },
+    { name: '第四级', value: 0, akCount: 0, cloudCount: 0 },
+    { name: '第五级', value: 0, akCount: 0, cloudCount: 0 }
+  ]
+
+  apps.forEach(app => {
+    let priority = 3 // 默认第三级
+
+    if (app.ak_supervision_acceptance_year) {
+      const year = parseInt(app.ak_supervision_acceptance_year)
+      const currentYear = new Date().getFullYear()
+      if (year <= currentYear) {
+        priority = 1
+      } else if (year === currentYear + 1) {
+        priority = 2
+      } else if (year === currentYear + 2) {
+        priority = 3
+      } else {
+        priority = 4
+      }
+    }
+
+    priority = Math.max(1, Math.min(5, priority))
+    const index = priority - 1
+
+    priorityData[index].value++
+
+    const transformTarget = app.overall_transformation_target
+    if (transformTarget === 'AK' || transformTarget === 'ak') {
+      priorityData[index].akCount++
+    } else if (transformTarget === '云原生' || transformTarget === 'cloud_native') {
+      priorityData[index].cloudCount++
+    } else {
+      priorityData[index].akCount++
+    }
+  })
+
   chartData.priorityDistribution = priorityData
 
   // 刷新图表
@@ -557,13 +672,92 @@ const loadDelayData = async (apps: any[], tasks: any[]) => {
 }
 
 const loadMonthlyTrend = async () => {
-  const monthlyData = await DashboardAPI.getMonthlyCompletionTrend('actual')
-  chartData.monthlyTrend = monthlyData.map(item => ({
-    month: formatMonth(item.month),
-    requirement: item.requirement,
-    release: item.release,
-    techOnline: item.techOnline,
-    bizOnline: item.bizOnline
+  // 获取所有应用和子任务数据
+  const [applications, subtasks] = await Promise.all([
+    ApplicationsAPI.getApplications({ limit: 1000 }),
+    SubTasksAPI.getSubTasks({ limit: 1000 })
+  ])
+
+  // 根据时间范围过滤数据
+  const filteredApps = filterByTimeRange(applications.items)
+  const filteredTasks = filterByTimeRange(subtasks.items)
+
+  // 生成月度数据
+  const monthlyMap = new Map<string, { requirement: number, release: number, techOnline: number, bizOnline: number }>()
+
+  // 根据时间范围决定要显示的月份
+  const now = new Date()
+  const months: string[] = []
+
+  if (timeRange.value === 'week') {
+    // 本周只显示当前月份
+    months.push(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+  } else if (timeRange.value === 'month') {
+    // 本月只显示当前月份
+    months.push(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+  } else if (timeRange.value === 'quarter') {
+    // 本季度显示3个月
+    const currentQuarter = Math.floor(now.getMonth() / 3)
+    for (let i = 0; i < 3; i++) {
+      const monthIndex = currentQuarter * 3 + i
+      if (monthIndex <= now.getMonth()) {
+        months.push(`${now.getFullYear()}-${String(monthIndex + 1).padStart(2, '0')}`)
+      }
+    }
+  } else if (timeRange.value === 'year') {
+    // 本年显示到当前月
+    for (let i = 0; i <= now.getMonth(); i++) {
+      months.push(`${now.getFullYear()}-${String(i + 1).padStart(2, '0')}`)
+    }
+  } else {
+    // 全部：显示最近12个月
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(now)
+      date.setMonth(date.getMonth() - i)
+      months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`)
+    }
+  }
+
+  // 初始化月度数据
+  months.forEach(month => {
+    monthlyMap.set(month, { requirement: 0, release: 0, techOnline: 0, bizOnline: 0 })
+  })
+
+  // 统计完成数据
+  filteredTasks.forEach(task => {
+    if (task.actual_requirement_date) {
+      const date = new Date(task.actual_requirement_date)
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      const data = monthlyMap.get(monthKey)
+      if (data) data.requirement++
+    }
+    if (task.actual_release_date) {
+      const date = new Date(task.actual_release_date)
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      const data = monthlyMap.get(monthKey)
+      if (data) data.release++
+    }
+    if (task.actual_tech_online_date) {
+      const date = new Date(task.actual_tech_online_date)
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      const data = monthlyMap.get(monthKey)
+      if (data) data.techOnline++
+    }
+    if (task.actual_biz_online_date) {
+      const date = new Date(task.actual_biz_online_date)
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      const data = monthlyMap.get(monthKey)
+      if (data) data.bizOnline++
+    }
+  })
+
+  // 转换为数组格式
+  chartData.monthlyTrend = Array.from(monthlyMap.entries()).map(([month, data]) => ({
+    month: formatMonth(month),
+    requirement: data.requirement,
+    release: data.release,
+    techOnline: data.techOnline,
+    bizOnline: data.bizOnline
   }))
 }
 
