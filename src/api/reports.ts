@@ -822,6 +822,7 @@ export class ExcelAPI {
         skipped: 0
       },
       errors: response.data.errors || [],
+      skipped_items: response.data.skipped_items || [],
       // Legacy compatibility fields
       imported: (response.data.applications?.imported || 0) + (response.data.subtasks?.imported || 0),
       updated: (response.data.applications?.updated || 0) + (response.data.subtasks?.updated || 0),
@@ -1043,6 +1044,7 @@ export class ExcelAPI {
         skipped: 0
       },
       errors: response.data.errors || [],
+      skipped_items: response.data.skipped_items || [],
       // Legacy compatibility fields
       imported: (response.data.applications?.imported || 0) + (response.data.subtasks?.imported || 0),
       updated: (response.data.applications?.updated || 0) + (response.data.subtasks?.updated || 0),

@@ -424,10 +424,15 @@ const nextStep = async () => {
         applications: response.applications || null,
         subtasks: response.subtasks || null,
         errors: response.errors || [],
+        skipped_items: response.skipped_items || [],
         success: response.success || response.status === 'success'
       }
 
       console.log('🔄 [ImportView] Mapped response with dual-sheet support:', mappedResponse)
+      if (mappedResponse.skipped_items && mappedResponse.skipped_items.length > 0) {
+        console.log('⚠️ [ImportView] Skipped items found:', mappedResponse.skipped_items.length, 'items')
+        console.log('⚠️ [ImportView] First 3 skipped items:', mappedResponse.skipped_items.slice(0, 3))
+      }
 
       // Check if validation was successful
       if (!mappedResponse.success && mappedResponse.total === 0) {
@@ -549,6 +554,7 @@ const nextStep = async () => {
         updated: response.updated_rows || response.updated || 0,
         skipped: response.skipped_rows || response.skipped || 0,
         errors: response.errors || [],
+        skipped_items: response.skipped_items || [],
         success: response.success || response.status === 'success'
       }
 
@@ -559,7 +565,7 @@ const nextStep = async () => {
       importResult.updated = mappedImportResponse.updated
       importResult.skipped = mappedImportResponse.skipped
       importResult.errors = mappedImportResponse.errors
-      importResult.skippedItems = mappedImportResponse.skipped_items || []
+      importResult.skippedItems = mappedImportResponse.skipped_items
       importResult.success = mappedImportResponse.imported + mappedImportResponse.updated
       importResult.failed = mappedImportResponse.errors.length
 
