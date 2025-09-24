@@ -99,7 +99,9 @@
         </el-table-column>
         <el-table-column prop="app_name" label="应用名称" min-width="90" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.app_name || row.application_name }}
+            <el-link type="primary" @click="showAppDetail(row)" :underline="false" class="app-name-link">
+              {{ row.app_name || row.application_name }}
+            </el-link>
           </template>
         </el-table-column>
         <!-- 管理信息 -->
@@ -188,12 +190,11 @@
           </template>
         </el-table-column>
         <!-- 操作按钮 -->
-        <el-table-column label="操作" width="220" fixed="right" align="center">
+        <el-table-column label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
             <div class="operation-buttons">
               <el-button size="small" @click="editApplication(row)">编辑</el-button>
               <el-button size="small" type="primary" @click="viewSubTasks(row)">子任务</el-button>
-              <el-button size="small" type="info" @click="showAppDetail(row)">详情</el-button>
             </div>
           </template>
         </el-table-column>
@@ -2296,6 +2297,16 @@ watch([currentPage, pageSize], async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.app-name-link {
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.app-name-link:hover {
+  color: #667eea !important;
+  text-decoration: underline !important;
 }
 
 .header h2 {
