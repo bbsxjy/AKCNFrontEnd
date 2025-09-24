@@ -108,6 +108,12 @@ export interface ExcelImportResponse {
     sheet?: string
     data?: Record<string, any>  // Legacy compatibility
   }>
+  skipped_items?: Array<{
+    row: number
+    reason: string
+    data?: Record<string, any>
+    sheet?: string
+  }>
 }
 
 export interface ExcelExportParams {

@@ -168,6 +168,24 @@
           </el-table>
         </div>
 
+        <div v-if="importResult.skippedItems.length > 0" class="skipped-preview">
+          <h4>跳过的记录（前10条）</h4>
+          <el-table :data="importResult.skippedItems.slice(0, 10)" style="width: 100%" max-height="300">
+            <el-table-column prop="row" label="行号" width="80" />
+            <el-table-column prop="reason" label="跳过原因" />
+            <el-table-column label="数据" width="300">
+              <template #default="{ row }">
+                <el-tooltip v-if="row.data" :content="JSON.stringify(row.data, null, 2)" placement="top">
+                  <span style="font-family: monospace; font-size: 12px;">
+                    {{ Object.keys(row.data).slice(0, 3).map(k => `${k}: ${row.data[k]}`).join(', ') }}{{ Object.keys(row.data).length > 3 ? '...' : '' }}
+                  </span>
+                </el-tooltip>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
         <div class="step-actions">
           <el-button @click="prevStep">上一步</el-button>
           <el-button
@@ -190,8 +208,8 @@
         >
           <template #extra>
             <el-button type="primary" @click="resetImport">重新导入</el-button>
-            <el-button @click="downloadErrorReport" v-if="importResult.failed > 0">
-              下载错误报告
+            <el-button @click="downloadErrorReport" v-if="importResult.failed > 0 || importResult.skippedItems.length > 0">
+              下载导入报告
             </el-button>
           </template>
         </el-result>
@@ -209,6 +227,24 @@
                     {{ row.value ? String(row.value).substring(0, 50) + (String(row.value).length > 50 ? '...' : '') : 'No data' }}
                   </span>
                 </el-tooltip>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <div v-if="importResult.skippedItems.length > 0" class="skipped-list">
+          <h4>跳过的记录</h4>
+          <el-table :data="importResult.skippedItems" style="width: 100%" max-height="400">
+            <el-table-column prop="row" label="行号" width="80" />
+            <el-table-column prop="reason" label="跳过原因" />
+            <el-table-column label="数据" width="400">
+              <template #default="{ row }">
+                <el-tooltip v-if="row.data" :content="JSON.stringify(row.data, null, 2)" placement="top">
+                  <span style="font-family: monospace; font-size: 12px;">
+                    {{ Object.keys(row.data).slice(0, 3).map(k => `${k}: ${row.data[k]}`).join(', ') }}{{ Object.keys(row.data).length > 3 ? '...' : '' }}
+                  </span>
+                </el-tooltip>
+                <span v-else>-</span>
               </template>
             </el-table-column>
           </el-table>
@@ -258,7 +294,8 @@ const importResult = reactive({
     updated: number
     skipped: number
   } | null,
-  errors: [] as Array<{ row: number; error?: string; message?: string; column?: string; value?: any; sheet?: string; data?: Record<string, any> }>
+  errors: [] as Array<{ row: number; error?: string; message?: string; column?: string; value?: any; sheet?: string; data?: Record<string, any> }>,
+  skippedItems: [] as Array<{ row: number; reason: string; data?: Record<string, any>; sheet?: string }>
 })
 
 const handleFileChange = (file: UploadFile) => {
@@ -445,6 +482,7 @@ const nextStep = async () => {
       importResult.applications = mappedResponse.applications
       importResult.subtasks = mappedResponse.subtasks
       importResult.errors = mappedResponse.errors
+      importResult.skippedItems = mappedResponse.skipped_items || []
 
       currentStep.value = 1
 
@@ -521,6 +559,7 @@ const nextStep = async () => {
       importResult.updated = mappedImportResponse.updated
       importResult.skipped = mappedImportResponse.skipped
       importResult.errors = mappedImportResponse.errors
+      importResult.skippedItems = mappedImportResponse.skipped_items || []
       importResult.success = mappedImportResponse.imported + mappedImportResponse.updated
       importResult.failed = mappedImportResponse.errors.length
 
@@ -565,34 +604,53 @@ const resetImport = () => {
   importResult.updated = 0
   importResult.skipped = 0
   importResult.errors = []
+  importResult.skippedItems = []
   previewData.value = []
 }
 
 const downloadErrorReport = () => {
-  if (importResult.errors.length === 0) {
-    ElMessage.info('无错误数据')
+  if (importResult.errors.length === 0 && importResult.skippedItems.length === 0) {
+    ElMessage.info('无错误或跳过的数据')
     return
   }
 
-  const errorReport = importResult.errors.map(error => ({
-    '行号': error.row,
-    '字段': error.column || '-',
-    '错误信息': error.message || error.error || '未知错误',
-    '数据': String(error.value || error.data || '-')
-  }))
+  let csvContent = ''
+  
+  // Add errors section
+  if (importResult.errors.length > 0) {
+    csvContent += '=== 错误记录 ===\n'
+    const errorReport = importResult.errors.map(error => ({
+      '行号': error.row,
+      '字段': error.column || '-',
+      '错误信息': error.message || error.error || '未知错误',
+      '数据': String(error.value || error.data || '-')
+    }))
+    
+    csvContent += Object.keys(errorReport[0] || {}).join(',') + '\n'
+    csvContent += errorReport.map(row => Object.values(row).join(',')).join('\n')
+  }
+  
+  // Add skipped items section
+  if (importResult.skippedItems.length > 0) {
+    if (csvContent) csvContent += '\n\n'
+    csvContent += '=== 跳过的记录 ===\n'
+    const skippedReport = importResult.skippedItems.map(item => ({
+      '行号': item.row,
+      '跳过原因': item.reason,
+      '数据': item.data ? JSON.stringify(item.data) : '-'
+    }))
+    
+    csvContent += Object.keys(skippedReport[0] || {}).join(',') + '\n'
+    csvContent += skippedReport.map(row => Object.values(row).join(',')).join('\n')
+  }
 
-  const csv = [
-    Object.keys(errorReport[0] || {}).join(','),
-    ...errorReport.map(row => Object.values(row).join(','))
-  ].join('\n')
-
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
-  link.download = `import_errors_${new Date().toISOString().split('T')[0]}.csv`
+  link.download = `import_report_${new Date().toISOString().split('T')[0]}.csv`
   link.click()
 
-  ElMessage.success('错误报告下载成功')
+  ElMessage.success('导入报告下载成功')
 }
 </script>
 
@@ -679,6 +737,15 @@ const downloadErrorReport = () => {
   margin-bottom: 15px;
 }
 
+.skipped-list {
+  margin-top: 30px;
+}
+
+.skipped-list h4 {
+  color: #ed8936;
+  margin-bottom: 15px;
+}
+
 .validation-summary {
   margin-bottom: 20px;
 }
@@ -689,6 +756,15 @@ const downloadErrorReport = () => {
 
 .error-preview h4 {
   color: #e53e3e;
+  margin-bottom: 15px;
+}
+
+.skipped-preview {
+  margin-top: 20px;
+}
+
+.skipped-preview h4 {
+  color: #ed8936;
   margin-bottom: 15px;
 }
 
