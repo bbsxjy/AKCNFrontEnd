@@ -156,11 +156,12 @@
           <h4>错误详情（前10条）</h4>
           <el-table :data="importResult.errors.slice(0, 10)" style="width: 100%" max-height="300">
             <el-table-column prop="row" label="行号" width="80" />
-            <el-table-column prop="error" label="错误信息" />
+            <el-table-column prop="column" label="字段" width="150" />
+            <el-table-column prop="message" label="错误信息" />
             <el-table-column label="数据" width="200">
               <template #default="{ row }">
-                <el-tooltip :content="JSON.stringify(row.data || {}, null, 2)" placement="top">
-                  <span>{{ row.data ? Object.keys(row.data).slice(0, 2).join(', ') + '...' : 'No data' }}</span>
+                <el-tooltip :content="String(row.value || 'No data')" placement="top">
+                  <span>{{ row.value || 'No data' }}</span>
                 </el-tooltip>
               </template>
             </el-table-column>
@@ -199,12 +200,13 @@
           <h4>错误详情</h4>
           <el-table :data="importResult.errors" style="width: 100%" max-height="400">
             <el-table-column prop="row" label="行号" width="80" />
-            <el-table-column prop="error" label="错误信息" />
+            <el-table-column prop="column" label="字段" width="150" />
+            <el-table-column prop="message" label="错误信息" />
             <el-table-column label="数据" width="300">
               <template #default="{ row }">
-                <el-tooltip :content="JSON.stringify(row.data || {}, null, 2)" placement="top">
+                <el-tooltip :content="String(row.value || 'No data')" placement="top">
                   <span style="font-family: monospace; font-size: 12px;">
-                    {{ row.data ? JSON.stringify(row.data).substring(0, 50) + '...' : 'No data' }}
+                    {{ row.value ? String(row.value).substring(0, 50) + (String(row.value).length > 50 ? '...' : '') : 'No data' }}
                   </span>
                 </el-tooltip>
               </template>
@@ -574,8 +576,9 @@ const downloadErrorReport = () => {
 
   const errorReport = importResult.errors.map(error => ({
     '行号': error.row,
-    '错误信息': error.error,
-    '数据': JSON.stringify(error.data)
+    '字段': error.column || '-',
+    '错误信息': error.message || error.error || '未知错误',
+    '数据': String(error.value || error.data || '-')
   }))
 
   const csv = [
