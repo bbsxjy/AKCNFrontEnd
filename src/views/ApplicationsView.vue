@@ -980,27 +980,10 @@ const searchForm = reactive({
 // 用于防抖的关键词
 const debouncedKeyword = ref('')
 
-// 下拉选项
-const statusOptions = [
-  { label: '待启动', value: '待启动' },
-  { label: '研发进行中', value: '研发进行中' },
-  { label: '业务上线中', value: '业务上线中' },
-  { label: '全部完成', value: '全部完成' },
-  { label: '存在阻塞', value: '存在阻塞' }
-]
-
-const departmentOptions = [
-  { label: '研发一部', value: '研发一部' },
-  { label: '研发二部', value: '研发二部' },
-  { label: '运维部', value: '运维部' },
-  { label: '架构部', value: '架构部' },
-  { label: '测试部', value: '测试部' }
-]
-
-const targetOptions = [
-  { label: 'AK', value: 'AK' },
-  { label: '云原生', value: '云原生' }
-]
+// 动态下拉选项 - 基于实际数据生成
+const statusOptions = ref<Array<{ label: string; value: string }>>([])
+const departmentOptions = ref<Array<{ label: string; value: string }>>([])
+const targetOptions = ref<Array<{ label: string; value: string }>>([])
 
 const createForm = reactive({
   l2_id: '',
@@ -1132,12 +1115,73 @@ const loadApplications = async () => {
       limit: 1000 // 获取前1000条数据
     })
     allApplications.value = response.items || []
+    
+    // 生成动态筛选选项
+    updateFilterOptions()
   } catch (error) {
     console.error('Failed to load applications:', error)
     ElMessage.error('加载应用列表失败，请检查网络连接')
     allApplications.value = []
   } finally {
     loading.value = false
+  }
+}
+
+// 根据实际数据更新筛选选项
+const updateFilterOptions = () => {
+  // 提取唯一的状态值
+  const statusSet = new Set<string>()
+  const departmentSet = new Set<string>()
+  const targetSet = new Set<string>()
+  
+  allApplications.value.forEach(app => {
+    // 收集状态
+    if (app.current_status) {
+      statusSet.add(app.current_status)
+    }
+    
+    // 收集部门（从dev_team和ops_team中提取）
+    if (app.dev_team) {
+      departmentSet.add(app.dev_team)
+    }
+    if (app.ops_team && app.ops_team !== app.dev_team) {
+      departmentSet.add(app.ops_team)
+    }
+    
+    // 收集改造目标
+    if (app.overall_transformation_target) {
+      targetSet.add(app.overall_transformation_target)
+    }
+  })
+  
+  // 转换为选项数组并排序
+  statusOptions.value = Array.from(statusSet)
+    .sort()
+    .map(status => ({ label: status, value: status }))
+  
+  departmentOptions.value = Array.from(departmentSet)
+    .sort()
+    .map(dept => ({ label: dept, value: dept }))
+  
+  targetOptions.value = Array.from(targetSet)
+    .sort()
+    .map(target => ({ label: target, value: target }))
+  
+  // 如果没有数据，提供默认选项
+  if (statusOptions.value.length === 0) {
+    statusOptions.value = [
+      { label: '待启动', value: '待启动' },
+      { label: '研发进行中', value: '研发进行中' },
+      { label: '业务上线中', value: '业务上线中' },
+      { label: '全部完成', value: '全部完成' }
+    ]
+  }
+  
+  if (targetOptions.value.length === 0) {
+    targetOptions.value = [
+      { label: 'AK', value: 'AK' },
+      { label: '云原生', value: '云原生' }
+    ]
   }
 }
 
@@ -1389,6 +1433,9 @@ const handleUpdate = async () => {
     if (index !== -1) {
       allApplications.value[index] = updatedApp
     }
+    
+    // 更新筛选选项
+    updateFilterOptions()
   } catch (error) {
     console.error('Failed to update application:', error)
     ElMessage.error('更新应用失败')
@@ -1429,6 +1476,9 @@ const deleteApplicationInEdit = async () => {
     if (index !== -1) {
       allApplications.value.splice(index, 1)
     }
+    
+    // 更新筛选选项
+    updateFilterOptions()
   } catch (error: any) {
     if (error === 'cancel') {
       return // User cancelled
@@ -1463,6 +1513,9 @@ const handleCreate = async () => {
 
     // 直接添加到本地数据
     allApplications.value.unshift(newApp)
+    
+    // 更新筛选选项
+    updateFilterOptions()
 
     // Reset form
     Object.assign(createForm, {
