@@ -216,7 +216,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { Refresh, Calendar } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -430,12 +430,22 @@ const confirmUpdate = async () => {
   }
 }
 
+// Store interval ID for cleanup
+let refreshInterval: ReturnType<typeof setInterval> | null = null
+
 onMounted(async () => {
   // Load initial data
   await loadMyTasks()
   
   // Auto-refresh tasks every 30 seconds (no notification for auto-refresh)
-  setInterval(() => refreshTasks(false), 30000)
+  refreshInterval = setInterval(() => refreshTasks(false), 30000)
+})
+
+onUnmounted(() => {
+  // Clean up interval
+  if (refreshInterval) {
+    clearInterval(refreshInterval)
+  }
 })
 </script>
 

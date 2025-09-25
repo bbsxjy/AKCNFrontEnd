@@ -1209,10 +1209,13 @@ onMounted(async () => {
 
   // Load delay data after applications are loaded
   if (allApplications.value.length > 0) {
-    // Load first batch of delay data for visible applications
+    // Load first batch of delay data for visible applications with delays
     const visibleApps = applications.value.slice(0, 10)
     for (const app of visibleApps) {
-      loadDelayDataForApp(app)
+      // Only load for apps that are actually delayed
+      if (app.is_delayed) {
+        loadDelayDataForApp(app)
+      }
     }
   }
 })
@@ -2329,16 +2332,26 @@ const calculateTotalDelayDays = (delayHistory: any[]) => {
   return delayHistory.reduce((sum, item) => sum + item.delayDays, 0)
 }
 
-// Watch for page changes to load delay data
-watch([currentPage, pageSize], async () => {
+// Load delay data when page changes
+const handlePageChange = async () => {
   // Load delay data for newly visible applications
   const visibleApps = applications.value
   for (const app of visibleApps) {
-    if (!planAdjustmentCache.value.has(app.id) && (app.is_delayed || getPlanAdjustmentCount(app) > 0)) {
+    // Only load if not already in cache and app is delayed
+    if (!planAdjustmentCache.value.has(app.id) && app.is_delayed) {
       loadDelayDataForApp(app)
     }
   }
-})
+}
+
+// Watch page changes but prevent continuous triggering
+let pageChangeTimer: ReturnType<typeof setTimeout> | null = null
+watch([currentPage, pageSize], () => {
+  if (pageChangeTimer) clearTimeout(pageChangeTimer)
+  pageChangeTimer = setTimeout(() => {
+    handlePageChange()
+  }, 100) // Debounce to prevent rapid calls
+}, { immediate: false })
 </script>
 
 <style scoped>

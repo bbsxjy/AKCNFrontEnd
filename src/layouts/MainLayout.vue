@@ -263,7 +263,12 @@ onMounted(async () => {
   await loadNotifications()
   
   // Refresh notifications every 30 seconds
-  setInterval(loadNotifications, 30000)
+  const notificationInterval = setInterval(loadNotifications, 30000)
+  
+  // Store interval for cleanup
+  onUnmounted(() => {
+    clearInterval(notificationInterval)
+  })
 })
 
 onUnmounted(() => {

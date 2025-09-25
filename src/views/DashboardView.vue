@@ -419,7 +419,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Calendar, ArrowRight } from '@element-plus/icons-vue'
@@ -978,9 +978,12 @@ const initializeWebSocket = async () => {
   console.log('WebSocket disabled for testing mode')
 }
 
+// 存储定时器ID
+let autoRefreshInterval: ReturnType<typeof setInterval> | null = null
+
 // 定期刷新数据（每30秒）
 const startAutoRefresh = () => {
-  setInterval(async () => {
+  autoRefreshInterval = setInterval(async () => {
     try {
       // 静默刷新统计数据
       const newStats = await DashboardAPI.getDashboardStats()
@@ -991,11 +994,25 @@ const startAutoRefresh = () => {
   }, 30000)
 }
 
+// 停止自动刷新
+const stopAutoRefresh = () => {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval)
+    autoRefreshInterval = null
+  }
+}
+
 // Initialize charts
 const { refresh: refreshProgressChart } = useChart(progressChartRef, progressChartOptions)
 const { refresh: refreshStatisticsChart } = useChart(statisticsChartRef, statisticsChartOptions)
 const { refresh: refreshProjectChart } = useChart(projectChartRef, projectChartOptions)
 const { refresh: refreshPriorityChart } = useChart(priorityChartRef, priorityChartOptions)
+
+// Resize handler for cleanup
+const handleResize = () => {
+  refreshProgressChart()
+  refreshStatisticsChart()
+}
 
 onMounted(async () => {
   await loadDashboardData()
@@ -1003,10 +1020,20 @@ onMounted(async () => {
   startAutoRefresh()
 
   // Refresh charts on window resize
-  window.addEventListener('resize', () => {
-    refreshProgressChart()
-    refreshStatisticsChart()
-  })
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  // Clean up auto refresh
+  stopAutoRefresh()
+  
+  // Clean up resize listener
+  window.removeEventListener('resize', handleResize)
+  
+  // Clean up WebSocket if needed
+  if ((window as any).dashboardWs) {
+    (window as any).dashboardWs.close()
+  }
 })
 </script>
 
