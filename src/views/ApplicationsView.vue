@@ -21,6 +21,42 @@
         </div>
       </template>
 
+      <!-- View Type Tabs -->
+      <el-tabs v-model="viewType" @tab-change="handleViewTypeChange" style="margin-bottom: 20px;">
+        <el-tab-pane label="全部应用" name="all"></el-tab-pane>
+        <el-tab-pane name="currentMonth">
+          <template #label>
+            <span>{{ currentMonthLabel }}</span>
+          </template>
+        </el-tab-pane>
+        <el-tab-pane name="nextMonth">
+          <template #label>
+            <span>{{ nextMonthLabel }}</span>
+          </template>
+        </el-tab-pane>
+      </el-tabs>
+
+      <!-- Monthly Plan Summary (shown when viewing monthly plans) -->
+      <div v-if="viewType !== 'all'" class="monthly-plan-summary">
+        <el-alert :type="monthlyPlanAlert.type" :closable="false">
+          <template #title>
+            <div class="summary-header">
+              <span>{{ monthlyPlanAlert.title }}</span>
+              <el-button size="small" type="primary" @click="exportMonthlyPlan">
+                <el-icon><download /></el-icon>
+                导出月度计划
+              </el-button>
+            </div>
+          </template>
+          <div class="plan-statistics">
+            <span class="stat-item">需求完成: <strong>{{ monthlyStatistics.requirement }}</strong> 个</span>
+            <span class="stat-item">发版: <strong>{{ monthlyStatistics.release }}</strong> 个</span>
+            <span class="stat-item">技术上线: <strong>{{ monthlyStatistics.tech }}</strong> 个</span>
+            <span class="stat-item">业务上线: <strong>{{ monthlyStatistics.biz }}</strong> 个</span>
+          </div>
+        </el-alert>
+      </div>
+
       <!-- Search Bar -->
       <div class="search-bar">
         <el-form :model="searchForm" inline>
@@ -347,6 +383,7 @@
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
                 style="width: 100%"
+                disabled
               />
             </el-form-item>
             <el-form-item label="计划发版时间">
@@ -357,6 +394,7 @@
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
                 style="width: 100%"
+                disabled
               />
             </el-form-item>
             <el-form-item label="计划技术上线">
@@ -367,6 +405,7 @@
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
                 style="width: 100%"
+                disabled
               />
             </el-form-item>
             <el-form-item label="计划业务上线">
@@ -377,10 +416,11 @@
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
                 style="width: 100%"
+                disabled
               />
             </el-form-item>
-            <el-alert type="info" :closable="false" style="margin-top: 10px;">
-              <span style="font-size: 12px;">提示：修改计划时间会记录在审计日志中</span>
+            <el-alert type="warning" :closable="false" style="margin-top: 10px;">
+              <span style="font-size: 12px;">提示：计划时间不可直接修改，如需调整请在子任务页面操作</span>
             </el-alert>
           </el-tab-pane>
 
@@ -939,6 +979,14 @@ const activeDetailTab = ref('basic')
 const planHistoryData = ref<any[]>([])
 const planHistoryLoading = ref(false)
 
+// Monthly plan view states
+const viewType = ref('all') // 'all' | 'currentMonth' | 'nextMonth'
+const currentDate = new Date()
+const currentMonth = currentDate.getMonth() + 1
+const currentYear = currentDate.getFullYear()
+const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
+const nextMonthYear = currentMonth === 12 ? currentYear + 1 : currentYear
+
 // Audit related states
 const auditRecords = ref<AuditLog[]>([])
 const auditLoading = ref(false)
@@ -1030,9 +1078,97 @@ const editForm = reactive({
   actual_biz_online_date: ''
 })
 
+// Monthly plan labels
+const currentMonthLabel = computed(() => {
+  return `${currentYear}年${String(currentMonth).padStart(2, '0')}月计划`
+})
+
+const nextMonthLabel = computed(() => {
+  return `${nextMonthYear}年${String(nextMonth).padStart(2, '0')}月计划`
+})
+
+// Monthly plan alert info
+const monthlyPlanAlert = computed(() => {
+  if (viewType.value === 'currentMonth') {
+    return {
+      type: 'warning',
+      title: `${currentYear}年${currentMonth}月应上线应用清单`
+    }
+  } else if (viewType.value === 'nextMonth') {
+    return {
+      type: 'info',
+      title: `${nextMonthYear}年${nextMonth}月应上线应用清单`
+    }
+  }
+  return { type: 'info', title: '' }
+})
+
+// Filter applications by month
+const filterApplicationsByMonth = (apps: Application[], targetYear: number, targetMonth: number) => {
+  return apps.filter(app => {
+    // Check all planned dates for the target month
+    const dates = [
+      app.planned_requirement_date,
+      app.planned_release_date,
+      app.planned_tech_online_date,
+      app.planned_biz_online_date
+    ]
+    
+    return dates.some(dateStr => {
+      if (!dateStr) return false
+      const date = new Date(dateStr)
+      return date.getFullYear() === targetYear && date.getMonth() + 1 === targetMonth
+    })
+  })
+}
+
+// Monthly statistics
+const monthlyStatistics = computed(() => {
+  let apps: Application[] = []
+  
+  if (viewType.value === 'currentMonth') {
+    apps = filterApplicationsByMonth(allApplications.value, currentYear, currentMonth)
+  } else if (viewType.value === 'nextMonth') {
+    apps = filterApplicationsByMonth(allApplications.value, nextMonthYear, nextMonth)
+  }
+  
+  const targetYear = viewType.value === 'currentMonth' ? currentYear : nextMonthYear
+  const targetMonth = viewType.value === 'currentMonth' ? currentMonth : nextMonth
+  
+  return {
+    requirement: apps.filter(app => {
+      if (!app.planned_requirement_date) return false
+      const date = new Date(app.planned_requirement_date)
+      return date.getFullYear() === targetYear && date.getMonth() + 1 === targetMonth
+    }).length,
+    release: apps.filter(app => {
+      if (!app.planned_release_date) return false
+      const date = new Date(app.planned_release_date)
+      return date.getFullYear() === targetYear && date.getMonth() + 1 === targetMonth
+    }).length,
+    tech: apps.filter(app => {
+      if (!app.planned_tech_online_date) return false
+      const date = new Date(app.planned_tech_online_date)
+      return date.getFullYear() === targetYear && date.getMonth() + 1 === targetMonth
+    }).length,
+    biz: apps.filter(app => {
+      if (!app.planned_biz_online_date) return false
+      const date = new Date(app.planned_biz_online_date)
+      return date.getFullYear() === targetYear && date.getMonth() + 1 === targetMonth
+    }).length
+  }
+})
+
 // 前端筛选后的数据
 const filteredApplications = computed(() => {
   let result = [...allApplications.value]
+
+  // Apply monthly filter if viewing monthly plans
+  if (viewType.value === 'currentMonth') {
+    result = filterApplicationsByMonth(result, currentYear, currentMonth)
+  } else if (viewType.value === 'nextMonth') {
+    result = filterApplicationsByMonth(result, nextMonthYear, nextMonth)
+  }
 
   // 关键词搜索（使用防抖后的值）
   if (debouncedKeyword.value) {
@@ -1046,7 +1182,7 @@ const filteredApplications = computed(() => {
 
   // 状态筛选
   if (searchForm.status) {
-    result = result.filter(app => app.status === searchForm.status)
+    result = result.filter(app => app.current_status === searchForm.status)
   }
 
   // 部门筛选
@@ -1202,6 +1338,27 @@ const loadSubTasks = async () => {
 
 // Initialize data
 onMounted(async () => {
+  // 恢复保存的页面状态（如果存在）
+  const savedState = sessionStorage.getItem('applicationListState')
+  if (savedState) {
+    try {
+      const state = JSON.parse(savedState)
+      currentPage.value = state.currentPage || 1
+      pageSize.value = state.pageSize || 20
+      if (state.searchForm) {
+        searchForm.keyword = state.searchForm.keyword || ''
+        searchForm.status = state.searchForm.status || undefined
+        searchForm.department = state.searchForm.department || undefined
+        searchForm.target = state.searchForm.target || undefined
+        debouncedKeyword.value = state.searchForm.keyword || ''
+      }
+      // 清除已恢复的状态
+      sessionStorage.removeItem('applicationListState')
+    } catch (error) {
+      console.error('Failed to restore page state:', error)
+    }
+  }
+  
   await Promise.all([
     loadApplications(),
     loadSubTasks()
@@ -1499,6 +1656,18 @@ const deleteApplicationInEdit = async () => {
 }
 
 const viewSubTasks = (row: Application) => {
+  // 保存当前页面状态到 sessionStorage
+  sessionStorage.setItem('applicationListState', JSON.stringify({
+    currentPage: currentPage.value,
+    pageSize: pageSize.value,
+    searchForm: {
+      keyword: searchForm.keyword,
+      status: searchForm.status,
+      department: searchForm.department,
+      target: searchForm.target
+    }
+  }))
+  
   router.push(`/subtasks/${row.id}`)
 }
 
@@ -1536,6 +1705,62 @@ const handleCreate = async () => {
   } catch (error) {
     console.error('Failed to create application:', error)
     ElMessage.error('创建应用失败')
+  }
+}
+
+const handleViewTypeChange = (tab: string) => {
+  // Reset pagination when changing view type
+  currentPage.value = 1
+}
+
+const exportMonthlyPlan = async () => {
+  try {
+    // Get filtered applications for the selected month
+    let targetApps: Application[] = []
+    let fileName = ''
+    
+    if (viewType.value === 'currentMonth') {
+      targetApps = filterApplicationsByMonth(allApplications.value, currentYear, currentMonth)
+      fileName = `${currentYear}年${currentMonth}月计划应用清单.xlsx`
+    } else if (viewType.value === 'nextMonth') {
+      targetApps = filterApplicationsByMonth(allApplications.value, nextMonthYear, nextMonth)
+      fileName = `${nextMonthYear}年${nextMonth}月计划应用清单.xlsx`
+    }
+    
+    if (targetApps.length === 0) {
+      ElMessage.warning('当前月份没有计划应用')
+      return
+    }
+
+    const columns = [
+      'l2_id',
+      'app_name',
+      'current_status',
+      'planned_requirement_date',
+      'planned_release_date',
+      'planned_tech_online_date',
+      'planned_biz_online_date',
+      'dev_team',
+      'dev_owner',
+      'ops_team',
+      'ops_owner',
+      'is_delayed',
+      'delay_days'
+    ]
+
+    // Export specific app IDs
+    await ExcelAPI.exportAndDownloadApplications({
+      filters: {
+        ids: targetApps.map(app => app.id)
+      },
+      columns,
+      filename: fileName
+    })
+
+    ElMessage.success(`月度计划导出成功`)
+  } catch (error) {
+    console.error('Failed to export monthly plan:', error)
+    ElMessage.error('导出失败，请稍后重试')
   }
 }
 
@@ -3121,6 +3346,38 @@ watch([currentPage, pageSize], () => {
 .no-delay-history {
   padding: 60px;
   text-align: center;
+}
+
+/* Monthly plan view styles */
+.monthly-plan-summary {
+  margin-bottom: 20px;
+}
+
+.monthly-plan-summary .summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.monthly-plan-summary .plan-statistics {
+  display: flex;
+  gap: 30px;
+  margin-top: 10px;
+}
+
+.monthly-plan-summary .stat-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.monthly-plan-summary .stat-item strong {
+  color: #303133;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {

@@ -258,6 +258,45 @@ export class ReportsAPI {
 }
 
 export class ExcelAPI {
+  // Export report data to Excel
+  static async exportReport(reportData: any, filename: string): Promise<void> {
+    try {
+      console.log('🔍 [ExcelAPI] Export report to Excel:', {
+        type: reportData.type,
+        filename
+      })
+
+      // Send report data to backend for Excel conversion
+      const response = await api.post('/reports/export', {
+        report_type: reportData.type,
+        export_format: 'excel',
+        report_data: reportData,
+        include_charts: false
+      }, {
+        responseType: 'blob'
+      })
+
+      // Create blob with proper MIME type
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+
+      // Trigger download
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      console.log('✅ [ExcelAPI] Report exported successfully:', filename)
+    } catch (error) {
+      console.error('❌ [ExcelAPI] Failed to export report:', error)
+      throw error
+    }
+  }
   // Transform complete Excel file with both applications and subtasks (DEPRECATED - kept for future use)
   private static async transformCompleteExcelFileDeprecated(file: File): Promise<File> {
     return new Promise((resolve, reject) => {

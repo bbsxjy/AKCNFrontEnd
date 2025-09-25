@@ -602,6 +602,9 @@
 
           <!-- 计划时间 -->
           <el-tab-pane label="计划时间" name="planned">
+            <el-alert v-if="hasPlannedDateChanges" type="warning" :closable="false" style="margin-bottom: 15px;">
+              <span style="font-size: 12px;">检测到计划时间变更，请填写变更原因</span>
+            </el-alert>
             <el-form-item label="计划需求完成">
               <el-date-picker
                 v-model="editForm.planned_requirement_date"
@@ -610,6 +613,7 @@
                 style="width: 100%"
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
+                @change="checkPlannedDateChange"
               />
             </el-form-item>
             <el-form-item label="计划发版时间">
@@ -620,6 +624,7 @@
                 style="width: 100%"
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
+                @change="checkPlannedDateChange"
               />
             </el-form-item>
             <el-form-item label="计划技术上线">
@@ -630,6 +635,7 @@
                 style="width: 100%"
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
+                @change="checkPlannedDateChange"
               />
             </el-form-item>
             <el-form-item label="计划业务上线">
@@ -640,6 +646,15 @@
                 style="width: 100%"
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
+                @change="checkPlannedDateChange"
+              />
+            </el-form-item>
+            <el-form-item label="变更原因" v-if="hasPlannedDateChanges" required>
+              <el-input
+                v-model="editForm.plan_change_reason"
+                type="textarea"
+                placeholder="请输入计划变更原因（必填）"
+                :rows="3"
               />
             </el-form-item>
           </el-tab-pane>
@@ -833,8 +848,27 @@ const editForm = reactive<UpdateSubTaskRequest>({
   ops_requirement_submitted: '',
   ops_testing_status: '',
   launch_check_status: '',
-  sub_target: 'AK'
+  sub_target: 'AK',
+  plan_change_reason: ''
 } as any)
+
+// Track original planned dates for change detection
+const originalPlannedDates = ref({
+  planned_requirement_date: '',
+  planned_release_date: '',
+  planned_tech_online_date: '',
+  planned_biz_online_date: ''
+})
+
+// Check if planned dates have changed
+const hasPlannedDateChanges = computed(() => {
+  return (
+    editForm.planned_requirement_date !== originalPlannedDates.value.planned_requirement_date ||
+    editForm.planned_release_date !== originalPlannedDates.value.planned_release_date ||
+    editForm.planned_tech_online_date !== originalPlannedDates.value.planned_tech_online_date ||
+    editForm.planned_biz_online_date !== originalPlannedDates.value.planned_biz_online_date
+  )
+})
 
 // Computed properties
 const applicationName = computed(() => application.value?.app_name || 'Loading...')
@@ -1325,10 +1359,10 @@ const viewDetails = (task: SubTask) => {
 
 // Create subtask
 const showCreateTaskDialog = () => {
-  // Reset form
+  // Reset form with dev_owner and ops_owner from application
   Object.assign(createForm, {
     l2_id: Number(applicationId),
-    sub_target: 'AK',
+    sub_target: application.value?.overall_transformation_target || 'AK',
     version_name: '',
     task_status: '待启动',
     planned_requirement_date: '',
@@ -1337,8 +1371,8 @@ const showCreateTaskDialog = () => {
     planned_biz_online_date: '',
     notes: '',
     resource_applied: false,
-    dev_owner: '',
-    ops_owner: ''
+    dev_owner: application.value?.dev_owner || '',
+    ops_owner: application.value?.ops_owner || ''
   })
   showCreateDialog.value = true
 }
@@ -1385,14 +1419,36 @@ const editTask = (task: SubTask) => {
     ops_requirement_submitted: task.ops_requirement_submitted || '',
     ops_testing_status: task.ops_testing_status || '',
     launch_check_status: task.launch_check_status || '',
-    sub_target: task.sub_target || 'AK'
+    sub_target: task.sub_target || 'AK',
+    plan_change_reason: ''
   })
+  
+  // Store original planned dates for comparison
+  originalPlannedDates.value = {
+    planned_requirement_date: task.planned_requirement_date || '',
+    planned_release_date: task.planned_release_date || '',
+    planned_tech_online_date: task.planned_tech_online_date || '',
+    planned_biz_online_date: task.planned_biz_online_date || ''
+  }
+  
   showEditDialog.value = true
+}
+
+// Check if planned date changed
+const checkPlannedDateChange = () => {
+  // This is triggered when dates change, hasPlannedDateChanges will auto-update
 }
 
 const handleEdit = async () => {
   if (!editingTask.value || !editForm.version_name) {
     safeMessage('请填写必填字段', 'error')
+    return
+  }
+
+  // Check if plan change reason is required
+  if (hasPlannedDateChanges.value && !editForm.plan_change_reason) {
+    safeMessage('计划时间有变更，请填写变更原因', 'error')
+    activeEditTab.value = 'planned'  // Switch to planned tab
     return
   }
 
@@ -1402,6 +1458,14 @@ const handleEdit = async () => {
       ...editForm,
       // Ensure progress_percentage is a number
       progress_percentage: Number(editForm.progress_percentage) || 0
+    }
+
+    // If plan changed, append reason to notes
+    if (hasPlannedDateChanges.value && editForm.plan_change_reason) {
+      const changeNote = `[计划变更 ${new Date().toLocaleDateString('zh-CN')}] ${editForm.plan_change_reason}`
+      formattedData.notes = formattedData.notes 
+        ? `${formattedData.notes}\n${changeNote}`
+        : changeNote
     }
 
     await SubTasksAPI.updateSubTask(editingTask.value.id, formattedData)

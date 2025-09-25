@@ -227,6 +227,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ApplicationsAPI } from '@/api/applications'
 import { SubTasksAPI } from '@/api/subtasks'
+import { ExcelAPI } from '@/api/reports'
 import { useChart } from '@/composables/useCharts'
 import * as echarts from 'echarts'
 
@@ -763,26 +764,42 @@ const loadMonthlyTrend = async () => {
 const exportReport = async () => {
   exporting.value = true
   try {
-    // 准备导出数据
-    const exportData = {
-      summary: summaryStats,
-      data: activeTab.value === 'delay' ? delayData.value : progressData.value,
-      charts: chartData,
-      type: activeTab.value,
-      generatedAt: new Date().toLocaleString('zh-CN')
+    let reportData: any = {}
+    let filename = ''
+
+    // Prepare data based on active tab
+    switch (activeTab.value) {
+      case 'summary':
+        reportData = {
+          type: 'summary',
+          statistics: summaryStats,
+          timeRange: timeRange.value
+        }
+        filename = `汇总报表_${new Date().toISOString().split('T')[0]}.xlsx`
+        break
+        
+      case 'progress':
+        reportData = {
+          type: 'progress',
+          data: progressData.value,
+          timeRange: timeRange.value
+        }
+        filename = `项目进度报表_${new Date().toISOString().split('T')[0]}.xlsx`
+        break
+        
+      case 'delay':
+        reportData = {
+          type: 'delay',
+          data: delayData.value,
+          timeRange: timeRange.value
+        }
+        filename = `延期分析报表_${new Date().toISOString().split('T')[0]}.xlsx`
+        break
     }
 
-    // 创建导出内容
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `report_${activeTab.value}_${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-
+    // Use Excel API to export
+    await ExcelAPI.exportReport(reportData, filename)
+    
     ElMessage.success('报表导出成功')
   } catch (error) {
     console.error('Failed to export report:', error)
