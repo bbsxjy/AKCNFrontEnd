@@ -233,7 +233,7 @@
           <template #header>
             <div class="card-header">
               <div class="header-left">
-                <span>应用优先级分布</span>
+                <span>应用档位分布</span>
               </div>
               <div class="header-filters">
                 <el-select

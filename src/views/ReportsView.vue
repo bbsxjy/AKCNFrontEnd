@@ -105,7 +105,7 @@
           <el-col :xs="24" :sm="24" :md="12">
             <el-card>
               <template #header>
-                <h3>应用优先级分布</h3>
+                <h3>应用档位分布</h3>
               </template>
               <div ref="priorityChartRef" style="height: 400px;"></div>
             </el-card>
