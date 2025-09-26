@@ -649,9 +649,9 @@
                 </div>
                 <div class="delay-content">
                   <div class="delay-dates">
-                    <span class="original-date">原计划：{{ formatYearMonth(item.originalDate) }}</span>
+                    <span class="original-date">原计划：{{ formatYearMonth(item.originalDate) || '未设置' }}</span>
                     <span class="arrow">→</span>
-                    <span class="new-date">调整为：{{ formatYearMonth(item.newDate) }}</span>
+                    <span class="new-date">调整为：{{ item.newDate ? formatYearMonth(item.newDate) : '待确定' }}</span>
                   </div>
                   <div class="delay-reason" v-if="item.reason">
                     <span class="reason-label">延期原因：</span>
@@ -2462,6 +2462,20 @@ const processDelayHistory = async (audits: AuditLog[], app: Application) => {
     'planned_biz_online_date'
   ]
 
+  // Also try to get subtask audit records to find plan change reasons
+  let subtaskAudits: AuditLog[] = []
+  try {
+    // Get related subtasks for this application
+    const subtasks = allSubTasks.value.filter(s => s.l2_id === app.id || s.application_id === app.id)
+    // Get audit logs for these subtasks
+    for (const subtask of subtasks) {
+      const subAudits = await AuditAPI.getRecordHistory('subtasks', subtask.id)
+      subtaskAudits.push(...subAudits)
+    }
+  } catch (error) {
+    console.error('Failed to get subtask audits:', error)
+  }
+
   // Filter and process audit records for plan date changes
   audits.forEach(audit => {
     if (!audit.changed_fields) return
@@ -2471,28 +2485,111 @@ const processDelayHistory = async (audits: AuditLog[], app: Application) => {
         const oldDate = audit.old_values?.[field]
         const newDate = audit.new_values?.[field]
 
-        if (oldDate && newDate) {
-          const delayDays = calculateDaysDiff(oldDate, newDate)
-
-          // Record both delays (positive) and advances (negative)
-          if (delayDays !== 0) {
-            delayHistory.push({
-              date: audit.created_at,
-              phase: field,
-              originalDate: oldDate,
-              newDate: newDate,
-              delayDays: Math.abs(delayDays),
-              delayUnit: Math.abs(delayDays) > 30 ? `${Math.floor(Math.abs(delayDays) / 30)}个月` : '天',
-              reason: audit.new_values?.notes || audit.new_values?.adjustment_reason || '未说明原因',
-              operator: audit.user_full_name || '系统',
-              type: delayDays > 30 ? 'danger' : delayDays > 15 ? 'warning' : 'primary',
-              isDelay: delayDays > 0  // true for delay, false for advance
-            })
+        if (oldDate || newDate) {
+          // Handle both date changes and additions
+          const actualOldDate = oldDate || null
+          const actualNewDate = newDate || null
+          
+          let delayDays = 0
+          if (actualOldDate && actualNewDate) {
+            delayDays = calculateDaysDiff(actualOldDate, actualNewDate)
+          } else if (actualNewDate && !actualOldDate) {
+            // New date added
+            delayDays = 0
+          } else if (actualOldDate && !actualNewDate) {
+            // Date removed (unusual case)
+            const today = new Date()
+            const oldDateObj = new Date(actualOldDate)
+            delayDays = Math.ceil((today.getTime() - oldDateObj.getTime()) / (1000 * 60 * 60 * 24))
           }
+
+          // Try to find reason from audit notes or related subtask audits
+          let reason = audit.new_values?.notes || audit.new_values?.plan_change_reason || audit.new_values?.adjustment_reason
+          
+          // If no reason in application audit, try to find from subtask audits around the same time
+          if (!reason && subtaskAudits.length > 0) {
+            const auditTime = new Date(audit.created_at).getTime()
+            const relatedSubAudit = subtaskAudits.find(sa => {
+              const saTime = new Date(sa.created_at).getTime()
+              return Math.abs(saTime - auditTime) < 60000 // Within 1 minute
+            })
+            if (relatedSubAudit) {
+              reason = relatedSubAudit.new_values?.notes || relatedSubAudit.new_values?.plan_change_reason
+              if (reason && reason.includes('[计划变更')) {
+                // Extract the reason from the formatted note
+                const match = reason.match(/\[计划变更[^\]]+\]\s*(.+)/)
+                if (match && match[1]) {
+                  reason = match[1]
+                }
+              }
+            }
+          }
+          
+          reason = reason || '计划调整'
+
+          delayHistory.push({
+            date: audit.created_at,
+            phase: field,
+            originalDate: actualOldDate,
+            newDate: actualNewDate,
+            delayDays: Math.abs(delayDays),
+            delayUnit: Math.abs(delayDays) > 30 ? `${Math.floor(Math.abs(delayDays) / 30)}个月` : '天',
+            reason: reason,
+            operator: audit.user_full_name || '系统',
+            type: delayDays > 30 ? 'danger' : delayDays > 15 ? 'warning' : 'primary',
+            isDelay: delayDays > 0  // true for delay, false for advance
+          })
         }
       }
     })
   })
+
+  // Add current delay status if application is delayed
+  if (app.is_delayed && app.delay_days > 0) {
+    // Check if we don't already have a recent delay record
+    const hasRecentRecord = delayHistory.some(item => {
+      const recordDate = new Date(item.date).getTime()
+      const now = Date.now()
+      return (now - recordDate) < 86400000 // Within last 24 hours
+    })
+    
+    if (!hasRecentRecord) {
+      // Find which date is causing the delay
+      const today = new Date()
+      let delayedField = null
+      let delayedDate = null
+      
+      planFields.forEach(field => {
+        const dateValue = (app as any)[field]
+        if (dateValue) {
+          const date = new Date(dateValue)
+          const actualField = field.replace('planned', 'actual')
+          const actualValue = (app as any)[actualField]
+          if (date < today && !actualValue) {
+            if (!delayedDate || date < delayedDate) {
+              delayedField = field
+              delayedDate = date
+            }
+          }
+        }
+      })
+      
+      if (delayedField && delayedDate) {
+        delayHistory.unshift({
+          date: new Date().toISOString(),
+          phase: delayedField,
+          originalDate: delayedDate.toISOString().split('T')[0],
+          newDate: null, // No new date yet
+          delayDays: app.delay_days,
+          delayUnit: app.delay_days > 30 ? `${Math.floor(app.delay_days / 30)}个月` : '天',
+          reason: '当前延期（待更新计划）',
+          operator: '系统',
+          type: app.delay_days > 30 ? 'danger' : app.delay_days > 15 ? 'warning' : 'primary',
+          isDelay: true
+        })
+      }
+    }
+  }
 
   // Sort by date (newest first)
   return delayHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
