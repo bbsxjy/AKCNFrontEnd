@@ -1469,9 +1469,93 @@ const handleEdit = async () => {
     }
 
     await SubTasksAPI.updateSubTask(editingTask.value.id, formattedData)
+    
+    // Update application dates and delay status if plan dates changed
+    if (hasPlannedDateChanges.value && application.value) {
+      try {
+        // Get all subtasks for this application to calculate aggregate dates
+        const allSubtasks = await SubTasksAPI.getSubTasksByApplication(applicationId)
+        
+        // Get the latest planned dates from all subtasks
+        const latestDates = {
+          planned_requirement_date: null as string | null,
+          planned_release_date: null as string | null,
+          planned_tech_online_date: null as string | null,
+          planned_biz_online_date: null as string | null
+        }
+        
+        allSubtasks.forEach(subtask => {
+          // Update with the latest (max) date for each phase
+          if (subtask.planned_requirement_date) {
+            if (!latestDates.planned_requirement_date || 
+                new Date(subtask.planned_requirement_date) > new Date(latestDates.planned_requirement_date)) {
+              latestDates.planned_requirement_date = subtask.planned_requirement_date
+            }
+          }
+          if (subtask.planned_release_date) {
+            if (!latestDates.planned_release_date || 
+                new Date(subtask.planned_release_date) > new Date(latestDates.planned_release_date)) {
+              latestDates.planned_release_date = subtask.planned_release_date
+            }
+          }
+          if (subtask.planned_tech_online_date) {
+            if (!latestDates.planned_tech_online_date || 
+                new Date(subtask.planned_tech_online_date) > new Date(latestDates.planned_tech_online_date)) {
+              latestDates.planned_tech_online_date = subtask.planned_tech_online_date
+            }
+          }
+          if (subtask.planned_biz_online_date) {
+            if (!latestDates.planned_biz_online_date || 
+                new Date(subtask.planned_biz_online_date) > new Date(latestDates.planned_biz_online_date)) {
+              latestDates.planned_biz_online_date = subtask.planned_biz_online_date
+            }
+          }
+        })
+        
+        // Check if application is delayed based on new dates
+        const today = new Date()
+        const isDelayed = Object.entries(latestDates).some(([key, dateStr]) => {
+          if (!dateStr) return false
+          const date = new Date(dateStr)
+          const actualKey = key.replace('planned', 'actual')
+          const actualDate = application.value![actualKey as keyof Application]
+          return date < today && !actualDate
+        })
+        
+        // Calculate delay days if delayed
+        let delayDays = 0
+        if (isDelayed) {
+          const delayedDates = Object.entries(latestDates)
+            .filter(([key, dateStr]) => {
+              if (!dateStr) return false
+              const date = new Date(dateStr)
+              const actualKey = key.replace('planned', 'actual')
+              const actualDate = application.value![actualKey as keyof Application]
+              return date < today && !actualDate
+            })
+            .map(([_, dateStr]) => new Date(dateStr!))
+          
+          if (delayedDates.length > 0) {
+            const oldestDelayedDate = new Date(Math.min(...delayedDates.map(d => d.getTime())))
+            delayDays = Math.ceil((today.getTime() - oldestDelayedDate.getTime()) / (1000 * 60 * 60 * 24))
+          }
+        }
+        
+        // Update application with new dates and delay status
+        await ApplicationsAPI.updateApplication(application.value.id, {
+          ...latestDates,
+          is_delayed: isDelayed,
+          delay_days: delayDays
+        })
+      } catch (error) {
+        console.error('Failed to update application dates and delay status:', error)
+      }
+    }
+    
     safeMessage('子任务更新成功', 'success')
     showEditDialog.value = false
     await loadSubTasks()
+    await loadApplication() // Reload application data to reflect changes
   } catch (error: any) {
     console.error('Failed to update subtask:', error)
 

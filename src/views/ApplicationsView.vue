@@ -978,11 +978,11 @@ const editForm = reactive({
 
 // Monthly plan labels
 const currentMonthLabel = computed(() => {
-  return `${currentYear}年${String(currentMonth).padStart(2, '0')}月计划`
+  return `计划到期列表-${currentYear}年${String(currentMonth).padStart(2, '0')}月（本月）`
 })
 
 const nextMonthLabel = computed(() => {
-  return `${nextMonthYear}年${String(nextMonth).padStart(2, '0')}月计划`
+  return `计划到期列表-${nextMonthYear}年${String(nextMonth).padStart(2, '0')}月（下个月）`
 })
 
 // Monthly plan alert info
@@ -1219,12 +1219,109 @@ const updateFilterOptions = () => {
   }
 }
 
+// Merge subtask dates to application
+const mergeSubTaskDatesToApplications = () => {
+  if (!allApplications.value.length || !allSubTasks.value.length) return
+  
+  // Group subtasks by application ID
+  const subtasksByApp = new Map<number, any[]>()
+  allSubTasks.value.forEach(subtask => {
+    const appId = subtask.l2_id || subtask.application_id
+    if (appId) {
+      if (!subtasksByApp.has(appId)) {
+        subtasksByApp.set(appId, [])
+      }
+      subtasksByApp.get(appId)!.push(subtask)
+    }
+  })
+  
+  // Update each application with aggregated subtask dates
+  allApplications.value.forEach(app => {
+    const appSubtasks = subtasksByApp.get(app.id) || []
+    if (appSubtasks.length > 0) {
+      // Get the latest planned dates from all subtasks
+      const latestDates = {
+        planned_requirement_date: null as string | null,
+        planned_release_date: null as string | null,
+        planned_tech_online_date: null as string | null,
+        planned_biz_online_date: null as string | null
+      }
+      
+      appSubtasks.forEach(subtask => {
+        // Update with the latest (max) date for each phase
+        if (subtask.planned_requirement_date) {
+          if (!latestDates.planned_requirement_date || 
+              new Date(subtask.planned_requirement_date) > new Date(latestDates.planned_requirement_date)) {
+            latestDates.planned_requirement_date = subtask.planned_requirement_date
+          }
+        }
+        if (subtask.planned_release_date) {
+          if (!latestDates.planned_release_date || 
+              new Date(subtask.planned_release_date) > new Date(latestDates.planned_release_date)) {
+            latestDates.planned_release_date = subtask.planned_release_date
+          }
+        }
+        if (subtask.planned_tech_online_date) {
+          if (!latestDates.planned_tech_online_date || 
+              new Date(subtask.planned_tech_online_date) > new Date(latestDates.planned_tech_online_date)) {
+            latestDates.planned_tech_online_date = subtask.planned_tech_online_date
+          }
+        }
+        if (subtask.planned_biz_online_date) {
+          if (!latestDates.planned_biz_online_date || 
+              new Date(subtask.planned_biz_online_date) > new Date(latestDates.planned_biz_online_date)) {
+            latestDates.planned_biz_online_date = subtask.planned_biz_online_date
+          }
+        }
+      })
+      
+      // Merge the latest dates to application
+      Object.assign(app, latestDates)
+      
+      // Check if application is delayed based on subtask dates
+      const today = new Date()
+      const isDelayed = Object.entries(latestDates).some(([key, dateStr]) => {
+        if (!dateStr) return false
+        const date = new Date(dateStr)
+        const actualKey = key.replace('planned', 'actual') as keyof Application
+        return date < today && !app[actualKey]
+      })
+      
+      if (isDelayed !== app.is_delayed) {
+        app.is_delayed = isDelayed
+        
+        // Calculate delay days
+        if (isDelayed) {
+          const delayedDates = Object.entries(latestDates)
+            .filter(([key, dateStr]) => {
+              if (!dateStr) return false
+              const date = new Date(dateStr)
+              const actualKey = key.replace('planned', 'actual') as keyof Application
+              return date < today && !app[actualKey]
+            })
+            .map(([_, dateStr]) => new Date(dateStr!))
+          
+          if (delayedDates.length > 0) {
+            const oldestDelayedDate = new Date(Math.min(...delayedDates.map(d => d.getTime())))
+            app.delay_days = Math.ceil((today.getTime() - oldestDelayedDate.getTime()) / (1000 * 60 * 60 * 24))
+          }
+        } else {
+          app.delay_days = 0
+        }
+      }
+    }
+  })
+}
+
 // Load all subtasks data
 const loadSubTasks = async () => {
   try {
     subtaskLoading.value = true
     const response = await SubTasksAPI.getSubTasks({ limit: 1000 })
     allSubTasks.value = response.items || []
+    
+    // Merge subtask dates to applications after loading
+    mergeSubTaskDatesToApplications()
   } catch (error) {
     console.error('Failed to load subtasks:', error)
     ElMessage.error('加载子任务列表失败')
