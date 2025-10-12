@@ -138,7 +138,6 @@ export class ApplicationsAPI {
 
     // Ensure data consistency
     if (response.data && response.data.items) {
-      console.log(response.data.items)
       response.data.items = response.data.items.map((item: any) => ({
         ...item,
         // Set defaults for new fields if missing

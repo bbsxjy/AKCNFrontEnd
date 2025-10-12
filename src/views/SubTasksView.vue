@@ -1191,37 +1191,44 @@ const getRemainingDays = (row: SubTask) => {
 const getDelayInfo = (row: SubTask) => {
   // Calculate delay based on planned vs actual dates
   const today = new Date()
-  let delayDays = 0
+  let delayMonths = 0
   let delayType = ''
+
+  // Helper function to calculate month difference
+  const calcMonthDiff = (plannedDate: Date) => {
+    const yearDiff = today.getFullYear() - plannedDate.getFullYear()
+    const monthDiff = today.getMonth() - plannedDate.getMonth()
+    return Math.max(0, yearDiff * 12 + monthDiff)
+  }
 
   // Check each milestone for delays
   if (row.planned_biz_online_date && !row.actual_biz_online_date) {
     const plannedDate = new Date(row.planned_biz_online_date)
     if (today > plannedDate) {
-      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayMonths = calcMonthDiff(plannedDate)
       delayType = '业务上线'
     }
   } else if (row.planned_tech_online_date && !row.actual_tech_online_date) {
     const plannedDate = new Date(row.planned_tech_online_date)
     if (today > plannedDate) {
-      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayMonths = calcMonthDiff(plannedDate)
       delayType = '技术上线'
     }
   } else if (row.planned_release_date && !row.actual_release_date) {
     const plannedDate = new Date(row.planned_release_date)
     if (today > plannedDate) {
-      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayMonths = calcMonthDiff(plannedDate)
       delayType = '发版'
     }
   }
 
-  if (delayDays > 0) {
+  if (delayMonths > 0) {
     return {
       hasDelay: true,
-      days: delayDays,
+      days: delayMonths,
       type: delayType,
-      text: `${delayType}延期${delayDays}天`,
-      severity: delayDays > 30 ? 'danger' : 'warning'
+      text: `${delayType}延期${delayMonths}月`,
+      severity: delayMonths > 3 ? 'danger' : 'warning'
     }
   }
 
@@ -1241,7 +1248,7 @@ const showDelayDetails = (row: SubTask) => {
     `<div style="line-height: 1.8;">
       <p><strong>版本名称：</strong>${row.version_name}</p>
       <p><strong>延期类型：</strong>${delayInfo.type}</p>
-      <p><strong>延期天数：</strong>${delayInfo.days}天</p>
+      <p><strong>延期时间：</strong>${delayInfo.days}月</p>
       <hr style="margin: 10px 0;">
       <p><strong>计划日期：</strong></p>
       <ul style="list-style: none; padding-left: 20px;">
@@ -1522,8 +1529,8 @@ const handleEdit = async () => {
           return date < today && !actualDate
         })
         
-        // Calculate delay days if delayed
-        let delayDays = 0
+        // Calculate delay months if delayed
+        let delayMonths = 0
         if (isDelayed) {
           const delayedDates = Object.entries(latestDates)
             .filter(([key, dateStr]) => {
@@ -1534,10 +1541,12 @@ const handleEdit = async () => {
               return date < today && !actualDate
             })
             .map(([_, dateStr]) => new Date(dateStr!))
-          
+
           if (delayedDates.length > 0) {
             const oldestDelayedDate = new Date(Math.min(...delayedDates.map(d => d.getTime())))
-            delayDays = Math.ceil((today.getTime() - oldestDelayedDate.getTime()) / (1000 * 60 * 60 * 24))
+            const yearDiff = today.getFullYear() - oldestDelayedDate.getFullYear()
+            const monthDiff = today.getMonth() - oldestDelayedDate.getMonth()
+            delayMonths = Math.max(0, yearDiff * 12 + monthDiff)
           }
         }
         
@@ -1545,7 +1554,7 @@ const handleEdit = async () => {
         await ApplicationsAPI.updateApplication(application.value.id, {
           ...latestDates,
           is_delayed: isDelayed,
-          delay_days: delayDays
+          delay_days: delayMonths
         })
       } catch (error) {
         console.error('Failed to update application dates and delay status:', error)

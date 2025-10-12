@@ -184,13 +184,13 @@
           <el-col :xs="24" :sm="8">
             <div class="stat-card warning">
               <div class="stat-value">{{ delayStats.avgDelayDays }}</div>
-              <div class="stat-label">平均延期天数</div>
+              <div class="stat-label">平均延期月数</div>
             </div>
           </el-col>
           <el-col :xs="24" :sm="8">
             <div class="stat-card">
               <div class="stat-value">{{ delayStats.maxDelayDays }}</div>
-              <div class="stat-label">最长延期天数</div>
+              <div class="stat-label">最长延期月数</div>
             </div>
           </el-col>
         </el-row>
@@ -205,10 +205,10 @@
               <el-tag :type="getPhaseType(row.currentPhase)">{{ row.currentPhase }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="delayDays" label="延期天数" width="100" align="center">
+          <el-table-column prop="delayDays" label="延期月数" width="100" align="center">
             <template #default="{ row }">
               <el-tag :type="getDelayType(row.delayDays)">
-                {{ row.delayDays }} 天
+                {{ row.delayDays }} 月
               </el-tag>
             </template>
           </el-table-column>
@@ -642,8 +642,10 @@ const loadDelayData = async (apps: any[], tasks: any[]) => {
     if (delayedTasks.length > 0) {
       const maxDelayTask = delayedTasks.reduce((max, task) => {
         const plannedDate = new Date(task.planned_biz_online_date)
-        const delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
-        return delayDays > max.days ? { task, days: delayDays } : max
+        const yearDiff = today.getFullYear() - plannedDate.getFullYear()
+        const monthDiff = today.getMonth() - plannedDate.getMonth()
+        const delayMonths = Math.max(0, yearDiff * 12 + monthDiff)
+        return delayMonths > max.days ? { task, days: delayMonths } : max
       }, { task: delayedTasks[0], days: 0 })
 
       delayedItems.push({
@@ -1107,9 +1109,9 @@ const getProgressColor = (progress: number) => {
   return '#a0aec0'
 }
 
-const getDelayType = (days: number) => {
-  if (days > 30) return 'danger'
-  if (days > 15) return 'warning'
+const getDelayType = (months: number) => {
+  if (months > 3) return 'danger'  // >3月为严重
+  if (months > 1) return 'warning' // >1月为警告
   return 'info'
 }
 

@@ -52,6 +52,7 @@ export const getProgressColor = (progress: number, isDelayed = false, isBlocked 
 
 /**
  * 计算延期天数
+ * @deprecated Use calculateDelayMonths instead
  */
 export const calculateDelayDays = (plannedDate: string, currentDate = new Date()): number => {
   const planned = new Date(plannedDate)
@@ -59,6 +60,49 @@ export const calculateDelayDays = (plannedDate: string, currentDate = new Date()
   const diffTime = current.getTime() - planned.getTime()
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
   return Math.max(0, diffDays)
+}
+
+/**
+ * 计算延期月数
+ */
+export const calculateDelayMonths = (plannedDate: string, currentDate = new Date()): number => {
+  const planned = new Date(plannedDate)
+  const current = new Date(currentDate)
+
+  // Calculate month difference
+  const yearDiff = current.getFullYear() - planned.getFullYear()
+  const monthDiff = current.getMonth() - planned.getMonth()
+  const totalMonthDiff = yearDiff * 12 + monthDiff
+
+  // If current day is before planned day in the month, subtract 1
+  if (current.getDate() < planned.getDate()) {
+    return Math.max(0, totalMonthDiff - 1)
+  }
+
+  return Math.max(0, totalMonthDiff)
+}
+
+/**
+ * 格式化日期为 YYYY年MM月
+ */
+export const formatYearMonth = (date: string | Date | null): string => {
+  if (!date) return '-'
+
+  try {
+    const dateObj = date instanceof Date ? date : new Date(date)
+
+    if (isNaN(dateObj.getTime())) {
+      return '-'
+    }
+
+    const year = dateObj.getFullYear()
+    const month = dateObj.getMonth() + 1
+    const monthStr = month < 10 ? '0' + month : month.toString()
+    return `${year}年${monthStr}月`
+  } catch (error) {
+    console.error('Date formatting error:', error)
+    return '-'
+  }
 }
 
 /**

@@ -43,6 +43,30 @@ export interface UserPermissions {
   }
 }
 
+export interface MenuItem {
+  id: string
+  name: string
+  title: string
+  path: string
+  icon: string
+  order: number
+  enabled: boolean
+  badge?: string
+  badge_type?: string
+}
+
+export interface MenuGroup {
+  id: string
+  title: string
+  order: number
+  items: MenuItem[]
+}
+
+export interface MenuPermissionsResponse {
+  user_role: string
+  menu_groups: MenuGroup[]
+}
+
 export class AuthAPI {
   // SSO Callback
   static async ssoCallback(data: SSOCallbackRequest): Promise<LoginResponse> {
@@ -81,6 +105,12 @@ export class AuthAPI {
   // Get User Permissions
   static async getUserPermissions(): Promise<UserPermissions> {
     const response = await api.get('/auth/permissions')
+    return response.data
+  }
+
+  // Get Menu Permissions
+  static async getMenuPermissions(): Promise<MenuPermissionsResponse> {
+    const response = await api.get('/auth/menu-permissions')
     return response.data
   }
 

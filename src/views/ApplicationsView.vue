@@ -479,35 +479,35 @@
         <el-tab-pane label="时间进度" name="timeline">
           <el-descriptions :column="2" border>
             <el-descriptions-item label="【计划】需求完成" label-align="right">
-              {{ formatDate(detailData.planned_requirement_date) }}
+              {{ formatYearMonth(detailData.planned_requirement_date) }}
             </el-descriptions-item>
             <el-descriptions-item label="【实际】需求到达" label-align="right">
               <span :style="{ color: detailData.actual_requirement_date ? '#48bb78' : '#999' }">
-                {{ formatDate(detailData.actual_requirement_date) }}
+                {{ formatYearMonth(detailData.actual_requirement_date) }}
               </span>
             </el-descriptions-item>
             <el-descriptions-item label="【计划】发版时间" label-align="right">
-              {{ formatDate(detailData.planned_release_date) }}
+              {{ formatYearMonth(detailData.planned_release_date) }}
             </el-descriptions-item>
             <el-descriptions-item label="【实际】发版时间" label-align="right">
               <span :style="{ color: detailData.actual_release_date ? '#48bb78' : '#999' }">
-                {{ formatDate(detailData.actual_release_date) }}
+                {{ formatYearMonth(detailData.actual_release_date) }}
               </span>
             </el-descriptions-item>
             <el-descriptions-item label="【计划】技术上线" label-align="right">
-              {{ formatDate(detailData.planned_tech_online_date) }}
+              {{ formatYearMonth(detailData.planned_tech_online_date) }}
             </el-descriptions-item>
             <el-descriptions-item label="【实际】技术上线" label-align="right">
               <span :style="{ color: detailData.actual_tech_online_date ? '#48bb78' : '#999' }">
-                {{ formatDate(detailData.actual_tech_online_date) }}
+                {{ formatYearMonth(detailData.actual_tech_online_date) }}
               </span>
             </el-descriptions-item>
             <el-descriptions-item label="【计划】业务上线" label-align="right">
-              {{ formatDate(detailData.planned_biz_online_date) }}
+              {{ formatYearMonth(detailData.planned_biz_online_date) }}
             </el-descriptions-item>
             <el-descriptions-item label="【实际】业务上线" label-align="right">
               <span :style="{ color: detailData.actual_biz_online_date ? '#48bb78' : '#999' }">
-                {{ formatDate(detailData.actual_biz_online_date) }}
+                {{ formatYearMonth(detailData.actual_biz_online_date) }}
               </span>
             </el-descriptions-item>
           </el-descriptions>
@@ -524,7 +524,7 @@
             </el-descriptions-item>
             <el-descriptions-item label="延期状态" label-align="right">
               <el-tag v-if="detailData.is_delayed" type="danger" size="small">
-                延期 {{ detailData.delay_days }} 天
+                延期 {{ detailData.delay_days }} 月
               </el-tag>
               <el-tag v-else type="success" size="small">正常</el-tag>
             </el-descriptions-item>
@@ -623,7 +623,7 @@
             <template #title>
               <div class="summary-content">
                 <span>该应用已延期 <strong>{{ delayDetailsData.totalDelayCount }}</strong> 次</span>
-                <span class="total-delay-days">累计延期 <strong>{{ delayDetailsData.totalDelayDays }}</strong> 天</span>
+                <span class="total-delay-days">累计延期 <strong>{{ delayDetailsData.totalDelayDays }}</strong> 月</span>
               </div>
             </template>
           </el-alert>
@@ -643,7 +643,7 @@
               <div class="delay-record">
                 <div class="delay-header">
                   <el-tag size="small" :type="getDelayType(item.delayDays)">
-                    延期 {{ Math.abs(item.delayDays) }} {{ item.delayUnit || '天' }}
+                    延期 {{ Math.abs(item.delayDays) }} {{ item.delayUnit || '月' }}
                   </el-tag>
                   <span class="delay-phase">{{ getDelayPhaseLabel(item.phase) }}</span>
                 </div>
@@ -680,10 +680,10 @@
                 <el-badge :value="row.delayCount" type="warning" />
               </template>
             </el-table-column>
-            <el-table-column prop="totalDelayDays" label="累计延期天数" width="120" align="center">
+            <el-table-column prop="totalDelayDays" label="累计延期月数" width="120" align="center">
               <template #default="{ row }">
-                <span :class="{ 'text-danger': row.totalDelayDays > 30 }">
-                  {{ row.totalDelayDays }} 天
+                <span :class="{ 'text-danger': row.totalDelayDays > 3 }">
+                  {{ row.totalDelayDays }} 月
                 </span>
               </template>
             </el-table-column>
@@ -812,13 +812,13 @@
                 <span class="new-date">{{ formatYearMonth(row.new_date) }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="delay_days" label="延期天数" width="90" align="center">
+            <el-table-column prop="delay_days" label="延期月数" width="90" align="center">
               <template #default="{ row }">
                 <el-tag v-if="row.delay_days > 0" type="danger" size="small">
-                  +{{ row.delay_days }}天
+                  +{{ row.delay_days }}月
                 </el-tag>
                 <el-tag v-else-if="row.delay_days < 0" type="success" size="small">
-                  {{ row.delay_days }}天
+                  {{ row.delay_days }}月
                 </el-tag>
                 <span v-else>-</span>
               </template>
@@ -1290,7 +1290,7 @@ const mergeSubTaskDatesToApplications = () => {
       if (isDelayed !== app.is_delayed) {
         app.is_delayed = isDelayed
         
-        // Calculate delay days
+        // Calculate delay months
         if (isDelayed) {
           const delayedDates = Object.entries(latestDates)
             .filter(([key, dateStr]) => {
@@ -1300,10 +1300,13 @@ const mergeSubTaskDatesToApplications = () => {
               return date < today && !app[actualKey]
             })
             .map(([_, dateStr]) => new Date(dateStr!))
-          
+
           if (delayedDates.length > 0) {
             const oldestDelayedDate = new Date(Math.min(...delayedDates.map(d => d.getTime())))
-            app.delay_days = Math.ceil((today.getTime() - oldestDelayedDate.getTime()) / (1000 * 60 * 60 * 24))
+            // Calculate months instead of days
+            const yearDiff = today.getFullYear() - oldestDelayedDate.getFullYear()
+            const monthDiff = today.getMonth() - oldestDelayedDate.getMonth()
+            app.delay_days = Math.max(0, yearDiff * 12 + monthDiff)
           }
         } else {
           app.delay_days = 0
@@ -1868,37 +1871,44 @@ const getSubTaskWorkingDays = (row: SubTask) => {
 const getSubTaskDelayInfo = (row: SubTask) => {
   // Calculate delay based on planned vs actual dates
   const today = new Date()
-  let delayDays = 0
+  let delayMonths = 0
   let delayType = ''
+
+  // Helper function to calculate month difference
+  const calcMonthDiff = (plannedDate: Date) => {
+    const yearDiff = today.getFullYear() - plannedDate.getFullYear()
+    const monthDiff = today.getMonth() - plannedDate.getMonth()
+    return Math.max(0, yearDiff * 12 + monthDiff)
+  }
 
   // Check each milestone for delays
   if (row.planned_biz_online_date && !row.actual_biz_online_date) {
     const plannedDate = new Date(row.planned_biz_online_date)
     if (today > plannedDate) {
-      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayMonths = calcMonthDiff(plannedDate)
       delayType = '业务上线'
     }
   } else if (row.planned_tech_online_date && !row.actual_tech_online_date) {
     const plannedDate = new Date(row.planned_tech_online_date)
     if (today > plannedDate) {
-      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayMonths = calcMonthDiff(plannedDate)
       delayType = '技术上线'
     }
   } else if (row.planned_release_date && !row.actual_release_date) {
     const plannedDate = new Date(row.planned_release_date)
     if (today > plannedDate) {
-      delayDays = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+      delayMonths = calcMonthDiff(plannedDate)
       delayType = '发版'
     }
   }
 
-  if (delayDays > 0) {
+  if (delayMonths > 0) {
     return {
       hasDelay: true,
-      days: delayDays,
+      days: delayMonths,
       type: delayType,
-      text: `${delayType}延期${delayDays}天`,
-      severity: delayDays > 30 ? 'danger' : 'warning'
+      text: `${delayType}延期${delayMonths}月`,
+      severity: delayMonths > 3 ? 'danger' : 'warning'
     }
   }
 
@@ -1921,9 +1931,12 @@ const getDateComparisonClass = (plannedDate: string | null | undefined, actualDa
   if (actual <= planned) {
     return 'on-time' // 按时或提前完成
   } else {
-    const delayDays = Math.ceil((actual.getTime() - planned.getTime()) / (1000 * 60 * 60 * 24))
-    if (delayDays > 30) {
-      return 'delayed-serious' // 严重延期
+    // Calculate month difference
+    const yearDiff = actual.getFullYear() - planned.getFullYear()
+    const monthDiff = actual.getMonth() - planned.getMonth()
+    const delayMonths = yearDiff * 12 + monthDiff
+    if (delayMonths > 3) {
+      return 'delayed-serious' // 严重延期 (>3个月)
     } else {
       return 'delayed' // 轻度延期
     }
@@ -1937,7 +1950,7 @@ const showSubTaskDelayDetails = (row: SubTask) => {
     `<div style="line-height: 1.8;">
       <p><strong>版本名称：</strong>${row.version_name}</p>
       <p><strong>延期类型：</strong>${delayInfo.type}</p>
-      <p><strong>延期天数：</strong>${delayInfo.days}天</p>
+      <p><strong>延期时间：</strong>${delayInfo.days}月</p>
       <hr style="margin: 10px 0;">
       <p><strong>计划日期：</strong></p>
       <ul style="list-style: none; padding-left: 20px;">
@@ -2261,7 +2274,7 @@ const extractAdjustmentDetails = (audits: AuditLog[]) => {
         const newDate = audit.new_values?.[field]
 
         if (oldDate && newDate) {
-          const daysDiff = calculateDaysDiff(oldDate, newDate)
+          const monthsDiff = calculateMonthsDiff(oldDate, newDate)
 
           details.push({
             adjusted_at: audit.created_at,
@@ -2269,7 +2282,7 @@ const extractAdjustmentDetails = (audits: AuditLog[]) => {
             field: field,
             old_date: oldDate,
             new_date: newDate,
-            delay_days: daysDiff,
+            delay_days: monthsDiff,
             reason: audit.new_values?.adjustment_reason || '未说明'
           })
         }
@@ -2286,6 +2299,15 @@ const calculateDaysDiff = (date1: string, date2: string) => {
   const d2 = new Date(date2)
   const diffTime = d2.getTime() - d1.getTime()
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+}
+
+// Calculate month difference between two dates
+const calculateMonthsDiff = (date1: string, date2: string) => {
+  const d1 = new Date(date1)
+  const d2 = new Date(date2)
+  const yearDiff = d2.getFullYear() - d1.getFullYear()
+  const monthDiff = d2.getMonth() - d1.getMonth()
+  return yearDiff * 12 + monthDiff
 }
 
 // Get adjustment field label
@@ -2341,9 +2363,9 @@ const getDelayCount = (row: Application) => {
 }
 
 // Get delay type for styling
-const getDelayType = (delayDays: number) => {
-  if (Math.abs(delayDays) > 30) return 'danger'
-  if (Math.abs(delayDays) > 15) return 'warning'
+const getDelayType = (delayMonths: number) => {
+  if (Math.abs(delayMonths) > 3) return 'danger'  // >3月为严重
+  if (Math.abs(delayMonths) > 1) return 'warning' // >1月为警告
   return 'info'
 }
 
@@ -2393,10 +2415,10 @@ const showDelayDetails = async (row: Application) => {
           originalDate: row.planned_biz_online_date,
           newDate: null,
           delayDays: row.delay_days,
-          delayUnit: row.delay_days > 30 ? `${Math.floor(row.delay_days / 30)}个月` : '天',
+          delayUnit: '月',
           reason: '当前延期状态',
           operator: '系统',
-          type: row.delay_days > 30 ? 'danger' : row.delay_days > 15 ? 'warning' : 'primary'
+          type: row.delay_days > 3 ? 'danger' : row.delay_days > 1 ? 'warning' : 'primary'
         })
         totalDelayCount = 1
       }
@@ -2429,14 +2451,14 @@ const showDelayDetails = async (row: Application) => {
           originalDate: row.planned_biz_online_date,
           newDate: null,
           delayDays: row.delay_days || 0,
-          delayUnit: (row.delay_days || 0) > 30 ? `${Math.floor((row.delay_days || 0) / 30)}个月` : '天',
+          delayUnit: '月',
           reason: '当前延期状态',
           operator: '系统',
-          type: (row.delay_days || 0) > 30 ? 'danger' : (row.delay_days || 0) > 15 ? 'warning' : 'primary'
+          type: (row.delay_days || 0) > 3 ? 'danger' : (row.delay_days || 0) > 1 ? 'warning' : 'primary'
         }],
         phaseStatistics: [],
         reasonAnalysis: [{ reason: '当前延期状态', count: 1 }],
-        currentDelayStatus: `延期${row.delay_days}天`
+        currentDelayStatus: `延期${row.delay_days}月`
       }
     } else {
       delayDetailsData.value = {
@@ -2490,17 +2512,19 @@ const processDelayHistory = async (audits: AuditLog[], app: Application) => {
           const actualOldDate = oldDate || null
           const actualNewDate = newDate || null
           
-          let delayDays = 0
+          let delayMonths = 0
           if (actualOldDate && actualNewDate) {
-            delayDays = calculateDaysDiff(actualOldDate, actualNewDate)
+            delayMonths = calculateMonthsDiff(actualOldDate, actualNewDate)
           } else if (actualNewDate && !actualOldDate) {
             // New date added
-            delayDays = 0
+            delayMonths = 0
           } else if (actualOldDate && !actualNewDate) {
             // Date removed (unusual case)
             const today = new Date()
             const oldDateObj = new Date(actualOldDate)
-            delayDays = Math.ceil((today.getTime() - oldDateObj.getTime()) / (1000 * 60 * 60 * 24))
+            const yearDiff = today.getFullYear() - oldDateObj.getFullYear()
+            const monthDiff = today.getMonth() - oldDateObj.getMonth()
+            delayMonths = yearDiff * 12 + monthDiff
           }
 
           // Try to find reason from audit notes or related subtask audits
@@ -2532,12 +2556,12 @@ const processDelayHistory = async (audits: AuditLog[], app: Application) => {
             phase: field,
             originalDate: actualOldDate,
             newDate: actualNewDate,
-            delayDays: Math.abs(delayDays),
-            delayUnit: Math.abs(delayDays) > 30 ? `${Math.floor(Math.abs(delayDays) / 30)}个月` : '天',
+            delayDays: Math.abs(delayMonths),
+            delayUnit: '月',
             reason: reason,
             operator: audit.user_full_name || '系统',
-            type: delayDays > 30 ? 'danger' : delayDays > 15 ? 'warning' : 'primary',
-            isDelay: delayDays > 0  // true for delay, false for advance
+            type: delayMonths > 3 ? 'danger' : delayMonths > 1 ? 'warning' : 'primary',
+            isDelay: delayMonths > 0  // true for delay, false for advance
           })
         }
       }
@@ -2581,10 +2605,10 @@ const processDelayHistory = async (audits: AuditLog[], app: Application) => {
           originalDate: delayedDate.toISOString().split('T')[0],
           newDate: null, // No new date yet
           delayDays: app.delay_days,
-          delayUnit: app.delay_days > 30 ? `${Math.floor(app.delay_days / 30)}个月` : '天',
+          delayUnit: '月',
           reason: '当前延期（待更新计划）',
           operator: '系统',
-          type: app.delay_days > 30 ? 'danger' : app.delay_days > 15 ? 'warning' : 'primary',
+          type: app.delay_days > 3 ? 'danger' : app.delay_days > 1 ? 'warning' : 'primary',
           isDelay: true
         })
       }

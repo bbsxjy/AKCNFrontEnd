@@ -74,30 +74,90 @@
           class="sidebar-menu"
           :collapse="isMobile && !sidebarVisible"
         >
-          <el-menu-item index="/dashboard">
-            <el-icon><odometer /></el-icon>
-            <span>仪表盘</span>
-          </el-menu-item>
-          <el-menu-item index="/applications">
-            <el-icon><document /></el-icon>
-            <span>应用管理</span>
-          </el-menu-item>
-          <el-menu-item index="/my-tasks">
-            <el-icon><user /></el-icon>
-            <span>我的任务</span>
-          </el-menu-item>
-          <el-menu-item index="/audit">
-            <el-icon><search /></el-icon>
-            <span>审计日志</span>
-          </el-menu-item>
-          <el-menu-item index="/import">
-            <el-icon><upload /></el-icon>
-            <span>批量导入</span>
-          </el-menu-item>
-          <el-menu-item index="/reports">
-            <el-icon><pie-chart /></el-icon>
-            <span>报表中心</span>
-          </el-menu-item>
+          <!-- 动态菜单：优先使用后端返回的菜单权限 -->
+          <template v-if="authStore.menuGroups && authStore.menuGroups.length > 0">
+            <el-menu-item-group
+              v-for="group in authStore.menuGroups"
+              :key="group.id"
+              :title="group.title"
+            >
+              <el-menu-item
+                v-for="item in group.items"
+                :key="item.id"
+                :index="item.path"
+                :disabled="!item.enabled"
+              >
+                <el-icon><component :is="getIconComponent(item.icon)" /></el-icon>
+                <span>{{ item.title }}</span>
+                <el-badge
+                  v-if="item.badge"
+                  :value="item.badge"
+                  :type="item.badge_type || 'primary'"
+                  style="margin-left: 8px;"
+                />
+              </el-menu-item>
+            </el-menu-item-group>
+          </template>
+
+          <!-- Fallback：使用前端权限判断（后端API未实现时） -->
+          <template v-else>
+            <!-- 常用功能 -->
+            <el-menu-item-group title="常用功能">
+              <el-menu-item v-if="canViewRoute('Dashboard')" index="/dashboard">
+                <el-icon><odometer /></el-icon>
+                <span>仪表盘</span>
+              </el-menu-item>
+
+              <el-menu-item v-if="canViewRoute('Applications')" index="/applications">
+                <el-icon><document /></el-icon>
+                <span>应用管理</span>
+              </el-menu-item>
+
+              <el-menu-item v-if="canViewRoute('MyTasks')" index="/my-tasks">
+                <el-icon><user /></el-icon>
+                <span>我的任务</span>
+              </el-menu-item>
+            </el-menu-item-group>
+
+            <!-- 数据管理 (Admin, Manager) -->
+            <el-menu-item-group v-if="canViewRoute('Import') || canViewRoute('Reports')" title="数据管理">
+              <el-menu-item v-if="canViewRoute('Import')" index="/import">
+                <el-icon><upload /></el-icon>
+                <span>批量导入</span>
+              </el-menu-item>
+
+              <el-menu-item v-if="canViewRoute('Reports')" index="/reports">
+                <el-icon><pie-chart /></el-icon>
+                <span>报表中心</span>
+              </el-menu-item>
+            </el-menu-item-group>
+
+            <!-- 系统管理 (Admin, Manager) -->
+            <el-menu-item-group v-if="canViewRoute('UserManagement') || canViewRoute('Announcements') || canViewRoute('Audit')" title="系统管理">
+              <el-menu-item v-if="canViewRoute('UserManagement')" index="/user-management">
+                <el-icon><setting /></el-icon>
+                <span>用户管理</span>
+              </el-menu-item>
+
+              <el-menu-item v-if="canViewRoute('Announcements')" index="/announcements">
+                <el-icon><bell-filled /></el-icon>
+                <span>公告管理</span>
+              </el-menu-item>
+
+              <el-menu-item v-if="canViewRoute('Audit')" index="/audit">
+                <el-icon><search /></el-icon>
+                <span>审计日志</span>
+              </el-menu-item>
+            </el-menu-item-group>
+
+            <!-- 辅助工具 -->
+            <el-menu-item-group title="辅助工具">
+              <el-menu-item v-if="canViewRoute('MCPAgent')" index="/mcp-agent">
+                <el-icon><chat-dot-round /></el-icon>
+                <span>MCP助手</span>
+              </el-menu-item>
+            </el-menu-item-group>
+          </template>
         </el-menu>
       </el-aside>
 
@@ -122,10 +182,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, onUnmounted } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
-import { ArrowDown, Odometer, Document, User, Search, Upload, PieChart, Menu } from '@element-plus/icons-vue'
+import { ArrowDown, Odometer, Document, User, Search, Upload, PieChart, Menu, Setting, ChatDotRound, BellFilled } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElNotification } from 'element-plus'
 import { NotificationsAPI } from '@/api/notifications'
+import { canAccessRoute, type UserRole } from '@/utils/permissions'
+import { getIconComponent } from '@/utils/iconMap'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -230,12 +292,18 @@ const formatTime = (timestamp: string) => {
   const minutes = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days = Math.floor(diff / 86400000)
-  
+
   if (minutes < 1) return '刚刚'
   if (minutes < 60) return `${minutes}分钟前`
   if (hours < 24) return `${hours}小时前`
   if (days < 7) return `${days}天前`
   return date.toLocaleDateString('zh-CN')
+}
+
+// Check if user can view a specific route
+const canViewRoute = (routeName: string) => {
+  const userRole = authStore.userRole as UserRole
+  return canAccessRoute(userRole, routeName)
 }
 
 const loadNotifications = async () => {
@@ -385,15 +453,38 @@ onUnmounted(() => {
   border-right: none;
 }
 
+.sidebar-menu :deep(.el-menu-item-group__title) {
+  padding: 12px 0 8px 20px;
+  font-size: 12px;
+  color: #909399;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
 .sidebar-menu .el-menu-item {
   height: 56px;
   line-height: 56px;
-  font-size: 16px;
+  font-size: 15px;
+  transition: all 0.3s ease;
+}
+
+.sidebar-menu .el-menu-item:hover {
+  background: #f7fafc;
 }
 
 .sidebar-menu .el-menu-item.is-active {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  border-radius: 0;
+}
+
+.sidebar-menu .el-menu-item.is-active .el-icon {
+  color: white;
+}
+
+.sidebar-menu :deep(.el-menu-item-group) {
+  margin-bottom: 10px;
 }
 
 .main-content {
@@ -439,7 +530,18 @@ onUnmounted(() => {
   .sidebar {
     width: 200px !important;
   }
-  
+
+  .sidebar-menu .el-menu-item {
+    height: 50px;
+    line-height: 50px;
+    font-size: 14px;
+  }
+
+  .sidebar-menu :deep(.el-menu-item-group__title) {
+    padding: 10px 0 6px 15px;
+    font-size: 11px;
+  }
+
   .user-info {
     display: none;
   }

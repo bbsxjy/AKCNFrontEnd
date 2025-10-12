@@ -1,5 +1,61 @@
 <template>
   <div class="dashboard">
+    <!-- 公告栏 (Compact Announcements Carousel) -->
+    <el-card class="announcements-compact">
+      <div class="announcements-compact-content">
+        <div class="announcements-icon">📢</div>
+
+        <!-- 有公告时显示走马灯 -->
+        <el-carousel
+          v-if="announcements.length > 0"
+          :interval="4000"
+          arrow="never"
+          indicator-position="none"
+          height="48px"
+          class="announcements-carousel"
+        >
+          <el-carousel-item v-for="announcement in displayedAnnouncements" :key="announcement.id">
+            <div class="announcement-compact-item" @click="showAnnouncementDetail(announcement)">
+              <el-icon v-if="announcement.is_pinned" color="#f39c12" size="18" class="pin-icon">
+                <star-filled />
+              </el-icon>
+              <span class="announcement-compact-content">
+                <span class="announcement-compact-date">{{ formatAnnouncementDateShort(announcement.publish_date || announcement.created_at) }}：</span>
+                <span class="announcement-compact-title">{{ announcement.title }}</span>
+              </span>
+            </div>
+          </el-carousel-item>
+        </el-carousel>
+
+        <!-- 无公告时显示提示 -->
+        <div v-else class="announcements-empty">
+          <span class="empty-text">暂无公告</span>
+          <el-button
+            v-if="canManageAnnouncements"
+            type="text"
+            size="large"
+            @click="goToAnnouncementsManagement"
+          >
+            发布第一条公告
+          </el-button>
+        </div>
+
+        <div class="announcements-actions">
+          <el-button
+            v-if="canManageAnnouncements && announcements.length > 0"
+            type="text"
+            size="small"
+            @click="goToAnnouncementsManagement"
+          >
+            管理
+          </el-button>
+          <el-button type="text" size="small" @click="refreshAnnouncements">
+            <el-icon><refresh /></el-icon>
+          </el-button>
+        </div>
+      </div>
+    </el-card>
+
     <!-- 第一行：AK改造和云原生改造（核心指标） -->
     <el-row :gutter="20" class="stats-row primary-row">
       <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
@@ -314,107 +370,45 @@
       </el-col>
     </el-row>
 
-    <!-- Todo Items -->
-    <el-card class="todo-card">
-      <template #header>
-        <div class="card-header">
-          <div class="header-title-with-badge">
-            <span>待办事项</span>
-            <el-badge
-              v-if="urgentTasksCount > 0"
-              :value="urgentTasksCount"
-              class="header-badge"
-              type="danger"
-            />
-            <el-badge
-              v-else-if="totalTasksCount > 0"
-              :value="totalTasksCount"
-              class="header-badge"
-              type="primary"
-            />
-          </div>
-          <div class="header-actions">
-            <el-button type="text" @click="viewAllTasks">查看全部</el-button>
-            <el-button type="text" @click="refreshTodos">刷新</el-button>
-          </div>
-        </div>
-      </template>
-
-      <div class="todo-list" v-loading="loading">
-        <div
-          v-for="task in displayedTasks"
-          :key="task.id"
-          :class="['todo-item', { 'urgent': task.isUrgent, 'overdue': task.isOverdue }]"
-        >
-          <div class="todo-content">
-            <div class="todo-header">
-              <el-tag size="small" type="info">{{ task.appId }}</el-tag>
-              <el-tag
-                size="small"
-                :type="getTaskStatusType(task.status)"
-              >
-                {{ task.status }}
-              </el-tag>
-              <el-tag
-                v-if="task.isOverdue"
-                size="small"
-                type="danger"
-              >
-                逾期 {{ Math.abs(task.daysRemaining) }} 天
-              </el-tag>
-              <el-tag
-                v-else-if="task.daysRemaining <= 3"
-                size="small"
-                type="warning"
-              >
-                剩余 {{ task.daysRemaining }} 天
-              </el-tag>
-            </div>
-            <div class="todo-title">
-              <strong>{{ task.appName }}</strong>
-              <span class="task-name">{{ task.taskName }}</span>
-            </div>
-            <div class="todo-meta">
-              <span class="meta-item">
-                <el-icon><Calendar /></el-icon>
-                计划完成：{{ formatDate(task.plannedDate) }}
-              </span>
-              <span class="meta-item">
-                <el-progress
-                  :percentage="task.progress"
-                  :stroke-width="4"
-                  :color="getProgressColor(task.progress)"
-                  style="width: 100px"
-                />
-              </span>
-            </div>
-          </div>
-          <div class="todo-actions">
-            <el-button
-              size="small"
-              :type="task.isUrgent ? 'danger' : 'primary'"
-              @click="handleTask(task)"
-            >
-              {{ task.isOverdue ? '立即处理' : task.isUrgent ? '优先处理' : '查看详情' }}
-            </el-button>
+    <!-- Announcement Detail Dialog -->
+    <el-dialog
+      v-model="announcementDetailVisible"
+      title="公告详情"
+      width="700px"
+    >
+      <div v-if="selectedAnnouncement" class="announcement-detail">
+        <div class="detail-header">
+          <h2>{{ selectedAnnouncement.title }}</h2>
+          <div class="detail-meta">
+            <el-tag :type="getAnnouncementPriorityType(selectedAnnouncement.priority)">
+              {{ getAnnouncementPriorityText(selectedAnnouncement.priority) }}
+            </el-tag>
+            <el-tag v-if="selectedAnnouncement.is_pinned" type="warning">
+              <el-icon><star-filled /></el-icon> 置顶
+            </el-tag>
           </div>
         </div>
 
-        <el-empty v-if="!loading && myTasks.length === 0" description="暂无进行中的任务">
-          <div style="margin-top: 10px; color: #718096; font-size: 13px;">
-            只有"研发进行中"、"业务上线中"或"存在阻塞"的任务会显示在这里
-          </div>
-          <el-button type="primary" size="small" @click="goToApplications" style="margin-top: 15px;">去查看应用列表</el-button>
-        </el-empty>
+        <el-divider />
 
-        <div v-if="myTasks.length > 5" class="todo-footer">
-          <el-button type="text" @click="viewAllTasks">
-            查看全部 {{ myTasks.length }} 个任务
-            <el-icon><ArrowRight /></el-icon>
-          </el-button>
+        <div class="detail-content">
+          <p>{{ selectedAnnouncement.content }}</p>
+        </div>
+
+        <el-divider />
+
+        <div class="detail-footer">
+          <div class="footer-item">
+            <span class="label">发布人：</span>
+            <span>{{ selectedAnnouncement.created_by_name }}</span>
+          </div>
+          <div class="footer-item">
+            <span class="label">发布时间：</span>
+            <span>{{ formatDate(selectedAnnouncement.publish_date || selectedAnnouncement.created_at) }}</span>
+          </div>
         </div>
       </div>
-    </el-card>
+    </el-dialog>
   </div>
 </template>
 
@@ -422,12 +416,16 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Calendar, ArrowRight } from '@element-plus/icons-vue'
+import { StarFilled, Refresh } from '@element-plus/icons-vue'
 import { DashboardAPI } from '@/api/dashboard'
 import { ApplicationsAPI } from '@/api/applications'
+import { AnnouncementsAPI, type Announcement } from '@/api/announcements'
 import { useChart, getMonthlyCompletionOptions, getMonthlyStatisticsOptions, getProjectStatisticsOptions, getPriorityDistributionOptions } from '@/composables/useCharts'
+import { useAuthStore } from '@/stores/auth'
+import { hasPermission, type UserRole } from '@/utils/permissions'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 // Stats data
 const stats = ref({
@@ -451,8 +449,11 @@ const stats = ref({
   offline: 0  // 已下线（存在阻塞）
 })
 
-// My tasks data
-const myTasks = ref<any[]>([])
+// Announcements data
+const announcements = ref<Announcement[]>([])
+const announcementsLoading = ref(false)
+const announcementDetailVisible = ref(false)
+const selectedAnnouncement = ref<Announcement | null>(null)
 const loading = ref(false)
 
 // Chart toggle
@@ -484,18 +485,25 @@ const chartData = ref({
   priorityDistribution: [] as any[]
 })
 
-// Computed properties for task counts
-const urgentTasksCount = computed(() => {
-  return myTasks.value.filter(task => task.isUrgent).length
+// Computed properties for announcements
+const announcementsCount = computed(() => {
+  return announcements.value.length
 })
 
-const totalTasksCount = computed(() => {
-  return myTasks.value.length
+const displayedAnnouncements = computed(() => {
+  // Display top 5 announcements, pinned first
+  return announcements.value
+    .sort((a, b) => {
+      if (a.is_pinned && !b.is_pinned) return -1
+      if (!a.is_pinned && b.is_pinned) return 1
+      return 0
+    })
+    .slice(0, 5)
 })
 
-const displayedTasks = computed(() => {
-  // Display top 5 tasks
-  return myTasks.value.slice(0, 5)
+const canManageAnnouncements = computed(() => {
+  const userRole = authStore.userRole as UserRole
+  return hasPermission(userRole, 'canManageAnnouncements')
 })
 
 // Chart data
@@ -564,27 +572,71 @@ const priorityChartOptions = computed(() => {
   return getPriorityDistributionOptions(filteredData, priorityType.value)
 })
 
+// Load announcements
+const loadAnnouncements = async () => {
+  try {
+    announcementsLoading.value = true
+    const response = await AnnouncementsAPI.getActiveAnnouncements({ limit: 10 })
+
+    // 兼容两种响应格式：
+    // 1. 直接返回数组: [...]
+    // 2. 返回对象: { items: [...], total: 10 }
+    if (Array.isArray(response)) {
+      announcements.value = response
+    } else if (response && response.items) {
+      announcements.value = response.items
+    } else if (response && response.data) {
+      // 兼容 { data: [...] } 格式
+      announcements.value = Array.isArray(response.data) ? response.data : (response.data.items || [])
+    } else {
+      announcements.value = []
+    }
+
+    console.log('Announcements loaded:', announcements.value.length, 'items')
+  } catch (error) {
+    console.error('Failed to load announcements:', error)
+    announcements.value = []
+  } finally {
+    announcementsLoading.value = false
+  }
+}
+
+const refreshAnnouncements = async () => {
+  await loadAnnouncements()
+  ElMessage.success('公告已刷新')
+}
+
+const showAnnouncementDetail = (announcement: Announcement) => {
+  selectedAnnouncement.value = announcement
+  announcementDetailVisible.value = true
+}
+
+const goToAnnouncementsManagement = () => {
+  router.push('/announcements')
+}
+
 // Load dashboard data
 const loadDashboardData = async () => {
   try {
     loading.value = true
 
-    // 获取统计数据和任务
-    const [statsData, tasks, monthlyStats, projectStats, priorityData] = await Promise.all([
+    // 获取统计数据
+    const [statsData, monthlyStats, projectStats, priorityData] = await Promise.all([
       DashboardAPI.getDashboardStats(),
-      DashboardAPI.getMyTasks(5),
       DashboardAPI.getMonthlyStatistics(),
       DashboardAPI.getProjectStatistics(),
       DashboardAPI.getPriorityDistribution()
     ])
     stats.value = statsData
-    myTasks.value = tasks
     chartData.value.monthlyStatistics = monthlyStats
     chartData.value.projectStatistics = projectStats
     chartData.value.priorityDistribution = priorityData
 
-    // 加载月度完成数据
-    await loadMonthlyData()
+    // 加载月度完成数据和公告
+    await Promise.all([
+      loadMonthlyData(),
+      loadAnnouncements()
+    ])
 
     // 刷新图表
     setTimeout(() => {
@@ -904,48 +956,56 @@ const loadDataFallback = async () => {
   }
 }
 
-const refreshTodos = async () => {
-  try {
-    loading.value = true
-    // 只刷新待办任务
-    myTasks.value = await DashboardAPI.getMyTasks(5)
-    ElMessage.success('待办事项已刷新')
-  } catch (error) {
-    console.error('Failed to refresh todos:', error)
-    ElMessage.error('刷新待办事项失败')
-  } finally {
-    loading.value = false
+// Announcement helper functions
+const getAnnouncementPriorityType = (priority: string) => {
+  const priorityTypeMap: Record<string, string> = {
+    low: 'info',
+    medium: 'success',
+    high: 'warning',
+    urgent: 'danger'
   }
+  return priorityTypeMap[priority] || 'info'
 }
 
-const handleTask = (_task: any) => {
-  router.push('/my-tasks')
-}
-
-const viewDetails = (task: any) => {
-  if (task.applicationId) {
-    router.push(`/subtasks/${task.applicationId}`)
+const getAnnouncementPriorityText = (priority: string) => {
+  const priorityTextMap: Record<string, string> = {
+    low: '低',
+    medium: '中',
+    high: '高',
+    urgent: '紧急'
   }
+  return priorityTextMap[priority] || priority
 }
 
-// Helper functions for todo items
-const viewAllTasks = () => {
-  router.push('/my-tasks')
+const formatAnnouncementDate = (dateString?: string) => {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return '-'
+
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const days = Math.floor(diff / 86400000)
+
+  if (days === 0) return '今天'
+  if (days === 1) return '昨天'
+  if (days < 7) return `${days}天前`
+
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
-const goToApplications = () => {
-  router.push('/applications')
+const formatAnnouncementDateShort = (dateString?: string) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return ''
+
+  // 返回格式：10月3日
+  return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
 }
 
-const getTaskStatusType = (status: string) => {
-  const statusMap: Record<string, string> = {
-    '待启动': 'info',
-    '研发进行中': 'primary',
-    '业务上线中': 'warning',
-    '已完成': 'success',
-    '存在阻塞': 'danger'
-  }
-  return statusMap[status] || 'info'
+const truncateText = (text: string, maxLength: number) => {
+  if (!text) return ''
+  if (text.length <= maxLength) return text
+  return text.substring(0, maxLength) + '...'
 }
 
 const formatDate = (dateString: string | null | undefined) => {
@@ -955,21 +1015,11 @@ const formatDate = (dateString: string | null | undefined) => {
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return '-'
 
-    // Format as YYYY-MM-DD
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
+    // Format as YYYY-MM-DD HH:mm
+    return date.toLocaleString('zh-CN')
   } catch (error) {
     return '-'
   }
-}
-
-const getProgressColor = (progress: number) => {
-  if (progress >= 80) return '#48bb78'
-  if (progress >= 50) return '#3182ce'
-  if (progress >= 30) return '#ed8936'
-  return '#a0aec0'
 }
 
 // Initialize WebSocket connection (disabled for testing)
@@ -1393,8 +1443,155 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.todo-card {
+/* 紧凑型公告栏 */
+.announcements-compact {
   margin-bottom: 20px;
+  border-left: 4px solid #667eea;
+  background: linear-gradient(to right, #f7fafc 0%, white 30px);
+
+  .el-card__body {
+    padding: 12px 24px;
+  }
+
+  .announcements-compact-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 48px;
+  }
+
+  .announcements-icon {
+    font-size: 26px;
+    flex-shrink: 0;
+  }
+
+  .announcements-carousel {
+    flex: 1;
+    min-width: 0;
+
+    :deep(.el-carousel__container) {
+      height: 48px;
+    }
+
+    :deep(.el-carousel__item) {
+      display: flex;
+      align-items: center;
+      line-height: 1;
+    }
+  }
+
+  .announcement-compact-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 0 10px;
+    width: 100%;
+    height: 100%;
+    line-height: 1;
+
+    &:hover {
+      .announcement-compact-title {
+        color: #667eea;
+      }
+    }
+
+    .pin-icon {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .announcement-compact-content {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: baseline;
+      line-height: 1.6;
+    }
+
+    .announcement-compact-date {
+      font-size: 15px;
+      color: #718096;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .announcement-compact-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: #2d3748;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color 0.3s;
+    }
+  }
+
+  .announcements-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .announcements-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 48px;
+
+    .empty-text {
+      font-size: 15px;
+      color: #a0aec0;
+      font-weight: 500;
+    }
+  }
+}
+
+.announcement-detail {
+  .detail-header {
+    h2 {
+      margin: 0 0 10px 0;
+      font-size: 22px;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .detail-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+  }
+
+  .detail-content {
+    padding: 20px 0;
+    line-height: 1.8;
+    font-size: 15px;
+    color: #4a5568;
+    white-space: pre-wrap;
+  }
+
+  .detail-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: #718096;
+    font-size: 14px;
+
+    .footer-item {
+      display: flex;
+      gap: 8px;
+
+      .label {
+        font-weight: 600;
+        color: #4a5568;
+      }
+    }
+  }
 }
 
 .card-header {
@@ -1678,6 +1875,26 @@ onUnmounted(() => {
 
   .legend-text {
     font-size: 10px;
+  }
+
+  /* 紧凑型公告栏响应式 */
+  .announcements-compact {
+    .announcements-icon {
+      font-size: 22px;
+    }
+
+    .announcement-compact-item {
+      gap: 6px;
+      padding: 0 5px;
+
+      .announcement-compact-date {
+        font-size: 14px;
+      }
+
+      .announcement-compact-title {
+        font-size: 15px;
+      }
+    }
   }
 
 }

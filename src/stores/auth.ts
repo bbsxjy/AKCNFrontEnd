@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { AuthAPI, type UserInfo, type UserPermissions, type LoginRequest } from '@/api/auth'
+import { AuthAPI, type UserInfo, type UserPermissions, type LoginRequest, type MenuGroup } from '@/api/auth'
 import { ElMessage } from 'element-plus'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -9,7 +9,7 @@ export const useAuthStore = defineStore('auth', () => {
     employee_id: 'TEST001',
     email: 'admin@test.com',
     full_name: '测试管理员',
-    role: 'Admin',
+    role: 'admin',  // Changed to lowercase for consistency
     team: '研发一部',
     is_active: true,
     created_at: '2024-01-01T00:00:00Z',
@@ -17,7 +17,7 @@ export const useAuthStore = defineStore('auth', () => {
   })
   const permissions = ref<UserPermissions | null>({
     user_id: 1,
-    role: 'Admin',
+    role: 'admin',
     permissions: {
       applications: ['create', 'read', 'update', 'delete'],
       subtasks: ['create', 'read', 'update', 'delete'],
@@ -29,8 +29,15 @@ export const useAuthStore = defineStore('auth', () => {
   })
   const token = ref<string | null>('token_1_admin_full_access_test_2024')
   const loading = ref(false)
+  const menuGroups = ref<MenuGroup[]>([])
 
   const isAuthenticated = computed(() => true) // Always authenticated for testing
+
+  // Computed role (normalized to lowercase)
+  const userRole = computed(() => {
+    if (!user.value?.role) return 'viewer'
+    return user.value.role.toLowerCase() as 'admin' | 'manager' | 'editor' | 'viewer'
+  })
   
   const hasPermission = (resource: string, action: string) => {
     if (!permissions.value) return false
@@ -143,9 +150,22 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  const loadMenuPermissions = async () => {
+    try {
+      const response = await AuthAPI.getMenuPermissions()
+      menuGroups.value = response.menu_groups
+      console.log('Menu permissions loaded:', menuGroups.value)
+    } catch (error) {
+      console.error('Failed to load menu permissions:', error)
+      menuGroups.value = []
+      // 如果API失败，不影响用户使用，只是菜单会使用前端权限判断
+    }
+  }
+
   const refreshUserInfo = async () => {
     try {
       await loadUserInfo()
+      await loadMenuPermissions()
     } catch (error) {
       console.error('Failed to refresh user info:', error)
     }
@@ -155,6 +175,8 @@ export const useAuthStore = defineStore('auth', () => {
   const initializeAuth = async () => {
     // Skip auth initialization for testing
     console.log('Auth initialized with test user')
+    // 加载菜单权限
+    await loadMenuPermissions()
   }
 
   return {
@@ -162,13 +184,16 @@ export const useAuthStore = defineStore('auth', () => {
     permissions,
     token,
     loading,
+    menuGroups,
     isAuthenticated,
+    userRole,
     isAdmin,
     canManageApplications,
     canManageSubtasks,
     hasPermission,
     hasRole,
     loadUserInfo,
+    loadMenuPermissions,
     login,
     ssoLogin,
     logout,
