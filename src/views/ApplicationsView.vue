@@ -1653,178 +1653,12 @@
     </el-dialog>
 
     <!-- SubTask Detail Dialog -->
-    <el-dialog v-model="showSubTaskDetailDialog" title="子任务详情" width="900px">
-      <el-tabs v-model="activeSubTaskDetailTab" type="card">
-        <!-- 基础信息 -->
-        <el-tab-pane label="基础信息" name="basic">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="所属应用" label-align="right">
-              <strong>{{ getApplicationL2IdDisplay(subTaskDetailData.l2_id || '') }}</strong>
-              <div style="font-size: 12px; color: #718096; margin-top: 4px;">
-                {{ getApplicationNameByL2Id(subTaskDetailData.l2_id || '') }}
-              </div>
-            </el-descriptions-item>
-            <el-descriptions-item label="版本名称" label-align="right">
-              <strong>{{ subTaskDetailData.version_name || '-' }}</strong>
-            </el-descriptions-item>
-            <el-descriptions-item label="改造目标" label-align="right">
-              <el-tag :type="subTaskDetailData.sub_target === 'AK' ? 'primary' : 'success'" size="small">
-                {{ subTaskDetailData.sub_target || 'AK' }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="当前状态" label-align="right">
-              <el-tag :type="getSubTaskStatusType(subTaskDetailData.task_status || '')" size="small">
-                {{ subTaskDetailData.task_status || '待启动' }}
-              </el-tag>
-              <el-tag v-if="subTaskDetailData.is_blocked" type="danger" size="small" style="margin-left: 8px;">
-                阻塞中
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="整体进度" label-align="right" :span="2">
-              <el-progress
-                :percentage="calculateSubTaskProgress(subTaskDetailData as SubTask)"
-                :stroke-width="20"
-                :color="getSubTaskProgressColor(subTaskDetailData as SubTask)"
-                style="width: 300px;"
-              >
-                <template #default="{ percentage }">
-                  <span style="font-size: 14px; font-weight: 600;">{{ percentage }}%</span>
-                </template>
-              </el-progress>
-            </el-descriptions-item>
-            <el-descriptions-item label="阻塞原因" label-align="right" :span="2" v-if="subTaskDetailData.is_blocked">
-              <span style="color: #f56565;">{{ subTaskDetailData.blocking_reason || '未说明' }}</span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-
-        <!-- 团队信息 -->
-        <el-tab-pane label="团队信息" name="team">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="开发负责人" label-align="right">
-              {{ subTaskDetailData.dev_owner || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="运维负责人" label-align="right">
-              {{ subTaskDetailData.ops_owner || '-' }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-
-        <!-- 时间进度 -->
-        <el-tab-pane label="时间进度" name="timeline">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="【计划】需求完成" label-align="right">
-              {{ formatYearMonth(subTaskDetailData.planned_requirement_date) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="【实际】需求到达" label-align="right">
-              <span :class="getDateComparisonClass(subTaskDetailData.planned_requirement_date, subTaskDetailData.actual_requirement_date)">
-                {{ formatYearMonth(subTaskDetailData.actual_requirement_date) }}
-              </span>
-            </el-descriptions-item>
-            <el-descriptions-item label="【计划】发版时间" label-align="right">
-              {{ formatYearMonth(subTaskDetailData.planned_release_date) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="【实际】发版时间" label-align="right">
-              <span :class="getDateComparisonClass(subTaskDetailData.planned_release_date, subTaskDetailData.actual_release_date)">
-                {{ formatYearMonth(subTaskDetailData.actual_release_date) }}
-              </span>
-            </el-descriptions-item>
-            <el-descriptions-item label="【计划】技术上线" label-align="right">
-              {{ formatYearMonth(subTaskDetailData.planned_tech_online_date) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="【实际】技术上线" label-align="right">
-              <span :class="getDateComparisonClass(subTaskDetailData.planned_tech_online_date, subTaskDetailData.actual_tech_online_date)">
-                {{ formatYearMonth(subTaskDetailData.actual_tech_online_date) }}
-              </span>
-            </el-descriptions-item>
-            <el-descriptions-item label="【计划】业务上线" label-align="right">
-              {{ formatYearMonth(subTaskDetailData.planned_biz_online_date) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="【实际】业务上线" label-align="right">
-              <span :class="getDateComparisonClass(subTaskDetailData.planned_biz_online_date, subTaskDetailData.actual_biz_online_date)">
-                {{ formatYearMonth(subTaskDetailData.actual_biz_online_date) }}
-              </span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-
-        <!-- 运营状态 -->
-        <el-tab-pane label="运营状态" name="operational">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="资源申请" label-align="right">
-              <el-tag :type="subTaskDetailData.resource_applied ? 'success' : 'info'" size="small">
-                {{ subTaskDetailData.resource_applied ? '已申请' : '未申请' }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="运营需求提交" label-align="right">
-              <el-tag :type="subTaskDetailData.ops_requirement_submitted ? 'success' : 'info'" size="small">
-                {{ subTaskDetailData.ops_requirement_submitted ? '已提交' : '未提交' }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="运营测试" label-align="right">
-              <el-tag
-                v-if="subTaskDetailData.ops_testing_status"
-                :type="subTaskDetailData.ops_testing_status === '已完成' ? 'success' : subTaskDetailData.ops_testing_status === '测试失败' ? 'danger' : 'warning'"
-                size="small"
-              >
-                {{ subTaskDetailData.ops_testing_status }}
-              </el-tag>
-              <span v-else>-</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="上线检查" label-align="right">
-              <el-tag
-                v-if="subTaskDetailData.launch_check_status"
-                :type="subTaskDetailData.launch_check_status === '已通过' ? 'success' : subTaskDetailData.launch_check_status === '未通过' ? 'danger' : 'warning'"
-                size="small"
-              >
-                {{ subTaskDetailData.launch_check_status }}
-              </el-tag>
-              <span v-else>-</span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-
-        <!-- 延期分析 -->
-        <el-tab-pane label="延期分析" name="delay" v-if="getSubTaskDelayInfo(subTaskDetailData as SubTask).hasDelay">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="延期状态" label-align="right">
-              <el-tag :type="getSubTaskDelayInfo(subTaskDetailData as SubTask).severity" size="small">
-                {{ getSubTaskDelayInfo(subTaskDetailData as SubTask).text }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="延期天数" label-align="right">
-              <span style="color: #f56565; font-weight: 600;">
-                {{ getSubTaskDelayInfo(subTaskDetailData as SubTask).days }} 月
-              </span>
-            </el-descriptions-item>
-            <el-descriptions-item label="延期类型" label-align="right" :span="2">
-              {{ getSubTaskDelayInfo(subTaskDetailData as SubTask).type }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-
-        <!-- 其他信息 -->
-        <el-tab-pane label="其他信息" name="other">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="创建时间" label-align="right">
-              {{ formatDate(subTaskDetailData.created_at) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="更新时间" label-align="right">
-              {{ formatDate(subTaskDetailData.updated_at) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="备注" label-align="right" :span="2">
-              {{ subTaskDetailData.notes || '-' }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-      </el-tabs>
-      <template #footer>
-        <div style="display: flex; justify-content: space-between; width: 100%;">
-          <el-button type="primary" @click="editSubTask(subTaskDetailData as SubTask)">编辑子任务</el-button>
-          <el-button @click="showSubTaskDetailDialog = false">关闭</el-button>
-        </div>
-      </template>
-    </el-dialog>
+    <SubTaskDetailDialog
+      v-model="showSubTaskDetailDialog"
+      :data="subTaskDetailData"
+      :all-applications="allApplications"
+      @edit="editSubTask"
+    />
 
   </div>
 </template>
@@ -1852,8 +1686,48 @@ import { SubTasksAPI, type SubTask } from '@/api/subtasks'
 import { ExcelAPI } from '@/api/reports'
 import { AuditAPI, type AuditLog } from '@/api/audit'
 import { useAuthStore } from '@/stores/auth'
+import { useFormatters } from '@/composables/applications/useFormatters'
+import { useStatusHelpers } from '@/composables/applications/useStatusHelpers'
+import { useDelayCalculations } from '@/composables/applications/useDelayCalculations'
+import SubTaskDetailDialog from '@/components/applications/dialogs/SubTaskDetailDialog.vue'
 
 const router = useRouter()
+
+// 使用 composables
+const {
+  formatDate,
+  formatYearMonth,
+  formatShortDate,
+  formatFieldValue,
+  getFieldLabel,
+  getAdjustmentFieldLabel,
+  getDelayPhaseLabel
+} = useFormatters()
+
+const {
+  getStatusType,
+  getSubTaskStatusType,
+  getProgressColor,
+  getSubTaskProgressColor,
+  calculateSubTaskProgress,
+  getOperationType,
+  getOperationText,
+  getPhaseStatusClass,
+  getPhaseStatusText,
+  getStatusTagType,
+  getDetailedPhaseText,
+  getPhaseColorClass
+} = useStatusHelpers()
+
+const {
+  calculateDaysDiff,
+  calculateMonthsDiff,
+  getDelayType,
+  getSubTaskDelayInfo,
+  getDateComparisonClass,
+  getSubTaskWorkingDays,
+  calculateTotalDelayDays
+} = useDelayCalculations()
 
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
