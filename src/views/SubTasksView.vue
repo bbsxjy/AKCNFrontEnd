@@ -135,9 +135,14 @@
 
       <!-- 表格视图 -->
       <div v-if="viewMode === 'table'" class="table-container">
+      <!-- Loading Skeleton -->
+      <div v-if="loading" style="padding: 20px;">
+        <el-skeleton :rows="10" animated />
+      </div>
+
       <el-table
+        v-else
         :data="filteredSubTasks"
-        v-loading="loading"
         style="width: 100%"
         @selection-change="handleSelectionChange"
         row-key="id"
@@ -375,8 +380,13 @@
       </div>
 
       <!-- 卡片视图 -->
-      <div v-if="viewMode === 'card'" class="card-grid" v-loading="loading">
-        <div v-for="task in filteredSubTasks" :key="task.id" class="task-card">
+      <div v-if="viewMode === 'card'" class="card-grid">
+        <!-- Loading Skeleton -->
+        <div v-if="loading" style="padding: 20px;">
+          <el-skeleton :rows="8" animated />
+        </div>
+
+        <div v-else v-for="task in filteredSubTasks" :key="task.id" class="task-card">
           <div class="card-header">
             <h3>{{ task.version_name }}</h3>
             <el-tag :type="task.sub_target === 'AK' ? 'primary' : 'success'" size="small">

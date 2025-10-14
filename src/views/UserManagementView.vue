@@ -67,11 +67,16 @@
         <el-button size="small" type="info" @click="clearSelection">清空选择</el-button>
       </div>
 
+      <!-- Loading Skeleton -->
+      <div v-if="loading" style="margin-top: 20px;">
+        <el-skeleton :rows="10" animated />
+      </div>
+
       <!-- User Table -->
       <el-table
+        v-else
         ref="userTableRef"
         :data="users"
-        v-loading="loading"
         stripe
         style="width: 100%; margin-top: 20px"
         @selection-change="handleSelectionChange"

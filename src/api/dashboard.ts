@@ -85,36 +85,30 @@ export class DashboardAPI {
       applications.items.forEach(app => {
         totalProgress += app.progress_percentage || 0
 
-          // 按改造目标分类 (using new field names)
-          const transformTarget = app.overall_transformation_target
-          if (transformTarget === 'AK' || transformTarget === 'ak') {
+          // 统计AK改造（所有应用都计入AK统计）
           stats.akTotal++
-          const status = app.current_status
-          if (status === '全部完成' || status === 'completed') {
+
+          // 使用精确的 is_ak_completed 字段判断AK完成情况
+          if (app.is_ak_completed === true || app.ak_status === 'COMPLETED') {
             stats.akCompleted++
-            } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
-              stats.akInProgress++
+          } else if (app.ak_status === 'IN_PROGRESS') {
+            stats.akInProgress++
           }
-          } else if (transformTarget === '云原生' || transformTarget === 'cloud_native') {
-          stats.cloudNativeTotal++
-          const status = app.current_status
-          if (status === '全部完成' || status === 'completed') {
-            stats.cloudNativeCompleted++
-            } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
+
+          // 统计云原生改造（仅目标为云原生的应用计入）
+          const transformTarget = app.overall_transformation_target
+          if (transformTarget === '云原生' || transformTarget === 'cloud_native') {
+            stats.cloudNativeTotal++
+
+            // 使用精确的 is_cloud_native_completed 字段判断云原生完成情况
+            if (app.is_cloud_native_completed === true || app.cloud_native_status === 'COMPLETED') {
+              stats.cloudNativeCompleted++
+            } else if (app.cloud_native_status === 'IN_PROGRESS') {
               stats.cloudNativeInProgress++
-            }
-          } else {
-            // 如果没有明确指定目标，默认统计到AK
-            stats.akTotal++
-            const status = app.current_status
-            if (status === '全部完成' || status === 'completed') {
-              stats.akCompleted++
-            } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
-              stats.akInProgress++
             }
           }
 
-        // 按状态分类 (using new field names)
+        // 应用级别的总体统计（按应用状态分类）
         const status = app.current_status
         switch (status) {
           case '待启动':
@@ -146,8 +140,8 @@ export class DashboardAPI {
 
         stats.averageProgress = applications.items.length > 0 ? Math.round(totalProgress / applications.items.length) : 0
 
-        // 确保总数至少等于各分类之和
-        stats.total = Math.max(stats.total, stats.akTotal + stats.cloudNativeTotal)
+        // total 保持为应用总数，不需要修改
+        // akTotal 和 cloudNativeTotal 是改造任务的统计，与应用总数是不同的维度
       }
 
       console.log('Dashboard Stats - Final calculated stats:', stats)

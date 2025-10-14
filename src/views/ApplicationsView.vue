@@ -3,17 +3,17 @@
     <el-card>
       <template #header>
         <div class="header">
-          <h2>应用系统列表</h2>
+          <h2>应用管理</h2>
           <div class="actions">
-            <el-button type="primary" @click="showCreateDialog = true">
+            <el-button type="primary" @click="showCreateDialog = true" v-if="mainTab === 'applications'">
               <el-icon><plus /></el-icon>
               新增应用
             </el-button>
-            <el-button type="success" @click="goToImport">
+            <el-button type="success" @click="goToImport" v-if="mainTab === 'applications'">
               <el-icon><upload /></el-icon>
               批量导入
             </el-button>
-            <el-button type="warning" @click="exportExcel">
+            <el-button type="warning" @click="mainTab === 'applications' ? exportExcel() : exportSubTasksExcel()">
               <el-icon><download /></el-icon>
               导出Excel
             </el-button>
@@ -21,89 +21,80 @@
         </div>
       </template>
 
-      <!-- View Type Tabs -->
-      <el-tabs v-model="viewType" @tab-change="handleViewTypeChange" style="margin-bottom: 20px;">
-        <el-tab-pane label="全部应用" name="all"></el-tab-pane>
-        <el-tab-pane name="currentMonth">
-          <template #label>
-            <span>{{ currentMonthLabel }}</span>
-          </template>
-        </el-tab-pane>
-        <el-tab-pane name="nextMonth">
-          <template #label>
-            <span>{{ nextMonthLabel }}</span>
-          </template>
-        </el-tab-pane>
+      <!-- Main Data Type Tabs -->
+      <el-tabs v-model="mainTab" class="main-data-tabs" @tab-change="handleMainTabChange">
+        <el-tab-pane label="应用列表" name="applications"></el-tab-pane>
+        <el-tab-pane label="子任务列表" name="subtasks"></el-tab-pane>
       </el-tabs>
 
-      <!-- Monthly Plan Summary (shown when viewing monthly plans) -->
-      <div v-if="viewType !== 'all'" class="monthly-plan-summary">
-        <el-alert :type="monthlyPlanAlert.type" :closable="false">
-          <template #title>
-            <div class="summary-header">
-              <span>{{ monthlyPlanAlert.title }}</span>
-              <el-button size="small" type="primary" @click="exportMonthlyPlan">
-                <el-icon><download /></el-icon>
-                导出月度计划
-              </el-button>
-            </div>
-          </template>
-          <div class="plan-statistics">
-            <span class="stat-item">需求完成: <strong>{{ monthlyStatistics.requirement }}</strong> 个</span>
-            <span class="stat-item">发版: <strong>{{ monthlyStatistics.release }}</strong> 个</span>
-            <span class="stat-item">技术上线: <strong>{{ monthlyStatistics.tech }}</strong> 个</span>
-            <span class="stat-item">业务上线: <strong>{{ monthlyStatistics.biz }}</strong> 个</span>
-          </div>
-        </el-alert>
-      </div>
+      <!-- Applications Content -->
+      <div v-show="mainTab === 'applications'" class="content-container">
+      <!-- Filter Section -->
+      <div class="filter-section">
+        <!-- View Type Tabs -->
+        <el-tabs v-model="viewType" @tab-change="handleViewTypeChange" class="view-tabs">
+          <el-tab-pane name="favorites">
+            <template #label>
+              <span class="tab-with-icon">
+                <el-icon><star-filled /></el-icon>
+                我关注的
+                <el-badge v-if="favoriteApplications.length > 0" :value="favoriteApplications.length" class="tab-badge" />
+              </span>
+            </template>
+          </el-tab-pane>
+          <el-tab-pane label="全部应用" name="all"></el-tab-pane>
+          <el-tab-pane name="currentMonth">
+            <template #label>
+              <span>{{ currentMonthLabel }}</span>
+            </template>
+          </el-tab-pane>
+          <el-tab-pane name="nextMonth">
+            <template #label>
+              <span>{{ nextMonthLabel }}</span>
+            </template>
+          </el-tab-pane>
+        </el-tabs>
 
-      <!-- Search Bar -->
-      <div class="search-bar">
-        <el-form :model="searchForm" inline>
-          <el-form-item>
+        <!-- Monthly Plan Summary (shown when viewing monthly plans) -->
+        <div v-if="viewType !== 'all' && viewType !== 'favorites'" class="monthly-plan-summary">
+          <el-alert :type="monthlyPlanAlert.type" :closable="false">
+            <template #title>
+              <div class="summary-header">
+                <span>{{ monthlyPlanAlert.title }}</span>
+                <el-button size="small" type="primary" @click="exportMonthlyPlan">
+                  <el-icon><download /></el-icon>
+                  导出月度计划
+                </el-button>
+              </div>
+            </template>
+            <div class="plan-statistics">
+              <span class="stat-item">需求完成: <strong>{{ monthlyStatistics.requirement }}</strong> 个</span>
+              <span class="stat-item">发版: <strong>{{ monthlyStatistics.release }}</strong> 个</span>
+              <span class="stat-item">技术上线: <strong>{{ monthlyStatistics.tech }}</strong> 个</span>
+              <span class="stat-item">业务上线: <strong>{{ monthlyStatistics.biz }}</strong> 个</span>
+            </div>
+          </el-alert>
+        </div>
+
+        <!-- Main Search and Quick Filters -->
+        <div class="filter-content">
+          <div class="main-filters">
             <el-input
               v-model="searchForm.keyword"
               placeholder="搜索 L2 ID 或应用名称..."
-              style="width: 250px"
               clearable
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-select
-              v-model="searchForm.status"
-              placeholder="全部状态"
-              clearable
-              style="width: 150px"
+              class="search-input"
             >
-              <el-option
-                v-for="item in statusOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-select
-              v-model="searchForm.department"
-              placeholder="全部部门"
-              clearable
-              style="width: 150px"
-            >
-              <el-option
-                v-for="item in departmentOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
+              <template #prefix>
+                <el-icon><el-icon-search /></el-icon>
+              </template>
+            </el-input>
+
             <el-select
               v-model="searchForm.target"
               placeholder="改造目标"
               clearable
-              style="width: 150px"
+              class="filter-select"
             >
               <el-option
                 v-for="item in targetOptions"
@@ -112,28 +103,375 @@
                 :value="item.value"
               />
             </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button @click="resetSearch">重置筛选</el-button>
-          </el-form-item>
-        </el-form>
+
+            <el-select
+              v-model="searchForm.progress_status"
+              placeholder="改造进度"
+              clearable
+              class="filter-select"
+            >
+              <el-option
+                v-for="item in statusOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+
+            <el-select
+              v-model="searchForm.acceptance_year"
+              placeholder="监管验收年份"
+              clearable
+              class="filter-select"
+            >
+              <el-option :value="2024" label="2024年" />
+              <el-option :value="2025" label="2025年" />
+              <el-option :value="2026" label="2026年" />
+              <el-option :value="2027" label="2027年" />
+            </el-select>
+
+            <el-button
+              @click="showAdvancedFilters = !showAdvancedFilters"
+              class="toggle-filters-btn"
+            >
+              <el-icon><el-icon-filter /></el-icon>
+              {{ showAdvancedFilters ? '收起筛选' : '更多筛选' }}
+            </el-button>
+
+            <el-button @click="resetSearch" class="reset-btn">
+              重置
+            </el-button>
+          </div>
+
+          <!-- Advanced Filters -->
+          <div v-if="showAdvancedFilters" class="advanced-filters">
+            <!-- Group 1: Basic Information Filters -->
+            <div class="filter-grid">
+              <div class="filter-item">
+                <label class="filter-label">所属L1</label>
+                <el-select
+                  v-model="searchForm.belonging_l1"
+                  placeholder="全部"
+                  clearable
+                  filterable
+                >
+                  <el-option
+                    v-for="item in l1Options"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">档位</label>
+                <el-select
+                  v-model="searchForm.app_tier"
+                  placeholder="全部"
+                  clearable
+                >
+                  <el-option :value="1" label="1档" />
+                  <el-option :value="2" label="2档" />
+                  <el-option :value="3" label="3档" />
+                  <el-option :value="4" label="4档" />
+                  <el-option :value="5" label="5档" />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">所属项目</label>
+                <el-select
+                  v-model="searchForm.belonging_project"
+                  placeholder="全部"
+                  clearable
+                  filterable
+                >
+                  <el-option
+                    v-for="item in projectOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">开发模式</label>
+                <el-select
+                  v-model="searchForm.dev_mode"
+                  placeholder="全部"
+                  clearable
+                  filterable
+                >
+                  <el-option
+                    v-for="item in devModeOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">运维模式</label>
+                <el-select
+                  v-model="searchForm.ops_mode"
+                  placeholder="全部"
+                  clearable
+                  filterable
+                >
+                  <el-option
+                    v-for="item in opsModeOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">开发负责人</label>
+                <el-select
+                  v-model="searchForm.dev_owner"
+                  placeholder="全部"
+                  clearable
+                  filterable
+                >
+                  <el-option
+                    v-for="item in devOwnerOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">开发团队</label>
+                <el-select
+                  v-model="searchForm.dev_team"
+                  placeholder="全部"
+                  clearable
+                  filterable
+                >
+                  <el-option
+                    v-for="item in devTeamOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">运维负责人</label>
+                <el-select
+                  v-model="searchForm.ops_owner"
+                  placeholder="全部"
+                  clearable
+                  filterable
+                >
+                  <el-option
+                    v-for="item in opsOwnerOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">运维团队</label>
+                <el-select
+                  v-model="searchForm.ops_team"
+                  placeholder="全部"
+                  clearable
+                  filterable
+                >
+                  <el-option
+                    v-for="item in opsTeamOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">所属KPI指标</label>
+                <el-select
+                  v-model="searchForm.belonging_kpi"
+                  placeholder="全部"
+                  clearable
+                  filterable
+                >
+                  <el-option
+                    v-for="item in kpiOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">域名化改造</label>
+                <el-select
+                  v-model="searchForm.domain_completed"
+                  placeholder="全部"
+                  clearable
+                >
+                  <el-option :value="true" label="已完成" />
+                  <el-option :value="false" label="未完成" />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">DBPM改造</label>
+                <el-select
+                  v-model="searchForm.dbpm_completed"
+                  placeholder="全部"
+                  clearable
+                >
+                  <el-option :value="true" label="已完成" />
+                  <el-option :value="false" label="未完成" />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">验收状态</label>
+                <el-select
+                  v-model="searchForm.acceptance_status"
+                  placeholder="全部"
+                  clearable
+                >
+                  <el-option value="未验收" label="未验收" />
+                  <el-option value="验收中" label="验收中" />
+                  <el-option value="已验收" label="已验收" />
+                </el-select>
+              </div>
+            </div>
+
+            <!-- Group 2: Time Filters (Single Row) -->
+            <div class="time-filters">
+              <div class="filter-item">
+                <label class="filter-label">计划需求时间</label>
+                <el-select
+                  v-model="searchForm.planned_req_months"
+                  placeholder="选择月份（可多选）"
+                  multiple
+                  clearable
+                  collapse-tags
+                  collapse-tags-tooltip
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="month in monthOptions"
+                    :key="month.value"
+                    :label="month.label"
+                    :value="month.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">计划发版时间</label>
+                <el-select
+                  v-model="searchForm.planned_release_months"
+                  placeholder="选择月份（可多选）"
+                  multiple
+                  clearable
+                  collapse-tags
+                  collapse-tags-tooltip
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="month in monthOptions"
+                    :key="month.value"
+                    :label="month.label"
+                    :value="month.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">计划技术上线时间</label>
+                <el-select
+                  v-model="searchForm.planned_tech_months"
+                  placeholder="选择月份（可多选）"
+                  multiple
+                  clearable
+                  collapse-tags
+                  collapse-tags-tooltip
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="month in monthOptions"
+                    :key="month.value"
+                    :label="month.label"
+                    :value="month.value"
+                  />
+                </el-select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label">计划业务上线时间</label>
+                <el-select
+                  v-model="searchForm.planned_biz_months"
+                  placeholder="选择月份（可多选）"
+                  multiple
+                  clearable
+                  collapse-tags
+                  collapse-tags-tooltip
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="month in monthOptions"
+                    :key="month.value"
+                    :label="month.label"
+                    :value="month.value"
+                  />
+                </el-select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading Skeleton -->
+      <div v-if="loading">
+        <el-skeleton :rows="10" animated />
       </div>
 
       <!-- Applications Data Table -->
       <el-table
+        v-else
         :data="applications"
-        v-loading="loading"
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="55" />
+        <el-table-column type="selection" width="50" />
+        <!-- 关注 -->
+        <el-table-column label="关注" width="60" align="center" fixed="left">
+          <template #default="{ row }">
+            <el-icon
+              class="favorite-icon"
+              :class="{ 'is-favorite': row.is_favorite }"
+              @click.stop="toggleFavorite(row)"
+            >
+              <star-filled v-if="row.is_favorite" />
+              <star v-else />
+            </el-icon>
+          </template>
+        </el-table-column>
         <!-- 核心标识 -->
-        <el-table-column prop="l2_id" label="L2 ID" width="110" fixed="left">
+        <el-table-column prop="l2_id" label="L2 ID" min-width="120" fixed="left">
           <template #default="{ row }">
             <strong>{{ row.l2_id }}</strong>
           </template>
         </el-table-column>
-        <el-table-column prop="app_name" label="应用名称" min-width="90" show-overflow-tooltip>
+        <el-table-column prop="app_name" label="应用名称" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
             <el-link type="primary" @click="showAppDetail(row)" :underline="false" class="app-name-link">
               {{ row.app_name || row.application_name }}
@@ -141,28 +479,105 @@
           </template>
         </el-table-column>
         <!-- 管理信息 -->
-        <el-table-column prop="ak_supervision_acceptance_year" label="监管年份" width="90" align="center">
+        <el-table-column prop="ak_supervision_acceptance_year" label="监管年份" width="85" align="center">
           <template #default="{ row }">
             {{ row.ak_supervision_acceptance_year ? row.ak_supervision_acceptance_year + '年' : '-' }}
           </template>
         </el-table-column>
         <el-table-column prop="overall_transformation_target" label="改造目标" width="90" align="center">
           <template #default="{ row }">
-            <el-tag size="small" :type="row.overall_transformation_target === 'AK' ? 'primary' : 'success'">
+            <el-tag :type="row.overall_transformation_target === 'AK' ? 'primary' : 'success'" size="small">
               {{ row.overall_transformation_target || 'AK' }}
             </el-tag>
           </template>
         </el-table-column>
-        <!-- 进度状态 -->
-        <el-table-column prop="current_status" label="当前状态" width="100" align="center">
+        <!-- 当前阶段描述 -->
+        <el-table-column prop="current_phase_description" label="当前阶段" min-width="180" align="center">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.current_status)" size="small">
-              {{ row.current_status || '待启动' }}
-            </el-tag>
+            <div class="phase-badges">
+              <!-- 如果没有AK子任务但有云原生且完成，显示合并状态 -->
+              <template v-if="row.ak_subtask_count === 0 && row.cloud_native_subtask_count > 0 && row.cloud_native_status === 'COMPLETED'">
+                <el-tooltip placement="top">
+                  <template #content>
+                    <div style="line-height: 1.8">
+                      <div><strong>云原生改造详情</strong></div>
+                      <div>总计：{{ row.cloud_native_subtask_count }} 个子任务</div>
+                      <div style="color: #67c23a">已完成：{{ row.cloud_native_completed_count }} 个</div>
+                      <div style="margin-top: 8px; color: #a0aec0; font-size: 12px;">
+                        云原生已完成，AK改造同步完成
+                      </div>
+                      <div style="margin-top: 8px; color: #667eea; font-size: 12px;">
+                        点击查看子任务详情 →
+                      </div>
+                    </div>
+                  </template>
+                  <span
+                    class="phase-badge status-completed"
+                    @click="viewSubTasks(row)"
+                  >
+                    云原生（含AK）已完成
+                  </span>
+                </el-tooltip>
+              </template>
+
+              <!-- 正常显示AK和云原生状态 -->
+              <template v-else>
+                <!-- AK改造状态 - 可点击进入子任务 -->
+                <el-tooltip v-if="row.ak_subtask_count > 0" placement="top">
+                  <template #content>
+                    <div style="line-height: 1.8">
+                      <div><strong>AK改造详情</strong></div>
+                      <div>总计：{{ row.ak_subtask_count }} 个子任务</div>
+                      <div style="color: #67c23a">已完成：{{ row.ak_completed_count }} 个</div>
+                      <div style="color: #409eff">进行中：{{ row.ak_in_progress_count }} 个</div>
+                      <div style="color: #909399">待启动：{{ row.ak_not_started_count }} 个</div>
+                      <div v-if="row.ak_blocked_count > 0" style="color: #f56c6c">阻塞：{{ row.ak_blocked_count }} 个</div>
+                      <div style="margin-top: 8px; color: #667eea; font-size: 12px;">
+                        点击查看子任务详情 →
+                      </div>
+                    </div>
+                  </template>
+                  <span
+                    :class="['phase-badge', getPhaseColorClass(row.ak_status === 'COMPLETED' ? '已完成' : row.ak_status === 'BLOCKED' ? '阻塞' : row.ak_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row), row.ak_status.toLowerCase())]"
+                    @click="viewSubTasks(row)"
+                  >
+                    AK·{{ row.ak_status === 'COMPLETED' ? '已完成' : row.ak_status === 'BLOCKED' ? '阻塞' : row.ak_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row) }}
+                  </span>
+                </el-tooltip>
+
+                <!-- 云原生改造状态 - 可点击进入子任务 -->
+                <el-tooltip v-if="row.cloud_native_subtask_count > 0" placement="top">
+                  <template #content>
+                    <div style="line-height: 1.8">
+                      <div><strong>云原生改造详情</strong></div>
+                      <div>总计：{{ row.cloud_native_subtask_count }} 个子任务</div>
+                      <div style="color: #67c23a">已完成：{{ row.cloud_native_completed_count }} 个</div>
+                      <div style="color: #409eff">进行中：{{ row.cloud_native_in_progress_count }} 个</div>
+                      <div style="color: #909399">待启动：{{ row.cloud_native_not_started_count }} 个</div>
+                      <div v-if="row.cloud_native_blocked_count > 0" style="color: #f56c6c">阻塞：{{ row.cloud_native_blocked_count }} 个</div>
+                      <div style="margin-top: 8px; color: #667eea; font-size: 12px;">
+                        点击查看子任务详情 →
+                      </div>
+                    </div>
+                  </template>
+                  <span
+                    :class="['phase-badge', getPhaseColorClass(row.cloud_native_status === 'COMPLETED' ? '已完成' : row.cloud_native_status === 'BLOCKED' ? '阻塞' : row.cloud_native_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row), row.cloud_native_status.toLowerCase())]"
+                    @click="viewSubTasks(row)"
+                  >
+                    云原生·{{ row.cloud_native_status === 'COMPLETED' ? '已完成' : row.cloud_native_status === 'BLOCKED' ? '阻塞' : row.cloud_native_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row) }}
+                  </span>
+                </el-tooltip>
+
+                <!-- 如果两者都没有子任务 -->
+                <span v-if="row.ak_subtask_count === 0 && row.cloud_native_subtask_count === 0" class="no-tasks">
+                  暂无子任务
+                </span>
+              </template>
+            </div>
           </template>
         </el-table-column>
         <!-- 关键计划时间点 -->
-        <el-table-column label="计划需求" width="120" align="center">
+        <el-table-column label="计划需求" width="100" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               {{ formatYearMonth(row.planned_requirement_date) }}
@@ -172,7 +587,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划发版" width="120" align="center">
+        <el-table-column label="计划发版" width="100" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               {{ formatYearMonth(row.planned_release_date) }}
@@ -182,7 +597,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划技术上线" width="120" align="center">
+        <el-table-column label="计划技术上线" width="110" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               {{ formatYearMonth(row.planned_tech_online_date) }}
@@ -192,7 +607,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划业务上线" width="120" align="center">
+        <el-table-column label="计划业务上线" width="110" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
@@ -203,7 +618,7 @@
           </template>
         </el-table-column>
         <!-- 延期状态（合并调整和延期） -->
-        <el-table-column label="延期状态" width="150" align="center">
+        <el-table-column label="延期状态" width="130" align="center">
           <template #default="{ row }">
             <div v-if="getDelayCount(row) > 0" class="delay-button-wrapper">
               <el-button
@@ -226,12 +641,9 @@
           </template>
         </el-table-column>
         <!-- 操作按钮 -->
-        <el-table-column label="操作" width="150" fixed="right" align="center">
+        <el-table-column label="操作" width="80" fixed="right" align="center">
           <template #default="{ row }">
-            <div class="operation-buttons">
-              <el-button size="small" @click="editApplication(row)">编辑</el-button>
-              <el-button size="small" type="primary" @click="viewSubTasks(row)">子任务</el-button>
-            </div>
+            <el-button size="small" @click="editApplication(row)">编辑</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -247,7 +659,391 @@
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
         />
+      </div>
+      </div>
+      <!-- End Applications Content -->
+
+      <!-- SubTasks Content -->
+      <div v-show="mainTab === 'subtasks'" class="content-container">
+        <!-- SubTask Filter Section -->
+        <div class="filter-section">
+          <!-- View Type Tabs for SubTasks -->
+          <el-tabs v-model="subtaskViewType" @tab-change="handleSubtaskViewTypeChange" class="view-tabs">
+            <el-tab-pane name="favorites">
+              <template #label>
+                <span class="tab-with-icon">
+                  <el-icon><star-filled /></el-icon>
+                  我关注的
+                  <el-badge v-if="favoriteSubTasks.length > 0" :value="favoriteSubTasks.length" class="tab-badge" />
+                </span>
+              </template>
+            </el-tab-pane>
+            <el-tab-pane label="全部子任务" name="all"></el-tab-pane>
+            <el-tab-pane name="currentMonth">
+              <template #label>
+                <span>{{ subtaskCurrentMonthLabel }}</span>
+              </template>
+            </el-tab-pane>
+            <el-tab-pane name="nextMonth">
+              <template #label>
+                <span>{{ subtaskNextMonthLabel }}</span>
+              </template>
+            </el-tab-pane>
+          </el-tabs>
+
+          <!-- Monthly Plan Summary for SubTasks -->
+          <div v-if="subtaskViewType !== 'all' && subtaskViewType !== 'favorites'" class="monthly-plan-summary">
+            <el-alert :type="subtaskMonthlyPlanAlert.type" :closable="false">
+              <template #title>
+                <div class="summary-header">
+                  <span>{{ subtaskMonthlyPlanAlert.title }}</span>
+                  <el-button size="small" type="primary" @click="exportSubTaskMonthlyPlan">
+                    <el-icon><download /></el-icon>
+                    导出月度计划
+                  </el-button>
+                </div>
+              </template>
+              <div class="plan-statistics">
+                <span class="stat-item">需求完成: <strong>{{ subtaskMonthlyStatistics.requirement }}</strong> 个</span>
+                <span class="stat-item">发版: <strong>{{ subtaskMonthlyStatistics.release }}</strong> 个</span>
+                <span class="stat-item">技术上线: <strong>{{ subtaskMonthlyStatistics.tech }}</strong> 个</span>
+                <span class="stat-item">业务上线: <strong>{{ subtaskMonthlyStatistics.biz }}</strong> 个</span>
+              </div>
+            </el-alert>
+          </div>
+
+          <div class="filter-content">
+            <!-- Main Filters Row -->
+            <div class="main-filters">
+              <el-input
+                v-model="subtaskSearchForm.keyword"
+                placeholder="搜索版本名称..."
+                clearable
+                class="search-input"
+              >
+                <template #prefix>
+                  <el-icon><el-icon-search /></el-icon>
+                </template>
+              </el-input>
+
+              <el-select
+                v-model="subtaskSearchForm.application"
+                placeholder="所属应用"
+                clearable
+                filterable
+                class="filter-select"
+                style="width: 200px"
+              >
+                <el-option
+                  v-for="app in allApplications"
+                  :key="app.id"
+                  :label="`${app.l2_id} - ${app.app_name}`"
+                  :value="app.l2_id"
+                />
+              </el-select>
+
+              <el-select
+                v-model="subtaskSearchForm.sub_target"
+                placeholder="改造目标"
+                clearable
+                class="filter-select"
+              >
+                <el-option value="AK" label="AK" />
+                <el-option value="云原生" label="云原生" />
+              </el-select>
+
+              <el-button
+                @click="showAdvancedFilters = !showAdvancedFilters"
+                class="toggle-filters-btn"
+              >
+                <el-icon><el-icon-filter /></el-icon>
+                {{ showAdvancedFilters ? '收起筛选' : '更多筛选' }}
+              </el-button>
+
+              <el-button @click="resetSubtaskSearch" class="reset-btn">
+                重置
+              </el-button>
+            </div>
+
+            <!-- Advanced Filters -->
+            <div v-if="showAdvancedFilters" class="advanced-filters">
+              <div class="filter-grid">
+                <div class="filter-item">
+                  <label class="filter-label">开发负责人</label>
+                  <el-select
+                    v-model="subtaskSearchForm.dev_owner"
+                    placeholder="全部"
+                    clearable
+                    filterable
+                  >
+                    <el-option
+                      v-for="item in subtaskDevOwnerOptions"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    />
+                  </el-select>
+                </div>
+
+                <div class="filter-item">
+                  <label class="filter-label">运维负责人</label>
+                  <el-select
+                    v-model="subtaskSearchForm.ops_owner"
+                    placeholder="全部"
+                    clearable
+                    filterable
+                  >
+                    <el-option
+                      v-for="item in subtaskOpsOwnerOptions"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    />
+                  </el-select>
+                </div>
+
+                <div class="filter-item">
+                  <label class="filter-label">资源申请</label>
+                  <el-select
+                    v-model="subtaskSearchForm.resource_applied"
+                    placeholder="全部"
+                    clearable
+                  >
+                    <el-option :value="true" label="已申请" />
+                    <el-option :value="false" label="未申请" />
+                  </el-select>
+                </div>
+
+                <div class="filter-item">
+                  <label class="filter-label">运营需求提交</label>
+                  <el-select
+                    v-model="subtaskSearchForm.ops_requirement_submitted"
+                    placeholder="全部"
+                    clearable
+                  >
+                    <el-option :value="true" label="已提交" />
+                    <el-option :value="false" label="未提交" />
+                  </el-select>
+                </div>
+
+                <div class="filter-item">
+                  <label class="filter-label">运营测试</label>
+                  <el-select
+                    v-model="subtaskSearchForm.ops_testing_status"
+                    placeholder="全部"
+                    clearable
+                  >
+                    <el-option value="待测试" label="待测试" />
+                    <el-option value="测试中" label="测试中" />
+                    <el-option value="已完成" label="已完成" />
+                    <el-option value="测试失败" label="测试失败" />
+                  </el-select>
+                </div>
+
+                <div class="filter-item">
+                  <label class="filter-label">上线检查</label>
+                  <el-select
+                    v-model="subtaskSearchForm.launch_check_status"
+                    placeholder="全部"
+                    clearable
+                  >
+                    <el-option value="待检查" label="待检查" />
+                    <el-option value="检查中" label="检查中" />
+                    <el-option value="已通过" label="已通过" />
+                    <el-option value="未通过" label="未通过" />
+                  </el-select>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        <!-- Loading Skeleton -->
+        <div v-if="subtaskLoading">
+          <el-skeleton :rows="10" animated />
+        </div>
+
+        <!-- SubTasks Data Table -->
+        <el-table
+          v-else
+          :data="paginatedSubTasks"
+          style="width: 100%"
+          @selection-change="handleSubTaskSelectionChange"
+        >
+          <el-table-column type="selection" width="50" />
+
+          <!-- 关注 -->
+          <el-table-column label="关注" width="60" align="center" fixed="left">
+            <template #default="{ row }">
+              <el-icon
+                class="favorite-icon"
+                :class="{ 'is-favorite': row.is_favorite }"
+                @click.stop="toggleSubTaskFavorite(row)"
+              >
+                <star-filled v-if="row.is_favorite" />
+                <star v-else />
+              </el-icon>
+            </template>
+          </el-table-column>
+
+          <!-- 所属应用 -->
+          <el-table-column prop="l2_id" label="所属应用" width="200" fixed="left">
+            <template #default="{ row }">
+              <div>
+                <div style="font-size: 12px; color: #718096; margin-bottom: 4px;">{{ getApplicationL2IdDisplay(row.l2_id) }}</div>
+                <el-link type="primary" @click="showSubTaskDetail(row)" :underline="false" class="app-name-link">
+                  {{ getApplicationNameByL2Id(row.l2_id) }}
+                </el-link>
+              </div>
+            </template>
+          </el-table-column>
+
+          <!-- 版本名称 -->
+          <el-table-column prop="version_name" label="版本名称" width="150">
+            <template #default="{ row }">
+              <strong>{{ row.version_name || '-' }}</strong>
+            </template>
+          </el-table-column>
+
+          <!-- 改造目标 -->
+          <el-table-column prop="sub_target" label="改造目标" width="90" align="center">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.sub_target === 'AK' ? 'primary' : 'success'">
+                {{ row.sub_target || 'AK' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+
+          <!-- 进度状态 -->
+          <el-table-column prop="task_status" label="当前状态" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="getSubTaskStatusType(row.task_status)" size="small">
+                {{ row.task_status || '待启动' }}
+              </el-tag>
+              <div v-if="row.is_blocked" class="block-warning">⚠️ 阻塞中</div>
+            </template>
+          </el-table-column>
+
+          <!-- 需求阶段 -->
+          <el-table-column label="需求阶段" align="center">
+            <el-table-column label="计划" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell planned">
+                  {{ formatYearMonth(row.planned_requirement_date) }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="实际" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell" :class="getDateComparisonClass(row.planned_requirement_date, row.actual_requirement_date)">
+                  {{ formatYearMonth(row.actual_requirement_date) }}
+                </div>
+              </template>
+            </el-table-column>
+          </el-table-column>
+
+          <!-- 发版阶段 -->
+          <el-table-column label="发版阶段" align="center">
+            <el-table-column label="计划" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell planned">
+                  {{ formatYearMonth(row.planned_release_date) }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="实际" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell" :class="getDateComparisonClass(row.planned_release_date, row.actual_release_date)">
+                  {{ formatYearMonth(row.actual_release_date) }}
+                </div>
+              </template>
+            </el-table-column>
+          </el-table-column>
+
+          <!-- 技术上线阶段 -->
+          <el-table-column label="技术上线" align="center">
+            <el-table-column label="计划" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell planned">
+                  {{ formatYearMonth(row.planned_tech_online_date) }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="实际" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell" :class="getDateComparisonClass(row.planned_tech_online_date, row.actual_tech_online_date)">
+                  {{ formatYearMonth(row.actual_tech_online_date) }}
+                </div>
+              </template>
+            </el-table-column>
+          </el-table-column>
+
+          <!-- 业务上线阶段 -->
+          <el-table-column label="业务上线" align="center">
+            <el-table-column label="计划" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell planned">
+                  <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="实际" width="95" align="center">
+              <template #default="{ row }">
+                <div class="date-cell" :class="getDateComparisonClass(row.planned_biz_online_date, row.actual_biz_online_date)">
+                  <strong v-if="row.actual_biz_online_date">{{ formatYearMonth(row.actual_biz_online_date) }}</strong>
+                  <span v-else>-</span>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table-column>
+
+          <!-- 延期状态 -->
+          <el-table-column label="延期状态" width="150" align="center">
+            <template #default="{ row }">
+              <div v-if="getSubTaskDelayInfo(row).hasDelay" class="delay-button-wrapper">
+                <el-button
+                  size="small"
+                  :type="getSubTaskDelayInfo(row).severity"
+                  @click="showSubTaskDelayDetails(row)"
+                  class="delay-status-button"
+                  plain
+                  round
+                >
+                  <el-icon class="delay-icon"><el-icon-warning /></el-icon>
+                  <span class="delay-text">{{ getSubTaskDelayInfo(row).text }}</span>
+                  <el-icon class="arrow-icon"><el-icon-arrow-right /></el-icon>
+                </el-button>
+              </div>
+              <el-tag v-else type="success" size="small" effect="plain">
+                <el-icon class="status-icon"><el-icon-circle-check /></el-icon>
+                <span>正常</span>
+              </el-tag>
+            </template>
+          </el-table-column>
+
+          <!-- 操作 -->
+          <el-table-column label="操作" width="80" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-button size="small" @click="editSubTask(row)">编辑</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <!-- SubTask Pagination -->
+        <div class="pagination">
+          <el-pagination
+            v-model:current-page="subtaskCurrentPage"
+            v-model:page-size="subtaskPageSize"
+            :page-sizes="[20, 50, 100]"
+            :total="filteredSubTasks.length"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSubTaskSizeChange"
+            @current-change="handleSubTaskCurrentChange"
+          />
+        </div>
+      </div>
+      <!-- End SubTasks Content -->
+
     </el-card>
 
     <!-- Create Application Dialog -->
@@ -563,8 +1359,13 @@
 
         <!-- 操作记录 -->
         <el-tab-pane label="操作记录" name="audit" lazy>
-          <div v-loading="auditLoading" style="min-height: 300px;">
-            <div v-if="auditRecords.length === 0" class="audit-empty">
+          <div style="min-height: 300px;">
+            <!-- Loading Skeleton -->
+            <div v-if="auditLoading">
+              <el-skeleton :rows="5" animated />
+            </div>
+
+            <div v-else-if="auditRecords.length === 0" class="audit-empty">
               <el-empty description="暂无操作记录" />
             </div>
             <el-timeline v-else>
@@ -616,7 +1417,13 @@
 
     <!-- Delay Details Dialog -->
     <el-dialog v-model="showDelayDetailsDialog" title="延期详情" width="900px">
-      <div v-loading="delayDetailsLoading" style="min-height: 400px;">
+      <div style="min-height: 400px;">
+        <!-- Loading Skeleton -->
+        <div v-if="delayDetailsLoading">
+          <el-skeleton :rows="8" animated />
+        </div>
+
+        <div v-else>
         <!-- 延期统计 -->
         <div class="delay-summary">
           <el-alert type="warning" :closable="false">
@@ -725,6 +1532,7 @@
         <div v-if="!delayDetailsData.delayHistory || delayDetailsData.delayHistory.length === 0" class="no-delay-history">
           <el-empty description="该应用暂无延期记录" />
         </div>
+        </div>
       </div>
       <template #footer>
         <el-button @click="showDelayDetailsDialog = false">关闭</el-button>
@@ -733,7 +1541,13 @@
 
     <!-- Plan History Dialog -->
     <el-dialog v-model="showPlanHistoryDialog" title="计划调整历史" width="900px">
-      <div v-loading="planHistoryLoading" style="min-height: 400px;">
+      <div style="min-height: 400px;">
+        <!-- Loading Skeleton -->
+        <div v-if="planHistoryLoading">
+          <el-skeleton :rows="8" animated />
+        </div>
+
+        <div v-else>
         <!-- 调整统计 -->
         <div class="adjustment-summary">
           <el-alert type="warning" :closable="false">
@@ -831,9 +1645,184 @@
         <div v-if="planHistoryData.length === 0" class="no-adjustment-history">
           <el-empty description="该应用暂无计划调整记录" />
         </div>
+        </div>
       </div>
       <template #footer>
         <el-button @click="showPlanHistoryDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- SubTask Detail Dialog -->
+    <el-dialog v-model="showSubTaskDetailDialog" title="子任务详情" width="900px">
+      <el-tabs v-model="activeSubTaskDetailTab" type="card">
+        <!-- 基础信息 -->
+        <el-tab-pane label="基础信息" name="basic">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="所属应用" label-align="right">
+              <strong>{{ getApplicationL2IdDisplay(subTaskDetailData.l2_id || '') }}</strong>
+              <div style="font-size: 12px; color: #718096; margin-top: 4px;">
+                {{ getApplicationNameByL2Id(subTaskDetailData.l2_id || '') }}
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="版本名称" label-align="right">
+              <strong>{{ subTaskDetailData.version_name || '-' }}</strong>
+            </el-descriptions-item>
+            <el-descriptions-item label="改造目标" label-align="right">
+              <el-tag :type="subTaskDetailData.sub_target === 'AK' ? 'primary' : 'success'" size="small">
+                {{ subTaskDetailData.sub_target || 'AK' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="当前状态" label-align="right">
+              <el-tag :type="getSubTaskStatusType(subTaskDetailData.task_status || '')" size="small">
+                {{ subTaskDetailData.task_status || '待启动' }}
+              </el-tag>
+              <el-tag v-if="subTaskDetailData.is_blocked" type="danger" size="small" style="margin-left: 8px;">
+                阻塞中
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="整体进度" label-align="right" :span="2">
+              <el-progress
+                :percentage="calculateSubTaskProgress(subTaskDetailData as SubTask)"
+                :stroke-width="20"
+                :color="getSubTaskProgressColor(subTaskDetailData as SubTask)"
+                style="width: 300px;"
+              >
+                <template #default="{ percentage }">
+                  <span style="font-size: 14px; font-weight: 600;">{{ percentage }}%</span>
+                </template>
+              </el-progress>
+            </el-descriptions-item>
+            <el-descriptions-item label="阻塞原因" label-align="right" :span="2" v-if="subTaskDetailData.is_blocked">
+              <span style="color: #f56565;">{{ subTaskDetailData.blocking_reason || '未说明' }}</span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <!-- 团队信息 -->
+        <el-tab-pane label="团队信息" name="team">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="开发负责人" label-align="right">
+              {{ subTaskDetailData.dev_owner || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="运维负责人" label-align="right">
+              {{ subTaskDetailData.ops_owner || '-' }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <!-- 时间进度 -->
+        <el-tab-pane label="时间进度" name="timeline">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="【计划】需求完成" label-align="right">
+              {{ formatYearMonth(subTaskDetailData.planned_requirement_date) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="【实际】需求到达" label-align="right">
+              <span :class="getDateComparisonClass(subTaskDetailData.planned_requirement_date, subTaskDetailData.actual_requirement_date)">
+                {{ formatYearMonth(subTaskDetailData.actual_requirement_date) }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="【计划】发版时间" label-align="right">
+              {{ formatYearMonth(subTaskDetailData.planned_release_date) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="【实际】发版时间" label-align="right">
+              <span :class="getDateComparisonClass(subTaskDetailData.planned_release_date, subTaskDetailData.actual_release_date)">
+                {{ formatYearMonth(subTaskDetailData.actual_release_date) }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="【计划】技术上线" label-align="right">
+              {{ formatYearMonth(subTaskDetailData.planned_tech_online_date) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="【实际】技术上线" label-align="right">
+              <span :class="getDateComparisonClass(subTaskDetailData.planned_tech_online_date, subTaskDetailData.actual_tech_online_date)">
+                {{ formatYearMonth(subTaskDetailData.actual_tech_online_date) }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="【计划】业务上线" label-align="right">
+              {{ formatYearMonth(subTaskDetailData.planned_biz_online_date) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="【实际】业务上线" label-align="right">
+              <span :class="getDateComparisonClass(subTaskDetailData.planned_biz_online_date, subTaskDetailData.actual_biz_online_date)">
+                {{ formatYearMonth(subTaskDetailData.actual_biz_online_date) }}
+              </span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <!-- 运营状态 -->
+        <el-tab-pane label="运营状态" name="operational">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="资源申请" label-align="right">
+              <el-tag :type="subTaskDetailData.resource_applied ? 'success' : 'info'" size="small">
+                {{ subTaskDetailData.resource_applied ? '已申请' : '未申请' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="运营需求提交" label-align="right">
+              <el-tag :type="subTaskDetailData.ops_requirement_submitted ? 'success' : 'info'" size="small">
+                {{ subTaskDetailData.ops_requirement_submitted ? '已提交' : '未提交' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="运营测试" label-align="right">
+              <el-tag
+                v-if="subTaskDetailData.ops_testing_status"
+                :type="subTaskDetailData.ops_testing_status === '已完成' ? 'success' : subTaskDetailData.ops_testing_status === '测试失败' ? 'danger' : 'warning'"
+                size="small"
+              >
+                {{ subTaskDetailData.ops_testing_status }}
+              </el-tag>
+              <span v-else>-</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="上线检查" label-align="right">
+              <el-tag
+                v-if="subTaskDetailData.launch_check_status"
+                :type="subTaskDetailData.launch_check_status === '已通过' ? 'success' : subTaskDetailData.launch_check_status === '未通过' ? 'danger' : 'warning'"
+                size="small"
+              >
+                {{ subTaskDetailData.launch_check_status }}
+              </el-tag>
+              <span v-else>-</span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <!-- 延期分析 -->
+        <el-tab-pane label="延期分析" name="delay" v-if="getSubTaskDelayInfo(subTaskDetailData as SubTask).hasDelay">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="延期状态" label-align="right">
+              <el-tag :type="getSubTaskDelayInfo(subTaskDetailData as SubTask).severity" size="small">
+                {{ getSubTaskDelayInfo(subTaskDetailData as SubTask).text }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="延期天数" label-align="right">
+              <span style="color: #f56565; font-weight: 600;">
+                {{ getSubTaskDelayInfo(subTaskDetailData as SubTask).days }} 月
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="延期类型" label-align="right" :span="2">
+              {{ getSubTaskDelayInfo(subTaskDetailData as SubTask).type }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <!-- 其他信息 -->
+        <el-tab-pane label="其他信息" name="other">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="创建时间" label-align="right">
+              {{ formatDate(subTaskDetailData.created_at) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="更新时间" label-align="right">
+              {{ formatDate(subTaskDetailData.updated_at) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="备注" label-align="right" :span="2">
+              {{ subTaskDetailData.notes || '-' }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+      </el-tabs>
+      <template #footer>
+        <div style="display: flex; justify-content: space-between; width: 100%;">
+          <el-button type="primary" @click="editSubTask(subTaskDetailData as SubTask)">编辑子任务</el-button>
+          <el-button @click="showSubTaskDetailDialog = false">关闭</el-button>
+        </div>
       </template>
     </el-dialog>
 
@@ -851,7 +1840,11 @@ import {
   Clock as ElIconClock,
   CircleCheck as ElIconCircleCheck,
   ArrowRight as ElIconArrowRight,
-  InfoFilled as ElIconInfoFilled
+  InfoFilled as ElIconInfoFilled,
+  StarFilled,
+  Star,
+  Search as ElIconSearch,
+  Filter as ElIconFilter
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApplicationsAPI, type Application, type CreateApplicationRequest } from '@/api/applications'
@@ -877,13 +1870,29 @@ const activeDetailTab = ref('basic')
 const planHistoryData = ref<any[]>([])
 const planHistoryLoading = ref(false)
 
+// SubTask detail dialog states
+const showSubTaskDetailDialog = ref(false)
+const subTaskDetailData = ref<Partial<SubTask>>({})
+const activeSubTaskDetailTab = ref('basic')
+
 // Monthly plan view states
-const viewType = ref('all') // 'all' | 'currentMonth' | 'nextMonth'
+const viewType = ref('all') // 'all' | 'favorites' | 'currentMonth' | 'nextMonth'
 const currentDate = new Date()
 const currentMonth = currentDate.getMonth() + 1
 const currentYear = currentDate.getFullYear()
 const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
 const nextMonthYear = currentMonth === 12 ? currentYear + 1 : currentYear
+
+// Favorites management
+const FAVORITES_STORAGE_KEY = 'application_favorites'
+const favoriteIds = ref<Set<number>>(new Set())
+
+// SubTask favorites management
+const SUBTASK_FAVORITES_STORAGE_KEY = 'subtask_favorites'
+const favoriteSubTaskIds = ref<Set<number>>(new Set())
+
+// Advanced filters toggle
+const showAdvancedFilters = ref(false)
 
 // Audit related states
 const auditRecords = ref<AuditLog[]>([])
@@ -896,19 +1905,9 @@ const planAdjustmentCache = ref<Map<number, any>>(new Map())
 const currentPlanAdjustment = ref<any>(null)
 const planAdjustmentDetails = ref<any[]>([])
 
-// Tab and SubTasks states
+// Tab states
 const activeTab = ref('applications')
-const allSubTasks = ref<SubTask[]>([])
-const subtaskLoading = ref(false)
-const selectedSubTasks = ref<SubTask[]>([])
-const subtaskCurrentPage = ref(1)
-const subtaskPageSize = ref(10)
-
-const subtaskSearchForm = reactive({
-  keyword: '',
-  status: undefined as string | undefined,
-  application: undefined as number | undefined
-})
+const mainTab = ref('applications') // 主要分类tab: 'applications' 或 'subtasks'
 
 // Data states
 const allApplications = ref<Application[]>([]) // 存储所有原始数据
@@ -916,12 +1915,68 @@ const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(20)
 
+// SubTask states
+const allSubTasks = ref<SubTask[]>([]) // 存储所有子任务数据
+const subtaskLoading = ref(false)
+const subtaskCurrentPage = ref(1)
+const subtaskPageSize = ref(20)
+const selectedSubTasks = ref<SubTask[]>([])
+
 const searchForm = reactive({
   keyword: '',
+  target: undefined as string | undefined,  // 改造目标
+  progress_status: undefined as string | undefined,  // 改造进度（整体状态）
+  acceptance_year: undefined as number | undefined,  // 监管验收年份
+
+  // 高级筛选字段 - 第一组
+  belonging_l1: undefined as string | undefined,  // 所属L1
+  app_tier: undefined as number | undefined,  // 档位
+  belonging_project: undefined as string | undefined,  // 所属项目
+  dev_mode: undefined as string | undefined,  // 开发模式
+  ops_mode: undefined as string | undefined,  // 运维模式
+  dev_owner: undefined as string | undefined,  // 开发负责人
+  dev_team: undefined as string | undefined,  // 开发团队
+  ops_owner: undefined as string | undefined,  // 运维负责人
+  ops_team: undefined as string | undefined,  // 运维团队
+  belonging_kpi: undefined as string | undefined,  // 所属KPI指标
+  domain_completed: undefined as boolean | undefined,  // 域名化DBPM
+  dbpm_completed: undefined as boolean | undefined,  // DBPM
+  acceptance_status: undefined as string | undefined,  // 验收状态
+
+  // 高级筛选字段 - 第二组（时间筛选 - 支持多选）
+  planned_req_months: [] as string[],  // 计划需求时间（月份，可多选）
+  planned_release_months: [] as string[],  // 计划发版时间（月份，可多选）
+  planned_tech_months: [] as string[],  // 计划技术上线时间（月份，可多选）
+  planned_biz_months: [] as string[],  // 计划业务上线时间（月份，可多选）
+
+  // 旧字段保留用于兼容
   status: undefined as string | undefined,
   department: undefined as string | undefined,
-  target: undefined as string | undefined
+  ak_status: '' as 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED' | '',
+  cloud_native_status: '' as 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED' | '',
+  is_delayed: undefined as boolean | undefined
 })
+
+// SubTask view type
+const subtaskViewType = ref('all') // 'all' | 'notStarted' | 'inProgress' | 'completed' | 'blocked'
+
+// SubTask search form
+const subtaskSearchForm = reactive({
+  keyword: '',
+  status: undefined as string | undefined,
+  application: undefined as string | undefined,
+  sub_target: undefined as string | undefined,
+  dev_owner: undefined as string | undefined,
+  ops_owner: undefined as string | undefined,
+  resource_applied: undefined as boolean | undefined,
+  ops_requirement_submitted: undefined as boolean | undefined,
+  ops_testing_status: undefined as string | undefined,
+  launch_check_status: undefined as string | undefined
+})
+
+// SubTask filter options
+const subtaskDevOwnerOptions = ref<Array<{ label: string; value: string }>>([])
+const subtaskOpsOwnerOptions = ref<Array<{ label: string; value: string }>>([])
 
 // 用于防抖的关键词
 const debouncedKeyword = ref('')
@@ -930,6 +1985,33 @@ const debouncedKeyword = ref('')
 const statusOptions = ref<Array<{ label: string; value: string }>>([])
 const departmentOptions = ref<Array<{ label: string; value: string }>>([])
 const targetOptions = ref<Array<{ label: string; value: string }>>([])
+const l1Options = ref<Array<{ label: string; value: string }>>([])
+const projectOptions = ref<Array<{ label: string; value: string }>>([])
+const devModeOptions = ref<Array<{ label: string; value: string }>>([])
+const opsModeOptions = ref<Array<{ label: string; value: string }>>([])
+const devOwnerOptions = ref<Array<{ label: string; value: string }>>([])
+const devTeamOptions = ref<Array<{ label: string; value: string }>>([])
+const opsOwnerOptions = ref<Array<{ label: string; value: string }>>([])
+const opsTeamOptions = ref<Array<{ label: string; value: string }>>([])
+const kpiOptions = ref<Array<{ label: string; value: string }>>([])
+
+// 月份选项 - 生成最近24个月的选项
+const monthOptions = computed(() => {
+  const options: Array<{ label: string; value: string }> = []
+  const now = new Date()
+
+  // 生成过去12个月到未来12个月的选项
+  for (let i = -12; i <= 12; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() + i, 1)
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const value = `${year}-${String(month).padStart(2, '0')}`
+    const label = `${year}年${String(month).padStart(2, '0')}月`
+    options.push({ label, value })
+  }
+
+  return options
+})
 
 const createForm = reactive({
   l2_id: '',
@@ -1011,7 +2093,7 @@ const filterApplicationsByMonth = (apps: Application[], targetYear: number, targ
       app.planned_tech_online_date,
       app.planned_biz_online_date
     ]
-    
+
     return dates.some(dateStr => {
       if (!dateStr) return false
       const date = new Date(dateStr)
@@ -1019,6 +2101,97 @@ const filterApplicationsByMonth = (apps: Application[], targetYear: number, targ
     })
   })
 }
+
+// Favorite applications
+const favoriteApplications = computed(() => {
+  return allApplications.value.filter(app => favoriteIds.value.has(app.id))
+})
+
+// Favorite subtasks
+const favoriteSubTasks = computed(() => {
+  return allSubTasks.value.filter(task => favoriteSubTaskIds.value.has(task.id))
+})
+
+// SubTask monthly plan labels
+const subtaskCurrentMonthLabel = computed(() => {
+  return `计划到期子任务-${currentYear}年${String(currentMonth).padStart(2, '0')}月（本月）`
+})
+
+const subtaskNextMonthLabel = computed(() => {
+  return `计划到期子任务-${nextMonthYear}年${String(nextMonth).padStart(2, '0')}月（下个月）`
+})
+
+// SubTask monthly plan alert info
+const subtaskMonthlyPlanAlert = computed(() => {
+  if (subtaskViewType.value === 'currentMonth') {
+    return {
+      type: 'warning',
+      title: `${currentYear}年${currentMonth}月应上线子任务清单`
+    }
+  } else if (subtaskViewType.value === 'nextMonth') {
+    return {
+      type: 'info',
+      title: `${nextMonthYear}年${nextMonth}月应上线子任务清单`
+    }
+  }
+  return { type: 'info', title: '' }
+})
+
+// Filter subtasks by month
+const filterSubTasksByMonth = (tasks: SubTask[], targetYear: number, targetMonth: number) => {
+  return tasks.filter(task => {
+    // Check all planned dates for the target month
+    const dates = [
+      task.planned_requirement_date,
+      task.planned_release_date,
+      task.planned_tech_online_date,
+      task.planned_biz_online_date
+    ]
+
+    return dates.some(dateStr => {
+      if (!dateStr) return false
+      const date = new Date(dateStr)
+      return date.getFullYear() === targetYear && date.getMonth() + 1 === targetMonth
+    })
+  })
+}
+
+// SubTask monthly statistics
+const subtaskMonthlyStatistics = computed(() => {
+  let tasks: SubTask[] = []
+
+  if (subtaskViewType.value === 'currentMonth') {
+    tasks = filterSubTasksByMonth(allSubTasks.value, currentYear, currentMonth)
+  } else if (subtaskViewType.value === 'nextMonth') {
+    tasks = filterSubTasksByMonth(allSubTasks.value, nextMonthYear, nextMonth)
+  }
+
+  const targetYear = subtaskViewType.value === 'currentMonth' ? currentYear : nextMonthYear
+  const targetMonth = subtaskViewType.value === 'currentMonth' ? currentMonth : nextMonth
+
+  return {
+    requirement: tasks.filter(task => {
+      if (!task.planned_requirement_date) return false
+      const date = new Date(task.planned_requirement_date)
+      return date.getFullYear() === targetYear && date.getMonth() + 1 === targetMonth
+    }).length,
+    release: tasks.filter(task => {
+      if (!task.planned_release_date) return false
+      const date = new Date(task.planned_release_date)
+      return date.getFullYear() === targetYear && date.getMonth() + 1 === targetMonth
+    }).length,
+    tech: tasks.filter(task => {
+      if (!task.planned_tech_online_date) return false
+      const date = new Date(task.planned_tech_online_date)
+      return date.getFullYear() === targetYear && date.getMonth() + 1 === targetMonth
+    }).length,
+    biz: tasks.filter(task => {
+      if (!task.planned_biz_online_date) return false
+      const date = new Date(task.planned_biz_online_date)
+      return date.getFullYear() === targetYear && date.getMonth() + 1 === targetMonth
+    }).length
+  }
+})
 
 // Monthly statistics
 const monthlyStatistics = computed(() => {
@@ -1061,8 +2234,12 @@ const monthlyStatistics = computed(() => {
 const filteredApplications = computed(() => {
   let result = [...allApplications.value]
 
+  // Apply favorites filter if viewing favorites
+  if (viewType.value === 'favorites') {
+    result = result.filter(app => favoriteIds.value.has(app.id))
+  }
   // Apply monthly filter if viewing monthly plans
-  if (viewType.value === 'currentMonth') {
+  else if (viewType.value === 'currentMonth') {
     result = filterApplicationsByMonth(result, currentYear, currentMonth)
   } else if (viewType.value === 'nextMonth') {
     result = filterApplicationsByMonth(result, nextMonthYear, nextMonth)
@@ -1078,19 +2255,151 @@ const filteredApplications = computed(() => {
     })
   }
 
-  // 状态筛选
+  // 改造目标筛选
+  if (searchForm.target) {
+    result = result.filter(app => app.overall_transformation_target === searchForm.target)
+  }
+
+  // 改造进度筛选（整体状态）
+  if (searchForm.progress_status) {
+    result = result.filter(app => app.current_status === searchForm.progress_status)
+  }
+
+  // 监管验收年份筛选
+  if (searchForm.acceptance_year) {
+    result = result.filter(app => app.ak_supervision_acceptance_year === searchForm.acceptance_year)
+  }
+
+  // === Group 1 Advanced Filters ===
+
+  // 所属L1筛选
+  if (searchForm.belonging_l1) {
+    result = result.filter(app => app.belonging_l1_name === searchForm.belonging_l1)
+  }
+
+  // 档位筛选
+  if (searchForm.app_tier) {
+    result = result.filter(app => app.app_tier === searchForm.app_tier)
+  }
+
+  // 所属项目筛选
+  if (searchForm.belonging_project) {
+    result = result.filter(app => app.belonging_projects === searchForm.belonging_project)
+  }
+
+  // 开发模式筛选
+  if (searchForm.dev_mode) {
+    result = result.filter(app => app.dev_mode === searchForm.dev_mode)
+  }
+
+  // 运维模式筛选
+  if (searchForm.ops_mode) {
+    result = result.filter(app => app.ops_mode === searchForm.ops_mode)
+  }
+
+  // 开发负责人筛选
+  if (searchForm.dev_owner) {
+    result = result.filter(app => app.dev_owner === searchForm.dev_owner)
+  }
+
+  // 开发团队筛选
+  if (searchForm.dev_team) {
+    result = result.filter(app => app.dev_team === searchForm.dev_team)
+  }
+
+  // 运维负责人筛选
+  if (searchForm.ops_owner) {
+    result = result.filter(app => app.ops_owner === searchForm.ops_owner)
+  }
+
+  // 运维团队筛选
+  if (searchForm.ops_team) {
+    result = result.filter(app => app.ops_team === searchForm.ops_team)
+  }
+
+  // 所属KPI指标筛选
+  if (searchForm.belonging_kpi) {
+    result = result.filter(app => app.belonging_kpi === searchForm.belonging_kpi)
+  }
+
+  // 域名化改造完成筛选
+  if (searchForm.domain_completed !== undefined) {
+    result = result.filter(app => app.is_domain_transformation_completed === searchForm.domain_completed)
+  }
+
+  // DBPM改造完成筛选
+  if (searchForm.dbpm_completed !== undefined) {
+    result = result.filter(app => app.is_dbpm_transformation_completed === searchForm.dbpm_completed)
+  }
+
+  // 验收状态筛选
+  if (searchForm.acceptance_status) {
+    result = result.filter(app => app.acceptance_status === searchForm.acceptance_status)
+  }
+
+  // === Group 2 Time Filters (支持多选) ===
+
+  // 计划需求时间（月份，可多选）
+  if (searchForm.planned_req_months && searchForm.planned_req_months.length > 0) {
+    result = result.filter(app => {
+      if (!app.planned_requirement_date) return false
+      const appMonth = app.planned_requirement_date.substring(0, 7) // YYYY-MM
+      return searchForm.planned_req_months.includes(appMonth)
+    })
+  }
+
+  // 计划发版时间（月份，可多选）
+  if (searchForm.planned_release_months && searchForm.planned_release_months.length > 0) {
+    result = result.filter(app => {
+      if (!app.planned_release_date) return false
+      const appMonth = app.planned_release_date.substring(0, 7) // YYYY-MM
+      return searchForm.planned_release_months.includes(appMonth)
+    })
+  }
+
+  // 计划技术上线时间（月份，可多选）
+  if (searchForm.planned_tech_months && searchForm.planned_tech_months.length > 0) {
+    result = result.filter(app => {
+      if (!app.planned_tech_online_date) return false
+      const appMonth = app.planned_tech_online_date.substring(0, 7) // YYYY-MM
+      return searchForm.planned_tech_months.includes(appMonth)
+    })
+  }
+
+  // 计划业务上线时间（月份，可多选）
+  if (searchForm.planned_biz_months && searchForm.planned_biz_months.length > 0) {
+    result = result.filter(app => {
+      if (!app.planned_biz_online_date) return false
+      const appMonth = app.planned_biz_online_date.substring(0, 7) // YYYY-MM
+      return searchForm.planned_biz_months.includes(appMonth)
+    })
+  }
+
+  // === Backward Compatibility Filters ===
+
+  // 状态筛选（旧字段）
   if (searchForm.status) {
     result = result.filter(app => app.current_status === searchForm.status)
   }
 
-  // 部门筛选
+  // 部门筛选（旧字段）
   if (searchForm.department) {
     result = result.filter(app => (app.dev_team === searchForm.department) || (app.ops_team === searchForm.department))
   }
 
-  // 改造目标筛选（假设数据中有此字段）
-  if (searchForm.target) {
-    result = result.filter(app => app.overall_transformation_target === searchForm.target)
+  // AK改造状态筛选
+  if (searchForm.ak_status) {
+    result = result.filter(app => app.ak_status === searchForm.ak_status)
+  }
+
+  // 云原生改造状态筛选
+  if (searchForm.cloud_native_status) {
+    result = result.filter(app => app.cloud_native_status === searchForm.cloud_native_status)
+  }
+
+  // 延期状态筛选
+  if (searchForm.is_delayed !== undefined) {
+    result = result.filter(app => app.is_delayed === searchForm.is_delayed)
   }
 
   return result
@@ -1110,6 +2419,17 @@ const total = computed(() => filteredApplications.value.length)
 const filteredSubTasks = computed(() => {
   let result = [...allSubTasks.value]
 
+  // Apply favorites filter if viewing favorites
+  if (subtaskViewType.value === 'favorites') {
+    result = result.filter(task => favoriteSubTaskIds.value.has(task.id))
+  }
+  // Apply monthly filter if viewing monthly plans
+  else if (subtaskViewType.value === 'currentMonth') {
+    result = filterSubTasksByMonth(result, currentYear, currentMonth)
+  } else if (subtaskViewType.value === 'nextMonth') {
+    result = filterSubTasksByMonth(result, nextMonthYear, nextMonth)
+  }
+
   // 关键词搜索
   if (subtaskSearchForm.keyword) {
     const keyword = subtaskSearchForm.keyword.toLowerCase()
@@ -1119,14 +2439,52 @@ const filteredSubTasks = computed(() => {
     })
   }
 
-  // 状态筛选
+  // 应用筛选
+  if (subtaskSearchForm.application) {
+    result = result.filter(task => task.l2_id === subtaskSearchForm.application)
+  }
+
+  // 改造目标筛选
+  if (subtaskSearchForm.sub_target) {
+    result = result.filter(task => task.sub_target === subtaskSearchForm.sub_target)
+  }
+
+  // 开发负责人筛选
+  if (subtaskSearchForm.dev_owner) {
+    result = result.filter(task => task.dev_owner === subtaskSearchForm.dev_owner)
+  }
+
+  // 运维负责人筛选
+  if (subtaskSearchForm.ops_owner) {
+    result = result.filter(task => task.ops_owner === subtaskSearchForm.ops_owner)
+  }
+
+  // 状态筛选（保留旧字段兼容性）
   if (subtaskSearchForm.status) {
     result = result.filter(task => task.task_status === subtaskSearchForm.status)
   }
 
-  // 应用筛选
-  if (subtaskSearchForm.application) {
-    result = result.filter(task => task.l2_id === subtaskSearchForm.application)
+  // 资源是否申请筛选
+  if (subtaskSearchForm.resource_applied !== undefined) {
+    result = result.filter(task => task.resource_applied === subtaskSearchForm.resource_applied)
+  }
+
+  // 运营需求提交筛选
+  if (subtaskSearchForm.ops_requirement_submitted !== undefined) {
+    result = result.filter(task => {
+      const hasSubmitted = task.ops_requirement_submitted !== null && task.ops_requirement_submitted !== undefined
+      return hasSubmitted === subtaskSearchForm.ops_requirement_submitted
+    })
+  }
+
+  // 运营测试状态筛选
+  if (subtaskSearchForm.ops_testing_status) {
+    result = result.filter(task => task.ops_testing_status === subtaskSearchForm.ops_testing_status)
+  }
+
+  // 上线检查状态筛选
+  if (subtaskSearchForm.launch_check_status) {
+    result = result.filter(task => task.launch_check_status === subtaskSearchForm.launch_check_status)
   }
 
   return result
@@ -1149,7 +2507,10 @@ const loadApplications = async () => {
       limit: 1000 // 获取前1000条数据
     })
     allApplications.value = response.items || []
-    
+
+    // Sync is_favorite field with localStorage
+    syncFavoritesWithApplications()
+
     // 生成动态筛选选项
     updateFilterOptions()
   } catch (error) {
@@ -1161,19 +2522,167 @@ const loadApplications = async () => {
   }
 }
 
+// Load all subtasks from all applications
+const loadAllSubTasks = async () => {
+  try {
+    subtaskLoading.value = true
+    // Fetch all subtasks with maximum allowed limit
+    const response = await SubTasksAPI.getSubTasks({
+      skip: 0,
+      limit: 1000 // Get first 1000 subtasks (API maximum)
+    })
+    allSubTasks.value = response.items || []
+
+    // Sync is_favorite field with localStorage
+    syncFavoritesWithSubTasks()
+
+    // Update subtask filter options
+    updateSubtaskFilterOptions()
+  } catch (error) {
+    console.error('Failed to load subtasks:', error)
+    ElMessage.error('加载子任务列表失败，请检查网络连接')
+    allSubTasks.value = []
+  } finally {
+    subtaskLoading.value = false
+  }
+}
+
+// Update subtask filter options from loaded data
+const updateSubtaskFilterOptions = () => {
+  const devOwnerSet = new Set<string>()
+  const opsOwnerSet = new Set<string>()
+
+  allSubTasks.value.forEach(task => {
+    if (task.dev_owner) devOwnerSet.add(task.dev_owner)
+    if (task.ops_owner) opsOwnerSet.add(task.ops_owner)
+  })
+
+  subtaskDevOwnerOptions.value = Array.from(devOwnerSet)
+    .sort()
+    .map(owner => ({ label: owner, value: owner }))
+
+  subtaskOpsOwnerOptions.value = Array.from(opsOwnerSet)
+    .sort()
+    .map(owner => ({ label: owner, value: owner }))
+}
+
+// Load favorites from localStorage
+const loadFavoritesFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(FAVORITES_STORAGE_KEY)
+    if (stored) {
+      const ids = JSON.parse(stored) as number[]
+      favoriteIds.value = new Set(ids)
+    }
+  } catch (error) {
+    console.error('Failed to load favorites from localStorage:', error)
+    favoriteIds.value = new Set()
+  }
+}
+
+// Save favorites to localStorage
+const saveFavoritesToStorage = () => {
+  try {
+    const ids = Array.from(favoriteIds.value)
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(ids))
+  } catch (error) {
+    console.error('Failed to save favorites to localStorage:', error)
+  }
+}
+
+// Sync is_favorite field with favoriteIds
+const syncFavoritesWithApplications = () => {
+  allApplications.value.forEach(app => {
+    app.is_favorite = favoriteIds.value.has(app.id)
+  })
+}
+
+// Toggle favorite status
+const toggleFavorite = (app: Application) => {
+  if (favoriteIds.value.has(app.id)) {
+    favoriteIds.value.delete(app.id)
+    app.is_favorite = false
+    ElMessage.success('已取消关注')
+  } else {
+    favoriteIds.value.add(app.id)
+    app.is_favorite = true
+    ElMessage.success('已添加到关注')
+  }
+
+  // Save to localStorage
+  saveFavoritesToStorage()
+}
+
+// Load subtask favorites from localStorage
+const loadSubTaskFavoritesFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(SUBTASK_FAVORITES_STORAGE_KEY)
+    if (stored) {
+      const ids = JSON.parse(stored) as number[]
+      favoriteSubTaskIds.value = new Set(ids)
+    }
+  } catch (error) {
+    console.error('Failed to load subtask favorites from localStorage:', error)
+    favoriteSubTaskIds.value = new Set()
+  }
+}
+
+// Save subtask favorites to localStorage
+const saveSubTaskFavoritesToStorage = () => {
+  try {
+    const ids = Array.from(favoriteSubTaskIds.value)
+    localStorage.setItem(SUBTASK_FAVORITES_STORAGE_KEY, JSON.stringify(ids))
+  } catch (error) {
+    console.error('Failed to save subtask favorites to localStorage:', error)
+  }
+}
+
+// Sync is_favorite field with favoriteSubTaskIds
+const syncFavoritesWithSubTasks = () => {
+  allSubTasks.value.forEach(task => {
+    // Note: SubTask might not have is_favorite field, but we set it for consistency
+    (task as any).is_favorite = favoriteSubTaskIds.value.has(task.id)
+  })
+}
+
+// Toggle subtask favorite status
+const toggleSubTaskFavorite = (task: SubTask) => {
+  if (favoriteSubTaskIds.value.has(task.id)) {
+    favoriteSubTaskIds.value.delete(task.id)
+    ;(task as any).is_favorite = false
+    ElMessage.success('已取消关注')
+  } else {
+    favoriteSubTaskIds.value.add(task.id)
+    ;(task as any).is_favorite = true
+    ElMessage.success('已添加到关注')
+  }
+
+  // Save to localStorage
+  saveSubTaskFavoritesToStorage()
+}
+
 // 根据实际数据更新筛选选项
 const updateFilterOptions = () => {
   // 提取唯一的状态值
   const statusSet = new Set<string>()
   const departmentSet = new Set<string>()
   const targetSet = new Set<string>()
-  
+  const l1Set = new Set<string>()
+  const projectSet = new Set<string>()
+  const devModeSet = new Set<string>()
+  const opsModeSet = new Set<string>()
+  const devOwnerSet = new Set<string>()
+  const devTeamSet = new Set<string>()
+  const opsOwnerSet = new Set<string>()
+  const opsTeamSet = new Set<string>()
+  const kpiSet = new Set<string>()
+
   allApplications.value.forEach(app => {
     // 收集状态
     if (app.current_status) {
       statusSet.add(app.current_status)
     }
-    
+
     // 收集部门（从dev_team和ops_team中提取）
     if (app.dev_team) {
       departmentSet.add(app.dev_team)
@@ -1181,26 +2690,73 @@ const updateFilterOptions = () => {
     if (app.ops_team && app.ops_team !== app.dev_team) {
       departmentSet.add(app.ops_team)
     }
-    
+
     // 收集改造目标
     if (app.overall_transformation_target) {
       targetSet.add(app.overall_transformation_target)
     }
+
+    // 收集新增字段
+    if (app.belonging_l1_name) l1Set.add(app.belonging_l1_name)
+    if (app.belonging_projects) projectSet.add(app.belonging_projects)
+    if (app.dev_mode) devModeSet.add(app.dev_mode)
+    if (app.ops_mode) opsModeSet.add(app.ops_mode)
+    if (app.dev_owner) devOwnerSet.add(app.dev_owner)
+    if (app.dev_team) devTeamSet.add(app.dev_team)
+    if (app.ops_owner) opsOwnerSet.add(app.ops_owner)
+    if (app.ops_team) opsTeamSet.add(app.ops_team)
+    if (app.belonging_kpi) kpiSet.add(app.belonging_kpi)
   })
-  
+
   // 转换为选项数组并排序
   statusOptions.value = Array.from(statusSet)
     .sort()
     .map(status => ({ label: status, value: status }))
-  
+
   departmentOptions.value = Array.from(departmentSet)
     .sort()
     .map(dept => ({ label: dept, value: dept }))
-  
+
   targetOptions.value = Array.from(targetSet)
     .sort()
     .map(target => ({ label: target, value: target }))
-  
+
+  l1Options.value = Array.from(l1Set)
+    .sort()
+    .map(l1 => ({ label: l1, value: l1 }))
+
+  projectOptions.value = Array.from(projectSet)
+    .sort()
+    .map(project => ({ label: project, value: project }))
+
+  devModeOptions.value = Array.from(devModeSet)
+    .sort()
+    .map(mode => ({ label: mode, value: mode }))
+
+  opsModeOptions.value = Array.from(opsModeSet)
+    .sort()
+    .map(mode => ({ label: mode, value: mode }))
+
+  devOwnerOptions.value = Array.from(devOwnerSet)
+    .sort()
+    .map(owner => ({ label: owner, value: owner }))
+
+  devTeamOptions.value = Array.from(devTeamSet)
+    .sort()
+    .map(team => ({ label: team, value: team }))
+
+  opsOwnerOptions.value = Array.from(opsOwnerSet)
+    .sort()
+    .map(owner => ({ label: owner, value: owner }))
+
+  opsTeamOptions.value = Array.from(opsTeamSet)
+    .sort()
+    .map(team => ({ label: team, value: team }))
+
+  kpiOptions.value = Array.from(kpiSet)
+    .sort()
+    .map(kpi => ({ label: kpi, value: kpi }))
+
   // 如果没有数据，提供默认选项
   if (statusOptions.value.length === 0) {
     statusOptions.value = [
@@ -1210,7 +2766,7 @@ const updateFilterOptions = () => {
       { label: '全部完成', value: '全部完成' }
     ]
   }
-  
+
   if (targetOptions.value.length === 0) {
     targetOptions.value = [
       { label: 'AK', value: 'AK' },
@@ -1219,123 +2775,18 @@ const updateFilterOptions = () => {
   }
 }
 
-// Merge subtask dates to application
-const mergeSubTaskDatesToApplications = () => {
-  if (!allApplications.value.length || !allSubTasks.value.length) return
-  
-  // Group subtasks by application ID
-  const subtasksByApp = new Map<number, any[]>()
-  allSubTasks.value.forEach(subtask => {
-    const appId = subtask.l2_id || subtask.application_id
-    if (appId) {
-      if (!subtasksByApp.has(appId)) {
-        subtasksByApp.set(appId, [])
-      }
-      subtasksByApp.get(appId)!.push(subtask)
-    }
-  })
-  
-  // Update each application with aggregated subtask dates
-  allApplications.value.forEach(app => {
-    const appSubtasks = subtasksByApp.get(app.id) || []
-    if (appSubtasks.length > 0) {
-      // Get the latest planned dates from all subtasks
-      const latestDates = {
-        planned_requirement_date: null as string | null,
-        planned_release_date: null as string | null,
-        planned_tech_online_date: null as string | null,
-        planned_biz_online_date: null as string | null
-      }
-      
-      appSubtasks.forEach(subtask => {
-        // Update with the latest (max) date for each phase
-        if (subtask.planned_requirement_date) {
-          if (!latestDates.planned_requirement_date || 
-              new Date(subtask.planned_requirement_date) > new Date(latestDates.planned_requirement_date)) {
-            latestDates.planned_requirement_date = subtask.planned_requirement_date
-          }
-        }
-        if (subtask.planned_release_date) {
-          if (!latestDates.planned_release_date || 
-              new Date(subtask.planned_release_date) > new Date(latestDates.planned_release_date)) {
-            latestDates.planned_release_date = subtask.planned_release_date
-          }
-        }
-        if (subtask.planned_tech_online_date) {
-          if (!latestDates.planned_tech_online_date || 
-              new Date(subtask.planned_tech_online_date) > new Date(latestDates.planned_tech_online_date)) {
-            latestDates.planned_tech_online_date = subtask.planned_tech_online_date
-          }
-        }
-        if (subtask.planned_biz_online_date) {
-          if (!latestDates.planned_biz_online_date || 
-              new Date(subtask.planned_biz_online_date) > new Date(latestDates.planned_biz_online_date)) {
-            latestDates.planned_biz_online_date = subtask.planned_biz_online_date
-          }
-        }
-      })
-      
-      // Merge the latest dates to application
-      Object.assign(app, latestDates)
-      
-      // Check if application is delayed based on subtask dates
-      const today = new Date()
-      const isDelayed = Object.entries(latestDates).some(([key, dateStr]) => {
-        if (!dateStr) return false
-        const date = new Date(dateStr)
-        const actualKey = key.replace('planned', 'actual') as keyof Application
-        return date < today && !app[actualKey]
-      })
-      
-      if (isDelayed !== app.is_delayed) {
-        app.is_delayed = isDelayed
-        
-        // Calculate delay months
-        if (isDelayed) {
-          const delayedDates = Object.entries(latestDates)
-            .filter(([key, dateStr]) => {
-              if (!dateStr) return false
-              const date = new Date(dateStr)
-              const actualKey = key.replace('planned', 'actual') as keyof Application
-              return date < today && !app[actualKey]
-            })
-            .map(([_, dateStr]) => new Date(dateStr!))
+// Backend now calculates all transformation progress and status
+// No need for frontend calculation anymore
 
-          if (delayedDates.length > 0) {
-            const oldestDelayedDate = new Date(Math.min(...delayedDates.map(d => d.getTime())))
-            // Calculate months instead of days
-            const yearDiff = today.getFullYear() - oldestDelayedDate.getFullYear()
-            const monthDiff = today.getMonth() - oldestDelayedDate.getMonth()
-            app.delay_days = Math.max(0, yearDiff * 12 + monthDiff)
-          }
-        } else {
-          app.delay_days = 0
-        }
-      }
-    }
-  })
-}
-
-// Load all subtasks data
-const loadSubTasks = async () => {
-  try {
-    subtaskLoading.value = true
-    const response = await SubTasksAPI.getSubTasks({ limit: 1000 })
-    allSubTasks.value = response.items || []
-    
-    // Merge subtask dates to applications after loading
-    mergeSubTaskDatesToApplications()
-  } catch (error) {
-    console.error('Failed to load subtasks:', error)
-    ElMessage.error('加载子任务列表失败')
-    allSubTasks.value = []
-  } finally {
-    subtaskLoading.value = false
-  }
-}
+// No longer need to load subtasks for progress calculation
+// Backend returns all calculated statistics
 
 // Initialize data
 onMounted(async () => {
+  // Load favorites from localStorage first
+  loadFavoritesFromStorage()
+  loadSubTaskFavoritesFromStorage()
+
   // 恢复保存的页面状态（如果存在）
   const savedState = sessionStorage.getItem('applicationListState')
   if (savedState) {
@@ -1356,11 +2807,8 @@ onMounted(async () => {
       console.error('Failed to restore page state:', error)
     }
   }
-  
-  await Promise.all([
-    loadApplications(),
-    loadSubTasks()
-  ])
+
+  await loadApplications()
 
   // Load delay data after applications are loaded
   if (allApplications.value.length > 0) {
@@ -1419,7 +2867,37 @@ watch(() => searchForm.keyword, (newVal) => {
 })
 
 // 监听其他筛选条件
-watch([() => searchForm.status, () => searchForm.department, () => searchForm.target], () => {
+watch([
+  // Main filters
+  () => searchForm.target,
+  () => searchForm.progress_status,
+  () => searchForm.acceptance_year,
+  // Group 1 advanced filters
+  () => searchForm.belonging_l1,
+  () => searchForm.app_tier,
+  () => searchForm.belonging_project,
+  () => searchForm.dev_mode,
+  () => searchForm.ops_mode,
+  () => searchForm.dev_owner,
+  () => searchForm.dev_team,
+  () => searchForm.ops_owner,
+  () => searchForm.ops_team,
+  () => searchForm.belonging_kpi,
+  () => searchForm.domain_completed,
+  () => searchForm.dbpm_completed,
+  () => searchForm.acceptance_status,
+  // Group 2 time filters (multi-select)
+  () => searchForm.planned_req_months,
+  () => searchForm.planned_release_months,
+  () => searchForm.planned_tech_months,
+  () => searchForm.planned_biz_months,
+  // Backward compatibility filters
+  () => searchForm.status,
+  () => searchForm.department,
+  () => searchForm.ak_status,
+  () => searchForm.cloud_native_status,
+  () => searchForm.is_delayed
+], () => {
   currentPage.value = 1
 })
 
@@ -1525,10 +3003,40 @@ const formatShortDate = (dateString: string | null | undefined) => {
 // Removed handleSearch since we have watch
 
 const resetSearch = () => {
+  // Reset main filters
   searchForm.keyword = ''
+  searchForm.target = undefined
+  searchForm.progress_status = undefined
+  searchForm.acceptance_year = undefined
+
+  // Reset Group 1 advanced filters
+  searchForm.belonging_l1 = undefined
+  searchForm.app_tier = undefined
+  searchForm.belonging_project = undefined
+  searchForm.dev_mode = undefined
+  searchForm.ops_mode = undefined
+  searchForm.dev_owner = undefined
+  searchForm.dev_team = undefined
+  searchForm.ops_owner = undefined
+  searchForm.ops_team = undefined
+  searchForm.belonging_kpi = undefined
+  searchForm.domain_completed = undefined
+  searchForm.dbpm_completed = undefined
+  searchForm.acceptance_status = undefined
+
+  // Reset Group 2 time filters (multi-select)
+  searchForm.planned_req_months = []
+  searchForm.planned_release_months = []
+  searchForm.planned_tech_months = []
+  searchForm.planned_biz_months = []
+
+  // Reset backward compatibility filters
   searchForm.status = undefined
   searchForm.department = undefined
-  searchForm.target = undefined
+  searchForm.ak_status = ''
+  searchForm.cloud_native_status = ''
+  searchForm.is_delayed = undefined
+
   debouncedKeyword.value = ''
   currentPage.value = 1
 }
@@ -1711,6 +3219,32 @@ const handleViewTypeChange = (tab: string) => {
   currentPage.value = 1
 }
 
+// Handle subtask view type change
+const handleSubtaskViewTypeChange = (tab: string) => {
+  // Reset pagination when changing view type
+  subtaskCurrentPage.value = 1
+}
+
+// Handle main tab change
+const handleMainTabChange = async (tab: string) => {
+  // Load subtasks when switching to subtasks tab
+  if (tab === 'subtasks' && allSubTasks.value.length === 0) {
+    await loadAllSubTasks()
+  }
+}
+
+// Get subtask status tag type
+const getSubTaskStatusType = (status: string) => {
+  const statusMap: Record<string, string> = {
+    '待启动': 'info',
+    '研发进行中': 'primary',
+    '业务上线中': 'warning',
+    '已完成': 'success',
+    '存在阻塞': 'danger'
+  }
+  return statusMap[status] || 'info'
+}
+
 const exportMonthlyPlan = async () => {
   try {
     // Get filtered applications for the selected month
@@ -1801,6 +3335,108 @@ const exportExcel = async () => {
   }
 }
 
+// Export subtasks to Excel
+const exportSubTasksExcel = async () => {
+  try {
+    const filters = {
+      ...(subtaskSearchForm.status && { status: subtaskSearchForm.status }),
+      ...(subtaskSearchForm.application && { l2_id: subtaskSearchForm.application }),
+      ...(subtaskSearchForm.resource_applied !== undefined && { resource_applied: subtaskSearchForm.resource_applied }),
+      ...(subtaskSearchForm.ops_requirement_submitted !== undefined && { ops_requirement_submitted: subtaskSearchForm.ops_requirement_submitted }),
+      ...(subtaskSearchForm.ops_testing_status && { ops_testing_status: subtaskSearchForm.ops_testing_status }),
+      ...(subtaskSearchForm.launch_check_status && { launch_check_status: subtaskSearchForm.launch_check_status })
+    }
+
+    const columns = [
+      'l2_id',
+      'version_name',
+      'sub_target',
+      'dev_owner',
+      'ops_owner',
+      'task_status',
+      'progress_percentage',
+      'planned_requirement_date',
+      'actual_requirement_date',
+      'planned_release_date',
+      'actual_release_date',
+      'planned_tech_online_date',
+      'actual_tech_online_date',
+      'planned_biz_online_date',
+      'actual_biz_online_date',
+      'is_blocked',
+      'blocking_reason',
+      'resource_applied',
+      'ops_requirement_submitted',
+      'ops_testing_status',
+      'launch_check_status'
+    ]
+
+    // Use the ExcelAPI export method for subtasks
+    await ExcelAPI.exportAndDownloadSubTasks({
+      filters,
+      columns
+    })
+
+    ElMessage.success(`子任务Excel文件导出成功`)
+  } catch (error) {
+    console.error('Failed to export subtasks Excel:', error)
+    ElMessage.error('导出失败，请稍后重试')
+  }
+}
+
+// Export monthly subtask plan
+const exportSubTaskMonthlyPlan = async () => {
+  try {
+    // Get filtered subtasks for the selected month
+    let targetTasks: SubTask[] = []
+    let fileName = ''
+
+    if (subtaskViewType.value === 'currentMonth') {
+      targetTasks = filterSubTasksByMonth(allSubTasks.value, currentYear, currentMonth)
+      fileName = `${currentYear}年${currentMonth}月计划子任务清单.xlsx`
+    } else if (subtaskViewType.value === 'nextMonth') {
+      targetTasks = filterSubTasksByMonth(allSubTasks.value, nextMonthYear, nextMonth)
+      fileName = `${nextMonthYear}年${nextMonth}月计划子任务清单.xlsx`
+    }
+
+    if (targetTasks.length === 0) {
+      ElMessage.warning('当前月份没有计划子任务')
+      return
+    }
+
+    const columns = [
+      'l2_id',
+      'version_name',
+      'sub_target',
+      'dev_owner',
+      'ops_owner',
+      'task_status',
+      'planned_requirement_date',
+      'planned_release_date',
+      'planned_tech_online_date',
+      'planned_biz_online_date',
+      'resource_applied',
+      'ops_requirement_submitted',
+      'ops_testing_status',
+      'launch_check_status'
+    ]
+
+    // Export specific subtask IDs
+    await ExcelAPI.exportAndDownloadSubTasks({
+      filters: {
+        ids: targetTasks.map(task => task.id)
+      },
+      columns,
+      filename: fileName
+    })
+
+    ElMessage.success(`月度子任务计划导出成功`)
+  } catch (error) {
+    console.error('Failed to export monthly subtask plan:', error)
+    ElMessage.error('导出失败，请稍后重试')
+  }
+}
+
 // Navigate to import page
 const goToImport = () => {
   router.push('/import')
@@ -1824,6 +3460,17 @@ const getApplicationName = (applicationId: number) => {
 const getApplicationL2Id = (applicationId: number) => {
   const app = allApplications.value.find(app => app.id === applicationId)
   return app ? app.l2_id : '-'
+}
+
+// Get application info by L2 ID (string)
+const getApplicationNameByL2Id = (l2Id: string) => {
+  const app = allApplications.value.find(app => app.l2_id === l2Id)
+  return app ? app.app_name : '-'
+}
+
+const getApplicationL2IdDisplay = (l2Id: string) => {
+  // Since l2Id is already the L2 ID, just return it
+  return l2Id || '-'
 }
 
 const getSubTaskProgressColor = (row: SubTask) => {
@@ -1980,6 +3627,13 @@ const resetSubtaskSearch = () => {
   subtaskSearchForm.keyword = ''
   subtaskSearchForm.status = undefined
   subtaskSearchForm.application = undefined
+  subtaskSearchForm.sub_target = undefined
+  subtaskSearchForm.dev_owner = undefined
+  subtaskSearchForm.ops_owner = undefined
+  subtaskSearchForm.resource_applied = undefined
+  subtaskSearchForm.ops_requirement_submitted = undefined
+  subtaskSearchForm.ops_testing_status = undefined
+  subtaskSearchForm.launch_check_status = undefined
   subtaskCurrentPage.value = 1
 }
 
@@ -1989,6 +3643,13 @@ const handleSubTaskSelectionChange = (selection: SubTask[]) => {
 
 const editSubTask = (row: SubTask) => {
   router.push(`/subtasks/${row.l2_id}`)
+}
+
+// Show subtask detail
+const showSubTaskDetail = (row: SubTask) => {
+  subTaskDetailData.value = { ...row }
+  activeSubTaskDetailTab.value = 'basic'
+  showSubTaskDetailDialog.value = true
 }
 
 
@@ -2369,6 +4030,113 @@ const getDelayType = (delayMonths: number) => {
   return 'info'
 }
 
+// Get phase status CSS class
+const getPhaseStatusClass = (status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED') => {
+  const classMap = {
+    'NOT_STARTED': 'status-not-started',
+    'IN_PROGRESS': 'status-in-progress',
+    'COMPLETED': 'status-completed',
+    'BLOCKED': 'status-blocked'
+  }
+  return classMap[status] || 'status-not-started'
+}
+
+// Get detailed phase text based on actual completion dates
+const getDetailedPhaseText = (app: any) => {
+  // 根据实际完成日期判断当前处于哪个阶段
+  // 阶段顺序：需求 < 发版 < 技术上线 < 业务上线
+
+  if (app.actual_biz_online_date) {
+    return '已完成' // 业务上线完成，全部完成
+  }
+  if (app.actual_tech_online_date) {
+    return '业务上线中' // 技术上线完成，正在业务上线
+  }
+  if (app.actual_release_date) {
+    return '技术上线中' // 发版完成，正在技术上线
+  }
+  if (app.actual_requirement_date) {
+    return '研发中' // 需求完成，正在发版
+  }
+
+  // 如果没有任何实际完成日期，看计划日期是否已到
+  const now = new Date()
+
+  // 检查是否已经过了计划业务上线日期
+  if (app.planned_biz_online_date) {
+    const plannedBizDate = new Date(app.planned_biz_online_date)
+    if (now >= plannedBizDate) {
+      return '业务上线中'
+    }
+  }
+
+  // 检查是否已经过了计划技术上线日期
+  if (app.planned_tech_online_date) {
+    const plannedTechDate = new Date(app.planned_tech_online_date)
+    if (now >= plannedTechDate) {
+      return '技术上线中'
+    }
+  }
+
+  // 检查是否已经过了计划发版日期
+  if (app.planned_release_date) {
+    const plannedReleaseDate = new Date(app.planned_release_date)
+    if (now >= plannedReleaseDate) {
+      return '研发中'
+    }
+  }
+
+  // 检查是否已经过了计划需求日期
+  if (app.planned_requirement_date) {
+    const plannedReqDate = new Date(app.planned_requirement_date)
+    if (now >= plannedReqDate) {
+      return '需求中'
+    }
+  }
+
+  // 默认返回需求中（表示项目已启动，在最早期阶段）
+  return '需求中'
+}
+
+// Get phase-specific color class for detailed phases
+const getPhaseColorClass = (phaseText: string, baseStatus: string) => {
+  // 如果是固定状态，使用原有的状态颜色
+  if (phaseText === '已完成') return 'phase-completed'
+  if (phaseText === '阻塞') return 'phase-blocked'
+  if (phaseText === '未开始') return 'phase-not-started'
+
+  // 根据阶段返回不同的颜色
+  if (phaseText.includes('需求')) return 'phase-requirement'
+  if (phaseText.includes('发版')) return 'phase-release'
+  if (phaseText.includes('技术上线')) return 'phase-tech'
+  if (phaseText.includes('业务上线')) return 'phase-biz'
+
+  // 默认使用进行中颜色
+  return 'status-in_progress'
+}
+
+// Get phase status text in Chinese (for simple status display)
+const getPhaseStatusText = (status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED') => {
+  const textMap = {
+    'NOT_STARTED': '未开始',
+    'IN_PROGRESS': '进行中',
+    'COMPLETED': '已完成',
+    'BLOCKED': '阻塞'
+  }
+  return textMap[status] || '未开始'
+}
+
+// Get status tag type for Element Plus
+const getStatusTagType = (status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED') => {
+  const typeMap = {
+    'NOT_STARTED': 'info',
+    'IN_PROGRESS': '',
+    'COMPLETED': 'success',
+    'BLOCKED': 'danger'
+  }
+  return typeMap[status] || 'info'
+}
+
 // Get delay phase label
 const getDelayPhaseLabel = (phase: string) => {
   const labels: Record<string, string> = {
@@ -2484,19 +4252,9 @@ const processDelayHistory = async (audits: AuditLog[], app: Application) => {
     'planned_biz_online_date'
   ]
 
-  // Also try to get subtask audit records to find plan change reasons
-  let subtaskAudits: AuditLog[] = []
-  try {
-    // Get related subtasks for this application
-    const subtasks = allSubTasks.value.filter(s => s.l2_id === app.id || s.application_id === app.id)
-    // Get audit logs for these subtasks
-    for (const subtask of subtasks) {
-      const subAudits = await AuditAPI.getRecordHistory('subtasks', subtask.id)
-      subtaskAudits.push(...subAudits)
-    }
-  } catch (error) {
-    console.error('Failed to get subtask audits:', error)
-  }
+  // Subtask audit records are no longer available in this view
+  // Reasons should now come from application audit records
+  const subtaskAudits: AuditLog[] = []
 
   // Filter and process audit records for plan date changes
   audits.forEach(audit => {
@@ -2693,6 +4451,23 @@ watch([currentPage, pageSize], () => {
     handlePageChange()
   }, 100) // Debounce to prevent rapid calls
 }, { immediate: false })
+
+// Watch subtask filters to reset pagination
+watch([
+  () => subtaskSearchForm.keyword,
+  () => subtaskSearchForm.status,
+  () => subtaskSearchForm.application,
+  () => subtaskSearchForm.sub_target,
+  () => subtaskSearchForm.dev_owner,
+  () => subtaskSearchForm.ops_owner,
+  () => subtaskSearchForm.resource_applied,
+  () => subtaskSearchForm.ops_requirement_submitted,
+  () => subtaskSearchForm.ops_testing_status,
+  () => subtaskSearchForm.launch_check_status,
+  () => subtaskViewType.value
+], () => {
+  subtaskCurrentPage.value = 1
+})
 </script>
 
 <style scoped>
@@ -2726,11 +4501,164 @@ watch([currentPage, pageSize], () => {
   gap: 10px;
 }
 
-.search-bar {
-  background: #f8f9fa;
-  padding: 20px;
-  border-radius: 8px;
+/* Content Container - Unified Card Style */
+.content-container {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Filter Section - No Border (inside content container) */
+.filter-section {
+  padding-bottom: 20px;
   margin-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.filter-content {
+  margin-top: 20px;
+}
+
+.main-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.search-input :deep(.el-input__wrapper) {
+  box-shadow: 0 0 0 1px #e2e8f0 inset;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.search-input :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #cbd5e0 inset;
+}
+
+.search-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 2px #667eea inset;
+}
+
+.filter-select {
+  width: 160px;
+}
+
+.filter-select :deep(.el-select__wrapper) {
+  box-shadow: 0 0 0 1px #e2e8f0 inset;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.filter-select :deep(.el-select__wrapper:hover) {
+  box-shadow: 0 0 0 1px #cbd5e0 inset;
+}
+
+.filter-select :deep(.el-select__wrapper.is-focused) {
+  box-shadow: 0 0 0 2px #667eea inset;
+}
+
+.toggle-filters-btn {
+  white-space: nowrap;
+  border-color: #e2e8f0;
+  color: #374151;
+}
+
+.toggle-filters-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.toggle-filters-btn .el-icon {
+  margin-right: 6px;
+}
+
+.reset-btn {
+  white-space: nowrap;
+  color: #64748b;
+  border-color: transparent;
+}
+
+.reset-btn:hover {
+  color: #334155;
+  background: #f1f5f9;
+}
+
+/* Advanced Filters Grid */
+.advanced-filters {
+  margin-top: 16px;
+  padding: 20px;
+  background: rgba(248, 250, 252, 0.5);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
+}
+
+.filter-item .el-select {
+  width: 100%;
+}
+
+.filter-item .el-select :deep(.el-select__wrapper) {
+  box-shadow: 0 0 0 1px #e2e8f0 inset;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.filter-item .el-select :deep(.el-select__wrapper:hover) {
+  box-shadow: 0 0 0 1px #cbd5e0 inset;
+}
+
+.filter-item .el-select :deep(.el-select__wrapper.is-focused) {
+  box-shadow: 0 0 0 2px #667eea inset;
+}
+
+/* Time filters - separate row (4 selects in one row) */
+.time-filters {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Responsive adjustments for time filters */
+@media (max-width: 1200px) {
+  .time-filters {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .time-filters {
+    grid-template-columns: 1fr;
+  }
 }
 
 .data-tabs {
@@ -2879,6 +4807,8 @@ watch([currentPage, pageSize], () => {
   display: flex;
   justify-content: center;
   margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
 }
 
 /* 移动端响应式设计 */
@@ -3464,9 +5394,215 @@ watch([currentPage, pageSize], () => {
   text-align: center;
 }
 
+/* Phase badges - compact badge display with custom colors */
+.phase-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  font-size: 12px;
+}
+
+.phase-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.phase-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.phase-badge:active {
+  transform: translateY(-1px);
+}
+
+/* Professional color scheme for phase badges */
+.phase-badge.status-not_started {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.phase-badge.status-not_started:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #475569;
+}
+
+.phase-badge.status-in_progress {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.phase-badge.status-in_progress:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+  color: #1e3a8a;
+}
+
+.phase-badge.status-completed {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.phase-badge.status-completed:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+  color: #166534;
+}
+
+.phase-badge.status-blocked {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+}
+
+.phase-badge.status-blocked:hover {
+  background: #ffedd5;
+  border-color: #fb923c;
+  color: #9a3412;
+}
+
+.no-tasks {
+  color: #909399;
+  font-size: 12px;
+}
+
+/* Phase-specific color schemes - distinct professional colors for each transformation phase */
+.phase-badge.phase-requirement {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #c4b5fd;
+}
+
+.phase-badge.phase-requirement:hover {
+  background: #ede9fe;
+  border-color: #a78bfa;
+  color: #5b21b6;
+}
+
+.phase-badge.phase-release {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.phase-badge.phase-release:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+  color: #1e3a8a;
+}
+
+.phase-badge.phase-tech {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
+.phase-badge.phase-tech:hover {
+  background: #fef3c7;
+  border-color: #fbbf24;
+  color: #92400e;
+}
+
+.phase-badge.phase-biz {
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #5eead4;
+}
+
+.phase-badge.phase-biz:hover {
+  background: #ccfbf1;
+  border-color: #2dd4bf;
+  color: #0d5e54;
+}
+
+/* Phase-specific colors for completion states */
+.phase-badge.phase-completed {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.phase-badge.phase-completed:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+  color: #166534;
+}
+
+.phase-badge.phase-blocked {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.phase-badge.phase-blocked:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.phase-badge.phase-not-started {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.phase-badge.phase-not-started:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #475569;
+}
+
+/* Main Data Type Tabs - Full Width */
+.main-data-tabs {
+  margin-bottom: 20px;
+}
+
+.main-data-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
+}
+
+.main-data-tabs :deep(.el-tabs__nav-wrap) {
+  padding: 0;
+}
+
+.main-data-tabs :deep(.el-tabs__nav) {
+  width: 100%;
+  display: flex;
+}
+
+.main-data-tabs :deep(.el-tabs__item) {
+  flex: 1;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 12px 20px;
+  transition: all 0.3s;
+}
+
+.main-data-tabs :deep(.el-tabs__item:hover) {
+  color: #667eea;
+}
+
+.main-data-tabs :deep(.el-tabs__item.is-active) {
+  color: #667eea;
+  font-weight: 600;
+}
+
 /* Monthly plan view styles */
 .monthly-plan-summary {
-  margin-bottom: 20px;
+  margin: 20px 0;
 }
 
 .monthly-plan-summary .summary-header {
@@ -3480,6 +5616,7 @@ watch([currentPage, pageSize], () => {
   display: flex;
   gap: 30px;
   margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 .monthly-plan-summary .stat-item {
@@ -3500,41 +5637,58 @@ watch([currentPage, pageSize], () => {
   .applications-view {
     padding: 10px;
   }
-  
+
   .header {
     flex-direction: column;
     gap: 15px;
     align-items: stretch;
     text-align: center;
   }
-  
+
   .header h2 {
     font-size: 20px;
   }
-  
+
   .actions {
     justify-content: center;
     flex-wrap: wrap;
     gap: 8px;
   }
-  
+
   .actions .el-button {
     flex: 1;
     min-width: 80px;
     font-size: 12px;
   }
-  
-  .search-bar {
-    padding: 15px;
+
+  .filter-section {
+    padding: 16px;
   }
-  
-  .search-bar .el-row {
+
+  .main-filters {
+    flex-direction: column;
     gap: 10px;
   }
-  
-  .search-bar .el-button {
+
+  .search-input,
+  .filter-select {
     width: 100%;
-    margin-top: 10px;
+  }
+
+  .toggle-filters-btn,
+  .reset-btn {
+    width: 100%;
+  }
+
+  .filter-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .filter-grid {
+    grid-template-columns: 1fr !important;
   }
   
   /* 表格在移动端的处理 */
@@ -3651,5 +5805,94 @@ watch([currentPage, pageSize], () => {
   font-size: 67px;
   color: #c0c4cc;
   margin-bottom: 16px;
+}
+
+/* Favorite icon styles */
+.favorite-icon {
+  font-size: 18px;
+  cursor: pointer;
+  color: #cbd5e0;
+  transition: all 0.3s;
+}
+
+.favorite-icon:hover {
+  color: #fbbf24;
+  transform: scale(1.2);
+}
+
+.favorite-icon.is-favorite {
+  color: #fbbf24;
+}
+
+.favorite-icon.is-favorite:hover {
+  color: #f59e0b;
+}
+
+/* Enhanced tab styles */
+.view-tabs {
+  margin-bottom: 20px;
+}
+
+.view-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.view-tabs :deep(.el-tabs__nav-wrap) {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.view-tabs :deep(.el-tabs__nav) {
+  border: none;
+}
+
+.view-tabs :deep(.el-tabs__item) {
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  padding: 10px 20px;
+  transition: all 0.3s;
+  border-radius: 6px;
+  border: none;
+  height: auto;
+  line-height: 1.5;
+}
+
+.view-tabs :deep(.el-tabs__item:hover) {
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.08);
+}
+
+.view-tabs :deep(.el-tabs__item.is-active) {
+  color: #667eea;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  font-weight: 600;
+}
+
+.view-tabs :deep(.el-tabs__active-bar) {
+  display: none;
+}
+
+.tab-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-with-icon .el-icon {
+  font-size: 16px;
+}
+
+.tab-badge {
+  margin-left: 4px;
+}
+
+.tab-badge :deep(.el-badge__content) {
+  background-color: #667eea;
+  border: none;
+  font-weight: 600;
 }
 </style>

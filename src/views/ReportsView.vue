@@ -1,6 +1,6 @@
 <template>
   <div class="reports-view">
-    <el-card v-loading="loading">
+    <el-card>
       <template #header>
         <div class="header">
           <h2>报表中心</h2>
@@ -41,8 +41,13 @@
         </el-button>
       </div>
 
+      <!-- Loading Skeleton -->
+      <div v-if="loading">
+        <el-skeleton :rows="8" animated />
+      </div>
+
       <!-- Summary Report -->
-      <div v-if="activeTab === 'summary'">
+      <div v-else-if="activeTab === 'summary'">
         <!-- 统计卡片 -->
         <el-row :gutter="20" class="stats-row">
           <el-col :xs="24" :sm="12" :md="6">
@@ -114,7 +119,7 @@
       </div>
 
       <!-- Progress Report -->
-      <div v-if="activeTab === 'progress'">
+      <div v-else-if="activeTab === 'progress' && !loading">
         <!-- 进度分布饼图 -->
         <el-row :gutter="20" class="charts-section">
           <el-col :xs="24" :sm="24" :md="12">
@@ -172,7 +177,7 @@
       </div>
 
       <!-- Delay Report -->
-      <div v-if="activeTab === 'delay'">
+      <div v-else-if="activeTab === 'delay' && !loading">
         <!-- 延期统计 -->
         <el-row :gutter="20" class="stats-row">
           <el-col :xs="24" :sm="8">

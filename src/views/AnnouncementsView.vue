@@ -43,10 +43,15 @@
         <el-button @click="resetFilters">重置</el-button>
       </div>
 
+      <!-- Loading Skeleton -->
+      <div v-if="loading" style="margin-top: 20px;">
+        <el-skeleton :rows="10" animated />
+      </div>
+
       <!-- Announcements List -->
       <el-table
+        v-else
         :data="announcements"
-        v-loading="loading"
         stripe
         style="width: 100%; margin-top: 20px"
       >

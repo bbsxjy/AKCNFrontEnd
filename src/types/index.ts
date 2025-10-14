@@ -46,6 +46,27 @@ export interface Application {
   progress_percentage?: number
   subtask_count?: number
   completed_subtask_count?: number
+
+  // AK transformation progress (from backend)
+  ak_subtask_count: number
+  ak_completed_count: number
+  ak_in_progress_count: number
+  ak_blocked_count: number
+  ak_not_started_count: number
+  ak_completion_percentage: number
+  ak_status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED'
+
+  // Cloud-Native transformation progress (from backend)
+  cloud_native_subtask_count: number
+  cloud_native_completed_count: number
+  cloud_native_in_progress_count: number
+  cloud_native_blocked_count: number
+  cloud_native_not_started_count: number
+  cloud_native_completion_percentage: number
+  cloud_native_status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED'
+
+  // Comprehensive status description
+  current_phase_description?: string
 }
 
 // SubTask types

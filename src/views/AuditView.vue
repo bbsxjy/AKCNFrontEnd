@@ -84,9 +84,16 @@
       </el-alert>
 
       <!-- Audit Logs List -->
-      <div class="logs-container" v-loading="loading">
-        <el-empty v-if="!loading && auditLogs.length === 0" description="暂无审计日志数据" />
+      <div class="logs-container">
+        <!-- Loading Skeleton -->
+        <div v-if="loading" style="padding: 20px;">
+          <el-skeleton :rows="10" animated />
+        </div>
+
+        <el-empty v-else-if="auditLogs.length === 0" description="暂无审计日志数据" />
+
         <div
+          v-else
           v-for="log in auditLogs"
           :key="log.id"
           class="audit-item"

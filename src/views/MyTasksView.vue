@@ -27,8 +27,13 @@
         </div>
       </template>
 
-      <!-- Quick Filter Tabs -->
-      <div class="filter-tabs">
+      <!-- Quick Filter Tabs - Loading Skeleton -->
+      <div v-if="loading" class="filter-tabs">
+        <el-skeleton :rows="1" animated style="height: 32px;" />
+      </div>
+
+      <!-- Quick Filter Tabs - Loaded Content -->
+      <div v-else class="filter-tabs">
         <el-button
           :type="activeFilter === 'all' ? 'primary' : 'default'"
           @click="setFilter('all')"
@@ -61,8 +66,15 @@
         </el-button>
       </div>
 
-      <!-- Task List -->
-      <div class="task-list">
+      <!-- Task List - Loading Skeleton -->
+      <div v-if="loading" class="task-list">
+        <div v-for="i in 5" :key="i" style="margin-bottom: 15px;">
+          <el-skeleton :rows="4" animated style="padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;" />
+        </div>
+      </div>
+
+      <!-- Task List - Loaded Content -->
+      <div v-else class="task-list">
         <div
           v-for="task in filteredTasks"
           :key="task.id"

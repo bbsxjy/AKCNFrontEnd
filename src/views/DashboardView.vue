@@ -1,7 +1,13 @@
 <template>
   <div class="dashboard">
     <!-- 公告栏 (Compact Announcements Carousel) -->
-    <el-card class="announcements-compact">
+    <!-- Loading Skeleton -->
+    <el-card v-if="loading" class="announcements-compact">
+      <el-skeleton :rows="1" animated style="padding: 10px 0;" />
+    </el-card>
+
+    <!-- Loaded Content -->
+    <el-card v-else class="announcements-compact">
       <div class="announcements-compact-content">
         <div class="announcements-icon">📢</div>
 
@@ -57,7 +63,22 @@
     </el-card>
 
     <!-- 第一行：AK改造和云原生改造（核心指标） -->
-    <el-row :gutter="20" class="stats-row primary-row">
+    <!-- Loading Skeleton -->
+    <el-row v-if="loading" :gutter="20" class="stats-row primary-row">
+      <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
+        <el-card class="transformation-card">
+          <el-skeleton :rows="6" animated style="padding: 10px;" />
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
+        <el-card class="transformation-card">
+          <el-skeleton :rows="6" animated style="padding: 10px;" />
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- Loaded Content -->
+    <el-row v-else :gutter="20" class="stats-row primary-row">
       <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
         <el-card class="transformation-card ak-card">
           <div class="transformation-header">
@@ -159,7 +180,13 @@
     </el-row>
 
     <!-- 总体统计 -->
-    <div class="overall-summary">
+    <!-- Loading Skeleton -->
+    <div v-if="loading" class="overall-summary">
+      <el-skeleton :rows="3" animated style="padding: 10px 0;" />
+    </div>
+
+    <!-- Loaded Content -->
+    <div v-else class="overall-summary">
       <div class="summary-header">
         <span class="summary-title">总体统计</span>
         <div class="summary-pills">
@@ -236,7 +263,22 @@
     </div>
 
     <!-- Project Statistics Section -->
-    <el-row :gutter="20" class="charts-row">
+    <!-- Loading Skeleton -->
+    <el-row v-if="loading" :gutter="20" class="charts-row">
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+        <el-card>
+          <el-skeleton :rows="8" animated style="padding: 20px;" />
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+        <el-card>
+          <el-skeleton :rows="8" animated style="padding: 20px;" />
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- Loaded Content -->
+    <el-row v-else :gutter="20" class="charts-row">
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <el-card>
           <template #header>
@@ -338,7 +380,22 @@
     </el-row>
 
     <!-- Charts Section -->
-    <el-row :gutter="20" class="charts-row">
+    <!-- Loading Skeleton -->
+    <el-row v-if="loading" :gutter="20" class="charts-row">
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+        <el-card>
+          <el-skeleton :rows="8" animated style="padding: 20px;" />
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+        <el-card>
+          <el-skeleton :rows="8" animated style="padding: 20px;" />
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- Loaded Content -->
+    <el-row v-else :gutter="20" class="charts-row">
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <el-card>
           <template #header>
