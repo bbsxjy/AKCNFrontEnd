@@ -3,7 +3,7 @@
     <!-- Header with title and actions -->
     <div class="report-header">
       <div class="title-section">
-        <h1>云原生双周报</h1>
+        <h1>报表中心</h1>
         <p class="subtitle">截至{{ reportDate }}</p>
       </div>
       <div class="action-buttons">
@@ -195,12 +195,258 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- Configuration Dialog -->
+    <el-dialog
+      v-model="configDialogVisible"
+      title="报表配置"
+      width="800px"
+      :close-on-click-modal="false"
+    >
+      <el-tabs v-model="activeConfigTab">
+        <!-- Key Indicators Configuration -->
+        <el-tab-pane label="关键指标配置" name="indicators">
+          <div class="config-section">
+            <el-alert
+              type="info"
+              :closable="false"
+              style="margin-bottom: 20px;"
+            >
+              <template #title>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span>您可以自定义关键指标，或使用自动计算选项</span>
+                </div>
+              </template>
+            </el-alert>
+
+            <div v-for="(indicator, index) in configIndicators" :key="index" class="indicator-config-item">
+              <el-card>
+                <template #header>
+                  <div style="display: flex; justify-content: between; align-items: center;">
+                    <span>指标 {{ index + 1 }}</span>
+                    <el-button
+                      v-if="configIndicators.length > 1"
+                      type="danger"
+                      link
+                      size="small"
+                      @click="removeIndicator(index)"
+                    >
+                      删除
+                    </el-button>
+                  </div>
+                </template>
+
+                <el-form label-width="140px">
+                  <el-form-item label="指标名称">
+                    <el-input v-model="indicator.name" placeholder="例如：2025年AK验收目标" />
+                  </el-form-item>
+
+                  <el-form-item label="自动计算">
+                    <el-select
+                      v-model="indicator.autoCalcType"
+                      placeholder="选择自动计算类型"
+                      @change="handleAutoCalcChange(index)"
+                      clearable
+                    >
+                      <el-option label="手动输入" value="" />
+                      <el-option label="2025年云原生完成数" value="cloud_native_2025" />
+                      <el-option label="2025年AK完成数" value="ak_2025" />
+                      <el-option label="2025年所有应用完成数" value="all_2025" />
+                      <el-option label="2024&2025年完成数" value="all_2024_2025" />
+                      <el-option label="云原生总完成数" value="cloud_native_total" />
+                      <el-option label="AK总完成数" value="ak_total" />
+                      <el-option label="所有应用总完成数" value="all_total" />
+                    </el-select>
+                  </el-form-item>
+
+                  <el-row :gutter="20">
+                    <el-col :span="12">
+                      <el-form-item label="已完成">
+                        <el-input-number
+                          v-model="indicator.completed"
+                          :min="0"
+                          :disabled="!!indicator.autoCalcType"
+                          style="width: 100%;"
+                        />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-form-item label="总数">
+                        <el-input-number
+                          v-model="indicator.total"
+                          :min="1"
+                          :disabled="!!indicator.autoCalcType"
+                          style="width: 100%;"
+                        />
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
+
+                  <el-form-item label="完成百分比">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <el-progress
+                        :percentage="indicator.percentage"
+                        :color="indicator.color"
+                        style="flex: 1;"
+                      />
+                      <span style="min-width: 50px; text-align: right;">{{ indicator.percentage }}%</span>
+                    </div>
+                  </el-form-item>
+
+                  <el-form-item label="进度条颜色">
+                    <el-color-picker v-model="indicator.color" />
+                  </el-form-item>
+                </el-form>
+              </el-card>
+            </div>
+
+            <el-button
+              type="primary"
+              plain
+              style="width: 100%; margin-top: 20px;"
+              @click="addIndicator"
+            >
+              <el-icon><Plus /></el-icon>
+              添加指标
+            </el-button>
+          </div>
+        </el-tab-pane>
+
+        <!-- Auto Calculation Preview -->
+        <el-tab-pane label="自动计算预览" name="preview">
+          <div class="config-section">
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="总应用数">
+                {{ autoCalcData.total }}
+              </el-descriptions-item>
+              <el-descriptions-item label="已完成应用数">
+                {{ autoCalcData.completed }}
+              </el-descriptions-item>
+              <el-descriptions-item label="云原生应用数">
+                {{ autoCalcData.cloudNative }}
+              </el-descriptions-item>
+              <el-descriptions-item label="云原生已完成">
+                {{ autoCalcData.cloudNativeCompleted }}
+              </el-descriptions-item>
+              <el-descriptions-item label="AK应用数">
+                {{ autoCalcData.ak }}
+              </el-descriptions-item>
+              <el-descriptions-item label="AK已完成">
+                {{ autoCalcData.akCompleted }}
+              </el-descriptions-item>
+              <el-descriptions-item label="2025年应用数">
+                {{ autoCalcData.year2025 }}
+              </el-descriptions-item>
+              <el-descriptions-item label="2025年已完成">
+                {{ autoCalcData.year2025Completed }}
+              </el-descriptions-item>
+              <el-descriptions-item label="2025年云原生数">
+                {{ autoCalcData.cloudNative2025 }}
+              </el-descriptions-item>
+              <el-descriptions-item label="2025年云原生已完成">
+                {{ autoCalcData.cloudNative2025Completed }}
+              </el-descriptions-item>
+              <el-descriptions-item label="2025年AK数">
+                {{ autoCalcData.ak2025 }}
+              </el-descriptions-item>
+              <el-descriptions-item label="2025年AK已完成">
+                {{ autoCalcData.ak2025Completed }}
+              </el-descriptions-item>
+              <el-descriptions-item label="2024&2025年应用数">
+                {{ autoCalcData.year20242025 }}
+              </el-descriptions-item>
+              <el-descriptions-item label="2024&2025年已完成">
+                {{ autoCalcData.year20242025Completed }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+        </el-tab-pane>
+
+        <!-- Risk Configuration -->
+        <el-tab-pane label="风险内容配置" name="risk">
+          <div class="config-section">
+            <el-alert
+              type="info"
+              :closable="false"
+              style="margin-bottom: 20px;"
+            >
+              <template #title>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span>配置风险检测的阈值和条件</span>
+                </div>
+              </template>
+            </el-alert>
+
+            <el-form label-width="180px">
+              <el-form-item label="延迟阈值（天）">
+                <el-input-number
+                  v-model="configRiskSettings.delayThresholdDays"
+                  :min="0"
+                  :max="365"
+                  style="width: 100%;"
+                />
+                <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+                  超过计划完成日期多少天后标记为延迟（0表示任何延迟都标记）
+                </div>
+              </el-form-item>
+
+              <el-form-item label="潜在风险预警期（天）">
+                <el-input-number
+                  v-model="configRiskSettings.potentialRiskWarningDays"
+                  :min="1"
+                  :max="180"
+                  style="width: 100%;"
+                />
+                <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+                  距离计划完成日期多少天内且进度不足时标记为潜在风险
+                </div>
+              </el-form-item>
+
+              <el-form-item label="潜在风险进度阈值（%）">
+                <el-input-number
+                  v-model="configRiskSettings.potentialRiskProgressThreshold"
+                  :min="0"
+                  :max="100"
+                  style="width: 100%;"
+                />
+                <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+                  进度低于此百分比且接近截止日期时标记为潜在风险
+                </div>
+              </el-form-item>
+
+              <el-divider />
+
+              <el-form-item label="当前风险统计">
+                <el-descriptions :column="2" border size="small">
+                  <el-descriptions-item label="延迟应用数" label-class-name="risk-label">
+                    <span style="color: #f56565; font-weight: bold;">{{ delayedApps.length }}</span>
+                  </el-descriptions-item>
+                  <el-descriptions-item label="潜在风险应用数" label-class-name="risk-label">
+                    <span style="color: #ed8936; font-weight: bold;">{{ potentialRiskApps.length }}</span>
+                  </el-descriptions-item>
+                </el-descriptions>
+              </el-form-item>
+            </el-form>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+
+      <template #footer>
+        <div style="display: flex; justify-content: space-between;">
+          <el-button @click="resetConfig">重置为默认</el-button>
+          <div>
+            <el-button @click="configDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="saveConfig">保存配置</el-button>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
-import { Camera, Setting, SuccessFilled, CaretTop, Download, ArrowDown } from '@element-plus/icons-vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { Camera, Setting, SuccessFilled, CaretTop, Download, ArrowDown, Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { ApplicationsAPI } from '@/api/applications'
 import { SubTasksAPI } from '@/api/subtasks'
@@ -213,6 +459,14 @@ const reportDate = ref('')
 const exportingImage = ref(false)
 const exportingExcel = ref(false)
 const totalApplications = ref(0)
+
+// Configuration Dialog
+const configDialogVisible = ref(false)
+const activeConfigTab = ref('indicators')
+
+// Store raw data for auto calculation
+const rawApplications = ref<any[]>([])
+const rawSubtasks = ref<any[]>([])
 
 // Chart refs
 const overviewPieRef = ref<HTMLElement | null>(null)
@@ -245,6 +499,17 @@ interface KeyIndicator {
   color: string
 }
 
+interface KeyIndicatorConfig extends KeyIndicator {
+  autoCalcType?: string
+}
+
+// Risk configuration
+interface RiskConfig {
+  delayThresholdDays: number
+  potentialRiskWarningDays: number
+  potentialRiskProgressThreshold: number
+}
+
 const keyIndicators = ref<KeyIndicator[]>([
   {
     name: '2025年AK验收目标（仅含云原生）',
@@ -268,6 +533,81 @@ const keyIndicators = ref<KeyIndicator[]>([
     color: '#667eea'
   }
 ])
+
+const configIndicators = ref<KeyIndicatorConfig[]>([])
+
+// Risk configuration
+const riskConfig = ref<RiskConfig>({
+  delayThresholdDays: 0, // 0 means any delay is flagged
+  potentialRiskWarningDays: 30, // Warn if within 30 days of deadline
+  potentialRiskProgressThreshold: 80 // Warn if progress < 80%
+})
+
+const configRiskSettings = ref<RiskConfig>({
+  delayThresholdDays: 0,
+  potentialRiskWarningDays: 30,
+  potentialRiskProgressThreshold: 80
+})
+
+// Auto calculation data
+const autoCalcData = computed(() => {
+  const apps = rawApplications.value
+
+  return {
+    total: apps.length,
+    completed: apps.filter(app =>
+      app.current_status === '全部完成' || app.current_status === 'completed'
+    ).length,
+    cloudNative: apps.filter(app =>
+      app.overall_transformation_target === '云原生'
+    ).length,
+    cloudNativeCompleted: apps.filter(app =>
+      app.overall_transformation_target === '云原生' &&
+      (app.current_status === '全部完成' || app.current_status === 'completed')
+    ).length,
+    ak: apps.filter(app =>
+      app.overall_transformation_target === 'AK'
+    ).length,
+    akCompleted: apps.filter(app =>
+      app.overall_transformation_target === 'AK' &&
+      (app.current_status === '全部完成' || app.current_status === 'completed')
+    ).length,
+    year2025: apps.filter(app =>
+      app.ak_supervision_acceptance_year === '2025'
+    ).length,
+    year2025Completed: apps.filter(app =>
+      app.ak_supervision_acceptance_year === '2025' &&
+      (app.current_status === '全部完成' || app.current_status === 'completed')
+    ).length,
+    cloudNative2025: apps.filter(app =>
+      app.overall_transformation_target === '云原生' &&
+      app.ak_supervision_acceptance_year === '2025'
+    ).length,
+    cloudNative2025Completed: apps.filter(app =>
+      app.overall_transformation_target === '云原生' &&
+      app.ak_supervision_acceptance_year === '2025' &&
+      (app.current_status === '全部完成' || app.current_status === 'completed')
+    ).length,
+    ak2025: apps.filter(app =>
+      app.overall_transformation_target === 'AK' &&
+      app.ak_supervision_acceptance_year === '2025'
+    ).length,
+    ak2025Completed: apps.filter(app =>
+      app.overall_transformation_target === 'AK' &&
+      app.ak_supervision_acceptance_year === '2025' &&
+      (app.current_status === '全部完成' || app.current_status === 'completed')
+    ).length,
+    year20242025: apps.filter(app =>
+      app.ak_supervision_acceptance_year === '2024' ||
+      app.ak_supervision_acceptance_year === '2025'
+    ).length,
+    year20242025Completed: apps.filter(app =>
+      (app.ak_supervision_acceptance_year === '2024' ||
+       app.ak_supervision_acceptance_year === '2025') &&
+      (app.current_status === '全部完成' || app.current_status === 'completed')
+    ).length
+  }
+})
 
 // Risk applications
 interface RiskApp {
@@ -299,6 +639,10 @@ const loadReportData = async () => {
 
     const applications = appsResponse.items || []
     const subtasks = subtasksResponse.items || []
+
+    // Store raw data for auto calculation
+    rawApplications.value = applications
+    rawSubtasks.value = subtasks
 
     // Set total applications
     totalApplications.value = applications.length
@@ -431,6 +775,11 @@ const calculateRiskApplications = (applications: any[], subtasks: any[]) => {
   const delayed: RiskApp[] = []
   const potential: RiskApp[] = []
 
+  // Use configured thresholds
+  const delayThreshold = riskConfig.value.delayThresholdDays
+  const warningDays = riskConfig.value.potentialRiskWarningDays
+  const progressThreshold = riskConfig.value.potentialRiskProgressThreshold
+
   applications.forEach(app => {
     const appSubtasks = subtasks.filter(task => task.l2_id === app.id)
 
@@ -438,7 +787,8 @@ const calculateRiskApplications = (applications: any[], subtasks: any[]) => {
     const delayedTasks = appSubtasks.filter(task => {
       if (task.planned_biz_online_date && !task.actual_biz_online_date) {
         const plannedDate = new Date(task.planned_biz_online_date)
-        return plannedDate < today
+        const daysDiff = Math.ceil((today.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24))
+        return daysDiff > delayThreshold
       }
       return false
     })
@@ -466,12 +816,12 @@ const calculateRiskApplications = (applications: any[], subtasks: any[]) => {
       })
     }
 
-    // Find potential risks (tasks approaching deadline within 1 month)
+    // Find potential risks (tasks approaching deadline)
     const potentialTasks = appSubtasks.filter(task => {
       if (task.planned_biz_online_date && !task.actual_biz_online_date) {
         const plannedDate = new Date(task.planned_biz_online_date)
         const daysUntilDeadline = Math.ceil((plannedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-        return daysUntilDeadline > 0 && daysUntilDeadline <= 30 && task.progress_percentage < 80
+        return daysUntilDeadline > 0 && daysUntilDeadline <= warningDays && task.progress_percentage < progressThreshold
       }
       return false
     })
@@ -599,7 +949,7 @@ const exportAsImage = async () => {
 
     const dataURL = canvas.toDataURL('image/png')
     const link = document.createElement('a')
-    link.download = `云原生双周报_${new Date().toISOString().split('T')[0]}.png`
+    link.download = `报表中心_${new Date().toISOString().split('T')[0]}.png`
     link.href = dataURL
     link.click()
 
@@ -639,14 +989,216 @@ const handleExportExcel = async (command: string) => {
 }
 
 const showConfig = () => {
-  ElMessage.info('配置功能开发中')
+  // Load saved config or use current indicators
+  loadConfig()
+  configDialogVisible.value = true
 }
+
+const loadConfig = () => {
+  // Load indicators config
+  const savedConfig = localStorage.getItem('report_indicators_config')
+  if (savedConfig) {
+    try {
+      configIndicators.value = JSON.parse(savedConfig)
+    } catch (error) {
+      console.error('Failed to load config:', error)
+      configIndicators.value = JSON.parse(JSON.stringify(keyIndicators.value))
+    }
+  } else {
+    configIndicators.value = JSON.parse(JSON.stringify(keyIndicators.value))
+  }
+
+  // Load risk config
+  const savedRiskConfig = localStorage.getItem('report_risk_config')
+  if (savedRiskConfig) {
+    try {
+      configRiskSettings.value = JSON.parse(savedRiskConfig)
+    } catch (error) {
+      console.error('Failed to load risk config:', error)
+      configRiskSettings.value = { ...riskConfig.value }
+    }
+  } else {
+    configRiskSettings.value = { ...riskConfig.value }
+  }
+}
+
+const saveConfig = () => {
+  // Update key indicators from config
+  keyIndicators.value = configIndicators.value.map(indicator => {
+    // Calculate percentage
+    const percentage = indicator.total > 0
+      ? Math.round((indicator.completed / indicator.total) * 100)
+      : 0
+
+    return {
+      name: indicator.name,
+      completed: indicator.completed,
+      total: indicator.total,
+      percentage,
+      color: indicator.color
+    }
+  })
+
+  // Update risk configuration
+  riskConfig.value = { ...configRiskSettings.value }
+
+  // Save to localStorage
+  localStorage.setItem('report_indicators_config', JSON.stringify(configIndicators.value))
+  localStorage.setItem('report_risk_config', JSON.stringify(configRiskSettings.value))
+
+  ElMessage.success('配置已保存')
+  configDialogVisible.value = false
+
+  // Re-calculate risks and re-render charts
+  calculateRiskApplications(rawApplications.value, rawSubtasks.value)
+  setTimeout(() => {
+    renderOverviewPieChart()
+  }, 100)
+}
+
+const resetConfig = () => {
+  // Reset indicators
+  configIndicators.value = [
+    {
+      name: '2025年AK验收目标（仅含云原生）',
+      percentage: 31,
+      completed: 19,
+      total: 61,
+      color: '#667eea',
+      autoCalcType: 'cloud_native_2025'
+    },
+    {
+      name: '2025年技术条线OKR',
+      percentage: 91,
+      completed: 32,
+      total: 35,
+      color: '#667eea',
+      autoCalcType: 'all_2025'
+    },
+    {
+      name: '2024&2025年项目目标进度',
+      percentage: 61,
+      completed: 69,
+      total: 114,
+      color: '#667eea',
+      autoCalcType: 'all_2024_2025'
+    }
+  ]
+
+  // Apply auto calculations
+  configIndicators.value.forEach((_, index) => {
+    handleAutoCalcChange(index)
+  })
+
+  // Reset risk settings
+  configRiskSettings.value = {
+    delayThresholdDays: 0,
+    potentialRiskWarningDays: 30,
+    potentialRiskProgressThreshold: 80
+  }
+
+  ElMessage.success('已重置为默认配置')
+}
+
+const addIndicator = () => {
+  configIndicators.value.push({
+    name: '新指标',
+    percentage: 0,
+    completed: 0,
+    total: 1,
+    color: '#667eea',
+    autoCalcType: ''
+  })
+}
+
+const removeIndicator = (index: number) => {
+  configIndicators.value.splice(index, 1)
+}
+
+const handleAutoCalcChange = (index: number) => {
+  const indicator = configIndicators.value[index]
+  const calcType = indicator.autoCalcType
+
+  if (!calcType) {
+    return
+  }
+
+  const data = autoCalcData.value
+
+  switch (calcType) {
+    case 'cloud_native_2025':
+      indicator.completed = data.cloudNative2025Completed
+      indicator.total = data.cloudNative2025
+      indicator.name = '2025年云原生完成数'
+      break
+    case 'ak_2025':
+      indicator.completed = data.ak2025Completed
+      indicator.total = data.ak2025
+      indicator.name = '2025年AK完成数'
+      break
+    case 'all_2025':
+      indicator.completed = data.year2025Completed
+      indicator.total = data.year2025
+      indicator.name = '2025年所有应用完成数'
+      break
+    case 'all_2024_2025':
+      indicator.completed = data.year20242025Completed
+      indicator.total = data.year20242025
+      indicator.name = '2024&2025年项目目标进度'
+      break
+    case 'cloud_native_total':
+      indicator.completed = data.cloudNativeCompleted
+      indicator.total = data.cloudNative
+      indicator.name = '云原生总完成数'
+      break
+    case 'ak_total':
+      indicator.completed = data.akCompleted
+      indicator.total = data.ak
+      indicator.name = 'AK总完成数'
+      break
+    case 'all_total':
+      indicator.completed = data.completed
+      indicator.total = data.total
+      indicator.name = '所有应用总完成数'
+      break
+  }
+
+  // Calculate percentage
+  indicator.percentage = indicator.total > 0
+    ? Math.round((indicator.completed / indicator.total) * 100)
+    : 0
+}
+
+// Watch for changes in config indicators to update percentage
+watch(
+  () => configIndicators.value,
+  (newIndicators) => {
+    newIndicators.forEach(indicator => {
+      if (!indicator.autoCalcType) {
+        indicator.percentage = indicator.total > 0
+          ? Math.round((indicator.completed / indicator.total) * 100)
+          : 0
+      }
+    })
+  },
+  { deep: true }
+)
 
 // Initialize
 onMounted(() => {
   // Set report date (current date or last day of previous bi-week period)
   const today = new Date()
   reportDate.value = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`
+
+  // Load saved risk configuration
+  const savedRiskConfig = localStorage.getItem('report_risk_config')
+  if (savedRiskConfig) {
+    try {
+      riskConfig.value = JSON.parse(savedRiskConfig)
+    } catch (error) {
+      console.error('Failed to load risk config:', error)
+    }
+  }
 
   // Load data
   loadReportData()
