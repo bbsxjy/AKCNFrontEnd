@@ -857,7 +857,8 @@ const loadReportData = async () => {
 
 const calculateStatusStats = (applications: any[], subtasks: any[]) => {
   // Helper function to count status for a given set of applications
-  const countStatus = (apps: any[], statsArray: StatusStat[]) => {
+  // targetType: 'all' | 'ak' | 'cloud_native'
+  const countStatus = (apps: any[], statsArray: StatusStat[], targetType: 'all' | 'ak' | 'cloud_native') => {
     // Reset counts
     statsArray.forEach(stat => {
       stat.count = 0
@@ -866,6 +867,25 @@ const calculateStatusStats = (applications: any[], subtasks: any[]) => {
 
     // Count by status
     apps.forEach(app => {
+      // For completion status, use is_ak_completed or is_cloud_native_completed
+      // Based on the target type
+      let isCompleted = false
+      if (targetType === 'ak') {
+        isCompleted = app.is_ak_completed === true
+      } else if (targetType === 'cloud_native') {
+        isCompleted = app.is_cloud_native_completed === true
+      } else {
+        // For 'all' type, either one is completed counts as completed
+        isCompleted = app.is_ak_completed === true || app.is_cloud_native_completed === true
+      }
+
+      // If marked as completed by the is_*_completed fields, count as completed
+      if (isCompleted) {
+        statsArray[2].count++ // 已完成
+        return
+      }
+
+      // Otherwise, use current_status for other statuses
       const status = app.current_status || app.status
 
       switch (status) {
@@ -890,6 +910,8 @@ const calculateStatusStats = (applications: any[], subtasks: any[]) => {
           break
         case '全部完成':
         case 'completed':
+          // This case is now handled by is_*_completed above
+          // But keep it for backward compatibility
           statsArray[2].count++ // 已完成
           break
         case '业务下线':
@@ -921,17 +943,17 @@ const calculateStatusStats = (applications: any[], subtasks: any[]) => {
   }
 
   // Calculate for all applications
-  countStatus(applications, statusStats.value)
+  countStatus(applications, statusStats.value, 'all')
 
   // Calculate for AK applications
   const akApps = applications.filter(app => app.overall_transformation_target === 'AK')
   akTotalApplications.value = akApps.length
-  countStatus(akApps, akStatusStats.value)
+  countStatus(akApps, akStatusStats.value, 'ak')
 
   // Calculate for Cloud Native applications
   const cloudNativeApps = applications.filter(app => app.overall_transformation_target === '云原生')
   cloudNativeTotalApplications.value = cloudNativeApps.length
-  countStatus(cloudNativeApps, cloudNativeStatusStats.value)
+  countStatus(cloudNativeApps, cloudNativeStatusStats.value, 'cloud_native')
 }
 
 const calculateKeyIndicators = (applications: any[], subtasks: any[]) => {
