@@ -1,1243 +1,971 @@
 <template>
   <div class="reports-view">
-    <el-card>
-      <template #header>
-        <div class="header">
-          <h2>报表中心</h2>
-          <div class="actions">
-            <el-button type="primary" @click="generateReport" :loading="generating">
-              {{ generating ? '生成中...' : '刷新报表' }}
-            </el-button>
-            <el-button type="success" @click="exportReport" :loading="exporting">
-              导出报表
-            </el-button>
+    <!-- Header with title and actions -->
+    <div class="report-header">
+      <div class="title-section">
+        <h1>云原生双周报</h1>
+        <p class="subtitle">截至{{ reportDate }}</p>
+      </div>
+      <div class="action-buttons">
+        <el-button type="success" @click="exportAsImage" :loading="exportingImage">
+          <el-icon><Camera /></el-icon>
+          导出图片
+        </el-button>
+        <el-dropdown @command="handleExportExcel" trigger="click">
+          <el-button type="warning" :loading="exportingExcel">
+            <el-icon><Download /></el-icon>
+            导出Excel
+            <el-icon class="el-icon--right"><arrow-down /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="sample1">
+                <div style="padding: 4px 0;">
+                  <div style="font-weight: bold;">双追踪表格式 (Sample1)</div>
+                  <div style="font-size: 12px; color: #909399;">包含AK和云原生两个Sheet</div>
+                </div>
+              </el-dropdown-item>
+              <el-dropdown-item command="sample2">
+                <div style="padding: 4px 0;">
+                  <div style="font-weight: bold;">详细追踪表格式 (Sample2)</div>
+                  <div style="font-size: 12px; color: #909399;">包含月度进展跟踪</div>
+                </div>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <el-button type="primary" @click="showConfig">
+          <el-icon><Setting /></el-icon>
+          配置
+        </el-button>
+      </div>
+    </div>
+
+    <!-- Main content cards -->
+    <el-row :gutter="20" class="main-cards">
+      <!-- Left: Application Transformation Overview -->
+      <el-col :xs="24" :sm="24" :md="12">
+        <el-card class="overview-card">
+          <template #header>
+            <h3>应用改造总体情况</h3>
+          </template>
+
+          <!-- Center Pie Chart with Completion Percentage -->
+          <div class="pie-chart-container">
+            <div ref="overviewPieRef" class="pie-chart"></div>
           </div>
-        </div>
-      </template>
 
-      <!-- Report Type Tabs (移除部门对比) -->
-      <el-tabs v-model="activeTab" class="report-tabs" @tab-change="handleTabChange">
-        <el-tab-pane label="汇总报表" name="summary" />
-        <el-tab-pane label="项目进度" name="progress" />
-        <el-tab-pane label="延期分析" name="delay" />
-      </el-tabs>
-
-      <!-- Time Range Selection -->
-      <div class="time-range">
-        <el-button :type="timeRange === 'week' ? 'primary' : 'default'" @click="setTimeRange('week')">
-          本周
-        </el-button>
-        <el-button :type="timeRange === 'month' ? 'primary' : 'default'" @click="setTimeRange('month')">
-          本月
-        </el-button>
-        <el-button :type="timeRange === 'quarter' ? 'primary' : 'default'" @click="setTimeRange('quarter')">
-          本季度
-        </el-button>
-        <el-button :type="timeRange === 'year' ? 'primary' : 'default'" @click="setTimeRange('year')">
-          本年
-        </el-button>
-        <el-button :type="timeRange === 'all' ? 'primary' : 'default'" @click="setTimeRange('all')">
-          全部
-        </el-button>
-      </div>
-
-      <!-- Loading Skeleton -->
-      <div v-if="loading">
-        <el-skeleton :rows="8" animated />
-      </div>
-
-      <!-- Summary Report -->
-      <div v-else-if="activeTab === 'summary'">
-        <!-- 统计卡片 -->
-        <el-row :gutter="20" class="stats-row">
-          <el-col :xs="24" :sm="12" :md="6">
-            <div class="stat-card">
-              <div class="stat-value">{{ summaryStats.total }}</div>
-              <div class="stat-label">应用总数</div>
+          <!-- Status Statistics -->
+          <div class="status-grid">
+            <div class="status-item" v-for="stat in statusStats" :key="stat.label">
+              <div class="status-count" :class="`status-${stat.type}`">
+                {{ stat.count }}
+              </div>
+              <div class="status-label">{{ stat.label }}</div>
+              <div v-if="stat.detail" class="status-detail">{{ stat.detail }}</div>
             </div>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="6">
-            <div class="stat-card success">
-              <div class="stat-value">{{ summaryStats.completed }}</div>
-              <div class="stat-label">已完成</div>
-              <div class="stat-percentage">{{ summaryStats.completionRate }}%</div>
+          </div>
+
+          <!-- Total Applications -->
+          <div class="total-apps">
+            总计：{{ totalApplications }}个应用
+          </div>
+        </el-card>
+      </el-col>
+
+      <!-- Right: Key Project Indicators -->
+      <el-col :xs="24" :sm="24" :md="12">
+        <el-card class="indicators-card">
+          <template #header>
+            <h3>项目关键指标完成情况</h3>
+          </template>
+
+          <div class="indicators-list">
+            <div v-for="indicator in keyIndicators" :key="indicator.name" class="indicator-item">
+              <div class="indicator-name">{{ indicator.name }}</div>
+              <div class="indicator-progress">
+                <el-progress
+                  :percentage="indicator.percentage"
+                  :color="indicator.color"
+                  :stroke-width="20"
+                  :show-text="false"
+                />
+                <div class="indicator-stats">
+                  <span class="percentage">{{ indicator.percentage }}%</span>
+                  <span class="fraction">{{ indicator.completed }}/{{ indicator.total }}</span>
+                </div>
+              </div>
             </div>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="6">
-            <div class="stat-card warning">
-              <div class="stat-value">{{ summaryStats.inProgress }}</div>
-              <div class="stat-label">进行中</div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- Risk Section -->
+    <el-row :gutter="20" class="risk-section">
+      <el-col :span="24">
+        <el-card>
+          <template #header>
+            <h3>当前风险</h3>
+          </template>
+
+          <!-- No Risk Notice -->
+          <div v-if="!hasAnyRisks" class="no-risk">
+            <el-icon><SuccessFilled /></el-icon>
+            <span>暂无风险</span>
+          </div>
+
+          <!-- Delayed Applications -->
+          <div class="risk-category">
+            <div class="risk-category-header delayed">
+              <span class="risk-title">有延迟的应用</span>
+              <span class="risk-count">
+                {{ delayedApps.length }}个
+                <el-icon v-if="delayedApps.length > 0" class="trend-up"><CaretTop /></el-icon>
+              </span>
             </div>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="6">
-            <div class="stat-card danger">
-              <div class="stat-value">{{ summaryStats.delayed }}</div>
-              <div class="stat-label">已延期</div>
+
+            <div v-if="delayedApps.length === 0" class="no-risk-message">
+              当前没有延迟的应用
             </div>
-          </el-col>
-        </el-row>
 
-        <!-- Charts Section -->
-        <el-row :gutter="20" class="charts-section">
-          <el-col :xs="24" :sm="24" :md="12">
-            <el-card>
-              <template #header>
-                <h3>改造类型分布</h3>
-              </template>
-              <div ref="typeChartRef" style="height: 350px;"></div>
-            </el-card>
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="12">
-            <el-card>
-              <template #header>
-                <h3>月度完成趋势</h3>
-              </template>
-              <div ref="trendChartRef" style="height: 350px;"></div>
-            </el-card>
-          </el-col>
-        </el-row>
-
-        <!-- 项目统计和优先级分布 -->
-        <el-row :gutter="20" class="charts-section">
-          <el-col :xs="24" :sm="24" :md="12">
-            <el-card>
-              <template #header>
-                <h3>项目完成情况</h3>
-              </template>
-              <div ref="projectChartRef" style="height: 400px;"></div>
-            </el-card>
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="12">
-            <el-card>
-              <template #header>
-                <h3>应用档位分布</h3>
-              </template>
-              <div ref="priorityChartRef" style="height: 400px;"></div>
-            </el-card>
-          </el-col>
-        </el-row>
-      </div>
-
-      <!-- Progress Report -->
-      <div v-else-if="activeTab === 'progress' && !loading">
-        <!-- 进度分布饼图 -->
-        <el-row :gutter="20" class="charts-section">
-          <el-col :xs="24" :sm="24" :md="12">
-            <el-card>
-              <template #header>
-                <h3>进度分布</h3>
-              </template>
-              <div ref="progressDistChartRef" style="height: 350px;"></div>
-            </el-card>
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="12">
-            <el-card>
-              <template #header>
-                <h3>阶段完成情况</h3>
-              </template>
-              <div ref="phaseChartRef" style="height: 350px;"></div>
-            </el-card>
-          </el-col>
-        </el-row>
-
-        <!-- Progress Table -->
-        <el-table :data="progressData" style="width: 100%; margin-top: 20px;">
-          <el-table-column prop="projectName" label="项目名称" min-width="200" />
-          <el-table-column prop="totalApps" label="应用数" width="100" align="center" />
-          <el-table-column prop="requirement" label="需求完成" width="100" align="center">
-            <template #default="{ row }">
-              <el-tag type="info">{{ row.requirement }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="release" label="发版完成" width="100" align="center">
-            <template #default="{ row }">
-              <el-tag type="warning">{{ row.release }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="techOnline" label="技术上线" width="100" align="center">
-            <template #default="{ row }">
-              <el-tag type="primary">{{ row.techOnline }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="bizOnline" label="业务上线" width="100" align="center">
-            <template #default="{ row }">
-              <el-tag type="success">{{ row.bizOnline }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="averageProgress" label="平均进度" width="120" align="center">
-            <template #default="{ row }">
-              <el-progress
-                :percentage="row.averageProgress"
-                :color="getProgressColor(row.averageProgress)"
-                :stroke-width="6"
-              />
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-
-      <!-- Delay Report -->
-      <div v-else-if="activeTab === 'delay' && !loading">
-        <!-- 延期统计 -->
-        <el-row :gutter="20" class="stats-row">
-          <el-col :xs="24" :sm="8">
-            <div class="stat-card danger">
-              <div class="stat-value">{{ delayStats.totalDelayed }}</div>
-              <div class="stat-label">延期应用数</div>
+            <div v-else class="risk-items">
+              <div v-for="app in delayedApps" :key="app.id" class="risk-item delayed-item">
+                <div class="app-name">{{ app.appName }}</div>
+                <div class="app-details">
+                  <div class="detail-row">
+                    <span class="label">负责团队：</span>
+                    <span class="value">{{ app.team || '未填写' }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">原计划完成：</span>
+                    <span class="value">{{ app.plannedDate }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">当前延迟：</span>
+                    <span class="value highlight">{{ app.delayMonths }}个月</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">延迟原因：</span>
+                    <span class="value">{{ app.delayReason || '未填写' }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">预计完成：</span>
+                    <span class="value">{{ app.expectedDate }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </el-col>
-          <el-col :xs="24" :sm="8">
-            <div class="stat-card warning">
-              <div class="stat-value">{{ delayStats.avgDelayDays }}</div>
-              <div class="stat-label">平均延期月数</div>
-            </div>
-          </el-col>
-          <el-col :xs="24" :sm="8">
-            <div class="stat-card">
-              <div class="stat-value">{{ delayStats.maxDelayDays }}</div>
-              <div class="stat-label">最长延期月数</div>
-            </div>
-          </el-col>
-        </el-row>
+          </div>
 
-        <!-- Delay Table -->
-        <el-table :data="delayData" style="width: 100%; margin-top: 20px;">
-          <el-table-column prop="l2Id" label="L2 ID" width="100" />
-          <el-table-column prop="appName" label="应用名称" min-width="200" />
-          <el-table-column prop="projectName" label="所属项目" min-width="200" />
-          <el-table-column prop="currentPhase" label="当前阶段" width="120">
-            <template #default="{ row }">
-              <el-tag :type="getPhaseType(row.currentPhase)">{{ row.currentPhase }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="delayDays" label="延期月数" width="100" align="center">
-            <template #default="{ row }">
-              <el-tag :type="getDelayType(row.delayDays)">
-                {{ row.delayDays }} 月
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="plannedDate" label="计划完成" width="110" />
-          <el-table-column prop="expectedDate" label="预计完成" width="110" />
-          <el-table-column prop="delayReason" label="延期原因" min-width="200" show-overflow-tooltip />
-        </el-table>
-      </div>
+          <!-- Potential Risk Applications -->
+          <div class="risk-category" style="margin-top: 20px;">
+            <div class="risk-category-header potential">
+              <span class="risk-title">潜在延迟风险的应用</span>
+              <span class="risk-count">
+                {{ potentialRiskApps.length }}个
+                <el-icon v-if="potentialRiskApps.length > 0" class="trend-up"><CaretTop /></el-icon>
+              </span>
+            </div>
 
-    </el-card>
+            <div v-if="potentialRiskApps.length === 0" class="no-risk-message">
+              当前没有潜在延迟风险的应用
+            </div>
+
+            <div v-else class="risk-items">
+              <div v-for="app in potentialRiskApps" :key="app.id" class="risk-item potential-item">
+                <div class="app-name">{{ app.appName }}</div>
+                <div class="app-details">
+                  <div class="detail-row">
+                    <span class="label">负责团队：</span>
+                    <span class="value">{{ app.team }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">计划完成：</span>
+                    <span class="value">{{ app.plannedDate }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">风险原因：</span>
+                    <span class="value">{{ app.riskReason }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { Camera, Setting, SuccessFilled, CaretTop, Download, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { ApplicationsAPI } from '@/api/applications'
 import { SubTasksAPI } from '@/api/subtasks'
 import { ExcelAPI } from '@/api/reports'
-import { useChart } from '@/composables/useCharts'
 import * as echarts from 'echarts'
+import html2canvas from 'html2canvas'
 
-// State variables
-const activeTab = ref('summary')
-const timeRange = ref('month')
-const loading = ref(false)
-const generating = ref(false)
-const exporting = ref(false)
+// State
+const reportDate = ref('')
+const exportingImage = ref(false)
+const exportingExcel = ref(false)
+const totalApplications = ref(0)
 
 // Chart refs
-const typeChartRef = ref<HTMLElement | null>(null)
-const trendChartRef = ref<HTMLElement | null>(null)
-const projectChartRef = ref<HTMLElement | null>(null)
-const priorityChartRef = ref<HTMLElement | null>(null)
-const progressDistChartRef = ref<HTMLElement | null>(null)
-const phaseChartRef = ref<HTMLElement | null>(null)
+const overviewPieRef = ref<HTMLElement | null>(null)
+let overviewPieChart: echarts.ECharts | null = null
 
-// Data
-const summaryStats = reactive({
-  total: 0,
-  completed: 0,
-  inProgress: 0,
-  delayed: 0,
-  completionRate: 0
-})
+// Status statistics
+interface StatusStat {
+  label: string
+  count: number
+  type: string
+  detail?: string
+}
 
-const delayStats = reactive({
-  totalDelayed: 0,
-  avgDelayDays: 0,
-  maxDelayDays: 0
-})
+const statusStats = ref<StatusStat[]>([
+  { label: '需求阶段', count: 0, type: 'requirement' },
+  { label: '研发阶段', count: 0, type: 'development' },
+  { label: '已完成', count: 0, type: 'completed' },
+  { label: '上线阶段', count: 0, type: 'online' },
+  { label: '业务下线', count: 0, type: 'offline' },
+  { label: '未启动', count: 0, type: 'not-started' },
+  { label: '阻塞', count: 0, type: 'blocked', detail: '' }
+])
 
-const progressData = ref<any[]>([])
-const delayData = ref<any[]>([])
-const chartData = reactive({
-  typeDistribution: [] as any[],
-  monthlyTrend: [] as any[],
-  projectStats: [] as any[],
-  priorityDistribution: [] as any[],
-  progressDistribution: [] as any[],
-  phaseCompletion: [] as any[]
+// Key indicators
+interface KeyIndicator {
+  name: string
+  percentage: number
+  completed: number
+  total: number
+  color: string
+}
+
+const keyIndicators = ref<KeyIndicator[]>([
+  {
+    name: '2025年AK验收目标（仅含云原生）',
+    percentage: 31,
+    completed: 19,
+    total: 61,
+    color: '#667eea'
+  },
+  {
+    name: '2025年技术条线OKR',
+    percentage: 91,
+    completed: 32,
+    total: 35,
+    color: '#667eea'
+  },
+  {
+    name: '2024&2025年项目目标进度',
+    percentage: 61,
+    completed: 69,
+    total: 114,
+    color: '#667eea'
+  }
+])
+
+// Risk applications
+interface RiskApp {
+  id: string
+  appName: string
+  team: string
+  plannedDate: string
+  delayMonths?: number
+  delayReason?: string
+  expectedDate?: string
+  riskReason?: string
+}
+
+const delayedApps = ref<RiskApp[]>([])
+const potentialRiskApps = ref<RiskApp[]>([])
+
+const hasAnyRisks = computed(() => {
+  return delayedApps.value.length > 0 || potentialRiskApps.value.length > 0
 })
 
 // Methods
-const setTimeRange = (range: string) => {
-  timeRange.value = range
-  loadReportData()
-}
-
-const handleTabChange = () => {
-  loadReportData()
-}
-
-const generateReport = async () => {
-  generating.value = true
-  try {
-    await loadReportData()
-    ElMessage.success('报表已刷新')
-  } catch (error) {
-    console.error('Failed to generate report:', error)
-    ElMessage.error('报表生成失败')
-  } finally {
-    generating.value = false
-  }
-}
-
 const loadReportData = async () => {
-  loading.value = true
   try {
-    // 获取应用和子任务数据
-    const [applications, subtasks] = await Promise.all([
+    // Fetch applications and subtasks
+    const [appsResponse, subtasksResponse] = await Promise.all([
       ApplicationsAPI.getApplications({ limit: 1000 }),
       SubTasksAPI.getSubTasks({ limit: 1000 })
     ])
 
-    // 根据时间范围过滤数据
-    const filteredApps = filterByTimeRange(applications.items || [])
-    const filteredTasks = filterByTimeRange(subtasks.items || [])
+    const applications = appsResponse.items || []
+    const subtasks = subtasksResponse.items || []
 
-    // 调试输出
-    console.log(`Time range: ${timeRange.value}`, {
-      totalApps: applications.items?.length || 0,
-      filteredApps: filteredApps.length,
-      totalTasks: subtasks.items?.length || 0,
-      filteredTasks: filteredTasks.length
-    })
+    // Set total applications
+    totalApplications.value = applications.length
 
-    // 根据当前标签加载对应数据
-    switch (activeTab.value) {
-      case 'summary':
-        await loadSummaryData(filteredApps, filteredTasks)
-        break
-      case 'progress':
-        await loadProgressData(filteredApps, filteredTasks)
-        break
-      case 'delay':
-        await loadDelayData(filteredApps, filteredTasks)
-        break
-    }
+    // Calculate status statistics
+    calculateStatusStats(applications, subtasks)
+
+    // Calculate key indicators
+    calculateKeyIndicators(applications, subtasks)
+
+    // Calculate risk applications
+    calculateRiskApplications(applications, subtasks)
+
+    // Render pie chart
+    renderOverviewPieChart()
   } catch (error) {
     console.error('Failed to load report data:', error)
     ElMessage.error('加载报表数据失败')
-  } finally {
-    loading.value = false
   }
 }
 
-const filterByTimeRange = (items: any[]) => {
-  if (timeRange.value === 'all') return items
-
-  const now = new Date()
-  let startDate = new Date()
-  let endDate = new Date()
-
-  switch (timeRange.value) {
-    case 'week':
-      // 本周（周一到周日）
-      const currentDay = now.getDay()
-      const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay
-      startDate = new Date(now)
-      startDate.setDate(now.getDate() + daysToMonday)
-      startDate.setHours(0, 0, 0, 0)
-      endDate = new Date(startDate)
-      endDate.setDate(startDate.getDate() + 6)
-      endDate.setHours(23, 59, 59, 999)
-      break
-    case 'month':
-      // 本月（1号到月末）
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
-      break
-    case 'quarter':
-      // 本季度
-      const currentQuarter = Math.floor(now.getMonth() / 3)
-      startDate = new Date(now.getFullYear(), currentQuarter * 3, 1)
-      endDate = new Date(now.getFullYear(), currentQuarter * 3 + 3, 0, 23, 59, 59, 999)
-      break
-    case 'year':
-      // 本年（1月1日到12月31日）
-      startDate = new Date(now.getFullYear(), 0, 1)
-      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
-      break
-  }
-
-  return items.filter(item => {
-    // 只检查实际完成日期字段，不检查创建和更新时间
-    const completionDates = [
-      item.actual_biz_online_date,
-      item.actual_tech_online_date,
-      item.actual_release_date,
-      item.actual_requirement_date
-    ].filter(d => d)
-
-    // 如果没有任何完成日期，检查是否在进行中
-    if (completionDates.length === 0) {
-      // 对于进行中的项目，检查创建时间是否在范围内
-      if (item.created_at) {
-        const createdDate = new Date(item.created_at)
-        return createdDate >= startDate && createdDate <= endDate
-      }
-      return false
-    }
-
-    // 检查是否有任何完成日期在指定范围内
-    return completionDates.some(dateStr => {
-      const date = new Date(dateStr)
-      return date >= startDate && date <= endDate
-    })
+const calculateStatusStats = (applications: any[], subtasks: any[]) => {
+  // Reset counts
+  statusStats.value.forEach(stat => {
+    stat.count = 0
+    stat.detail = ''
   })
+
+  // Count by status
+  applications.forEach(app => {
+    const status = app.current_status || app.status
+
+    switch (status) {
+      case '待启动':
+      case 'not_started':
+        statusStats.value[5].count++ // 未启动
+        break
+      case '需求分析中':
+      case 'requirement_analysis':
+        statusStats.value[0].count++ // 需求阶段
+        break
+      case '研发进行中':
+      case 'in_development':
+      case 'in_progress':
+        statusStats.value[1].count++ // 研发阶段
+        break
+      case '业务上线中':
+      case 'business_online':
+      case '技术上线中':
+      case 'tech_online':
+        statusStats.value[3].count++ // 上线阶段
+        break
+      case '全部完成':
+      case 'completed':
+        statusStats.value[2].count++ // 已完成
+        break
+      case '业务下线':
+      case 'offline':
+        statusStats.value[4].count++ // 业务下线
+        break
+      case '存在阻塞':
+      case 'blocked':
+        statusStats.value[6].count++ // 阻塞
+        break
+      default:
+        // Default to not started
+        statusStats.value[5].count++
+    }
+  })
+
+  // Find blocking reasons for blocked applications
+  if (statusStats.value[6].count > 0) {
+    const blockedApp = applications.find(app =>
+      app.current_status === '存在阻塞' || app.current_status === 'blocked'
+    )
+    if (blockedApp) {
+      const blockedTask = subtasks.find(task => task.l2_id === blockedApp.id && task.block_reason)
+      if (blockedTask) {
+        statusStats.value[6].detail = `（${blockedTask.block_reason}）`
+      }
+    }
+  }
 }
 
-const loadSummaryData = async (apps: any[], tasks: any[]) => {
-  // 计算汇总统计
-  summaryStats.total = apps.length
-  summaryStats.completed = apps.filter(app =>
+const calculateKeyIndicators = (applications: any[], subtasks: any[]) => {
+  // 2025年AK验收目标（仅含云原生）
+  const cloudNativeApps = applications.filter(app =>
+    app.overall_transformation_target === '云原生' &&
+    app.ak_supervision_acceptance_year === '2025'
+  )
+  const completedCloudNative = cloudNativeApps.filter(app =>
     app.current_status === '全部完成' || app.current_status === 'completed'
-  ).length
-  summaryStats.inProgress = apps.filter(app =>
-    app.current_status === '研发进行中' || app.current_status === '业务上线中'
-  ).length
-
-  // 计算延期数量
-  const today = new Date()
-  summaryStats.delayed = tasks.filter(task => {
-    if (task.planned_biz_online_date && !task.actual_biz_online_date) {
-      const plannedDate = new Date(task.planned_biz_online_date)
-      return plannedDate < today && task.task_status !== '已完成'
-    }
-    return false
-  }).length
-
-  summaryStats.completionRate = summaryStats.total > 0
-    ? Math.round((summaryStats.completed / summaryStats.total) * 100)
+  )
+  keyIndicators.value[0].total = cloudNativeApps.length
+  keyIndicators.value[0].completed = completedCloudNative.length
+  keyIndicators.value[0].percentage = cloudNativeApps.length > 0
+    ? Math.round((completedCloudNative.length / cloudNativeApps.length) * 100)
     : 0
 
-  // 改造类型分布
-  const akCount = apps.filter(app => app.overall_transformation_target === 'AK').length
-  const cloudCount = apps.filter(app => app.overall_transformation_target === '云原生').length
-  chartData.typeDistribution = [
-    { name: 'AK改造', value: akCount },
-    { name: '云原生改造', value: cloudCount }
-  ]
+  // 2025年技术条线OKR - 所有2025年的应用
+  const okrApps = applications.filter(app =>
+    app.ak_supervision_acceptance_year === '2025'
+  )
+  const completedOKR = okrApps.filter(app =>
+    app.current_status === '全部完成' || app.current_status === 'completed'
+  )
+  keyIndicators.value[1].total = okrApps.length
+  keyIndicators.value[1].completed = completedOKR.length
+  keyIndicators.value[1].percentage = okrApps.length > 0
+    ? Math.round((completedOKR.length / okrApps.length) * 100)
+    : 0
 
-  // 月度完成趋势
-  await loadMonthlyTrend()
-
-  // 项目统计 - 基于过滤后的数据
-  const projectMap = new Map<string, { total: number; completed: number; inProgress: number; notStarted: number }>()
-
-  apps.forEach((app: any) => {
-    const projectsField = app.belonging_projects || '未分配项目'
-    const projects = projectsField.split(/[,;，；]/).map((p: string) => p.trim()).filter((p: string) => p.length > 0)
-
-    if (projects.length === 0) {
-      projects.push('未分配项目')
-    }
-
-    projects.forEach((project: string) => {
-      const existing = projectMap.get(project) || {
-        total: 0,
-        completed: 0,
-        inProgress: 0,
-        notStarted: 0
-      }
-
-      existing.total++
-
-      const status = app.current_status
-      if (status === '全部完成' || status === 'completed') {
-        existing.completed++
-      } else if (status === '研发进行中' || status === '业务上线中' || status === 'in_progress' || status === 'testing') {
-        existing.inProgress++
-      } else if (status === '待启动' || status === 'not_started') {
-        existing.notStarted++
-      } else if (status === '存在阻塞' || status === 'blocked') {
-        existing.inProgress++
-      }
-
-      projectMap.set(project, existing)
-    })
-  })
-
-  chartData.projectStats = Array.from(projectMap.entries())
-    .map(([name, data]) => ({
-      name,
-      total: data.total,
-      completed: data.completed,
-      inProgress: data.inProgress,
-      notStarted: data.notStarted,
-      completionRate: data.total > 0 ? Math.round((data.completed / data.total) * 100) : 0
-    }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 15)
-
-  // 优先级分布 - 基于过滤后的数据
-  const priorityData = [
-    { name: '第一级', value: 0, akCount: 0, cloudCount: 0 },
-    { name: '第二级', value: 0, akCount: 0, cloudCount: 0 },
-    { name: '第三级', value: 0, akCount: 0, cloudCount: 0 },
-    { name: '第四级', value: 0, akCount: 0, cloudCount: 0 },
-    { name: '第五级', value: 0, akCount: 0, cloudCount: 0 }
-  ]
-
-  apps.forEach((app: any) => {
-    let priority = 3 // 默认第三级
-
-    if (app.ak_supervision_acceptance_year) {
-      const year = parseInt(app.ak_supervision_acceptance_year)
-      const currentYear = new Date().getFullYear()
-      if (year <= currentYear) {
-        priority = 1
-      } else if (year === currentYear + 1) {
-        priority = 2
-      } else if (year === currentYear + 2) {
-        priority = 3
-      } else {
-        priority = 4
-      }
-    }
-
-    priority = Math.max(1, Math.min(5, priority))
-    const index = priority - 1
-
-    priorityData[index].value++
-
-    const transformTarget = app.overall_transformation_target
-    if (transformTarget === 'AK' || transformTarget === 'ak') {
-      priorityData[index].akCount++
-    } else if (transformTarget === '云原生' || transformTarget === 'cloud_native') {
-      priorityData[index].cloudCount++
-    } else {
-      priorityData[index].akCount++
-    }
-  })
-
-  chartData.priorityDistribution = priorityData
-
-  // 刷新图表
-  setTimeout(() => {
-    refreshTypeChart()
-    refreshTrendChart()
-    refreshProjectChart()
-    refreshPriorityChart()
-  }, 100)
+  // 2024&2025年项目目标进度
+  const projectApps = applications.filter(app =>
+    app.ak_supervision_acceptance_year === '2024' ||
+    app.ak_supervision_acceptance_year === '2025'
+  )
+  const completedProject = projectApps.filter(app =>
+    app.current_status === '全部完成' || app.current_status === 'completed'
+  )
+  keyIndicators.value[2].total = projectApps.length
+  keyIndicators.value[2].completed = completedProject.length
+  keyIndicators.value[2].percentage = projectApps.length > 0
+    ? Math.round((completedProject.length / projectApps.length) * 100)
+    : 0
 }
 
-const loadProgressData = async (apps: any[], tasks: any[]) => {
-  // 进度分布
-  const progressRanges = [
-    { name: '0-25%', count: 0 },
-    { name: '26-50%', count: 0 },
-    { name: '51-75%', count: 0 },
-    { name: '76-99%', count: 0 },
-    { name: '100%', count: 0 }
-  ]
-
-  apps.forEach((app: any) => {
-    const progress = app.progress_percentage || 0
-    if (progress === 100) progressRanges[4].count++
-    else if (progress >= 76) progressRanges[3].count++
-    else if (progress >= 51) progressRanges[2].count++
-    else if (progress >= 26) progressRanges[1].count++
-    else progressRanges[0].count++
-  })
-
-  chartData.progressDistribution = progressRanges.map(r => ({
-    name: r.name,
-    value: r.count
-  }))
-
-  // 阶段完成情况
-  let requirementCount = 0
-  let releaseCount = 0
-  let techOnlineCount = 0
-  let bizOnlineCount = 0
-
-  tasks.forEach(task => {
-    if (task.actual_requirement_date) requirementCount++
-    if (task.actual_release_date) releaseCount++
-    if (task.actual_tech_online_date) techOnlineCount++
-    if (task.actual_biz_online_date) bizOnlineCount++
-  })
-
-  chartData.phaseCompletion = [
-    { name: '需求完成', value: requirementCount },
-    { name: '发版完成', value: releaseCount },
-    { name: '技术上线', value: techOnlineCount },
-    { name: '业务上线', value: bizOnlineCount }
-  ]
-
-  // 按项目统计进度
-  const projectMap = new Map<string, any>()
-
-  apps.forEach((app: any) => {
-    const projects = (app.belonging_projects || '未分配项目').split(/[,;，；]/).map((p: string) => p.trim())
-
-    projects.forEach((project: string) => {
-      if (!projectMap.has(project)) {
-        projectMap.set(project, {
-          projectName: project,
-          totalApps: 0,
-          requirement: 0,
-          release: 0,
-          techOnline: 0,
-          bizOnline: 0,
-          totalProgress: 0
-        })
-      }
-
-      const stat = projectMap.get(project)
-      stat.totalApps++
-      stat.totalProgress += app.progress_percentage || 0
-
-      // 统计各阶段完成数
-      const appTasks = tasks.filter((t: any) => t.l2_id === app.id)
-      if (appTasks.some(t => t.actual_requirement_date)) stat.requirement++
-      if (appTasks.some(t => t.actual_release_date)) stat.release++
-      if (appTasks.some(t => t.actual_tech_online_date)) stat.techOnline++
-      if (appTasks.some(t => t.actual_biz_online_date)) stat.bizOnline++
-    })
-  })
-
-  progressData.value = Array.from(projectMap.values()).map(p => ({
-    ...p,
-    averageProgress: p.totalApps > 0 ? Math.round(p.totalProgress / p.totalApps) : 0
-  }))
-
-  // 刷新图表
-  setTimeout(() => {
-    refreshProgressDistChart()
-    refreshPhaseChart()
-  }, 100)
-}
-
-const loadDelayData = async (apps: any[], tasks: any[]) => {
+const calculateRiskApplications = (applications: any[], subtasks: any[]) => {
   const today = new Date()
-  const delayedItems: any[] = []
+  const delayed: RiskApp[] = []
+  const potential: RiskApp[] = []
 
-  apps.forEach((app: any) => {
-    const appTasks = tasks.filter((t: any) => t.l2_id === app.id)
+  applications.forEach(app => {
+    const appSubtasks = subtasks.filter(task => task.l2_id === app.id)
 
-    // 检查延期的子任务
-    const delayedTasks = appTasks.filter((task: any) => {
+    // Find delayed tasks
+    const delayedTasks = appSubtasks.filter(task => {
       if (task.planned_biz_online_date && !task.actual_biz_online_date) {
         const plannedDate = new Date(task.planned_biz_online_date)
-        return plannedDate < today && task.task_status !== '已完成'
+        return plannedDate < today
       }
       return false
     })
 
     if (delayedTasks.length > 0) {
+      // Calculate max delay
       const maxDelayTask = delayedTasks.reduce((max, task) => {
         const plannedDate = new Date(task.planned_biz_online_date)
         const yearDiff = today.getFullYear() - plannedDate.getFullYear()
         const monthDiff = today.getMonth() - plannedDate.getMonth()
-        const delayMonths = Math.max(0, yearDiff * 12 + monthDiff)
-        return delayMonths > max.days ? { task, days: delayMonths } : max
-      }, { task: delayedTasks[0], days: 0 })
+        const delayMonths = yearDiff * 12 + monthDiff
+        return delayMonths > max.months ? { task, months: delayMonths } : max
+      }, { task: delayedTasks[0], months: 0 })
 
-      delayedItems.push({
-        l2Id: app.l2_id,
+      delayed.push({
+        id: app.id,
         appName: app.app_name,
-        projectName: app.belonging_projects || '未分配项目',
-        currentPhase: maxDelayTask.task.task_status || '研发进行中',
-        delayDays: maxDelayTask.days,
+        team: app.responsible_team || '',
         plannedDate: formatDate(maxDelayTask.task.planned_biz_online_date),
-        expectedDate: '待定',
-        delayReason: maxDelayTask.task.block_reason || '进度延迟'
+        delayMonths: maxDelayTask.months,
+        delayReason: maxDelayTask.task.block_reason || '',
+        expectedDate: maxDelayTask.task.expected_completion_date
+          ? formatDate(maxDelayTask.task.expected_completion_date)
+          : '待定'
+      })
+    }
+
+    // Find potential risks (tasks approaching deadline within 1 month)
+    const potentialTasks = appSubtasks.filter(task => {
+      if (task.planned_biz_online_date && !task.actual_biz_online_date) {
+        const plannedDate = new Date(task.planned_biz_online_date)
+        const daysUntilDeadline = Math.ceil((plannedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        return daysUntilDeadline > 0 && daysUntilDeadline <= 30 && task.progress_percentage < 80
+      }
+      return false
+    })
+
+    if (potentialTasks.length > 0 && delayedTasks.length === 0) {
+      potential.push({
+        id: app.id,
+        appName: app.app_name,
+        team: app.responsible_team || '',
+        plannedDate: formatDate(potentialTasks[0].planned_biz_online_date),
+        riskReason: '进度缓慢，可能无法按时完成'
       })
     }
   })
 
-  delayData.value = delayedItems.sort((a, b) => b.delayDays - a.delayDays)
-
-  // 计算延期统计
-  delayStats.totalDelayed = delayedItems.length
-  delayStats.avgDelayDays = delayedItems.length > 0
-    ? Math.round(delayedItems.reduce((sum, item) => sum + item.delayDays, 0) / delayedItems.length)
-    : 0
-  delayStats.maxDelayDays = delayedItems.length > 0
-    ? Math.max(...delayedItems.map(item => item.delayDays))
-    : 0
+  delayedApps.value = delayed
+  potentialRiskApps.value = potential
 }
 
-const loadMonthlyTrend = async () => {
-  // 获取所有应用和子任务数据
-  const [applications, subtasks] = await Promise.all([
-    ApplicationsAPI.getApplications({ limit: 1000 }),
-    SubTasksAPI.getSubTasks({ limit: 1000 })
-  ])
+const renderOverviewPieChart = () => {
+  if (!overviewPieRef.value) return
 
-  // 根据时间范围过滤数据
-  const filteredApps = filterByTimeRange(applications.items || [])
-  const filteredTasks = filterByTimeRange(subtasks.items || [])
-
-  // 生成月度数据
-  const monthlyMap = new Map<string, { requirement: number, release: number, techOnline: number, bizOnline: number }>()
-
-  // 根据时间范围决定要显示的月份
-  const now = new Date()
-  const months: string[] = []
-
-  if (timeRange.value === 'week') {
-    // 本周只显示当前月份
-    months.push(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
-  } else if (timeRange.value === 'month') {
-    // 本月只显示当前月份
-    months.push(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
-  } else if (timeRange.value === 'quarter') {
-    // 本季度显示3个月
-    const currentQuarter = Math.floor(now.getMonth() / 3)
-    for (let i = 0; i < 3; i++) {
-      const monthIndex = currentQuarter * 3 + i
-      if (monthIndex <= now.getMonth()) {
-        months.push(`${now.getFullYear()}-${String(monthIndex + 1).padStart(2, '0')}`)
-      }
-    }
-  } else if (timeRange.value === 'year') {
-    // 本年显示到当前月
-    for (let i = 0; i <= now.getMonth(); i++) {
-      months.push(`${now.getFullYear()}-${String(i + 1).padStart(2, '0')}`)
-    }
-  } else {
-    // 全部：显示最近12个月
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date(now)
-      date.setMonth(date.getMonth() - i)
-      months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`)
-    }
+  if (overviewPieChart) {
+    overviewPieChart.dispose()
   }
 
-  // 初始化月度数据
-  months.forEach(month => {
-    monthlyMap.set(month, { requirement: 0, release: 0, techOnline: 0, bizOnline: 0 })
-  })
+  overviewPieChart = echarts.init(overviewPieRef.value)
 
-  // 统计完成数据
-  filteredTasks.forEach((task: any) => {
-    if (task.actual_requirement_date) {
-      const date = new Date(task.actual_requirement_date)
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      const data = monthlyMap.get(monthKey)
-      if (data) data.requirement++
-    }
-    if (task.actual_release_date) {
-      const date = new Date(task.actual_release_date)
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      const data = monthlyMap.get(monthKey)
-      if (data) data.release++
-    }
-    if (task.actual_tech_online_date) {
-      const date = new Date(task.actual_tech_online_date)
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      const data = monthlyMap.get(monthKey)
-      if (data) data.techOnline++
-    }
-    if (task.actual_biz_online_date) {
-      const date = new Date(task.actual_biz_online_date)
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      const data = monthlyMap.get(monthKey)
-      if (data) data.bizOnline++
-    }
-  })
+  // Calculate completion percentage
+  const completed = statusStats.value[2].count
+  const total = totalApplications.value
+  const completionPercentage = total > 0 ? Math.round((completed / total) * 100) : 0
 
-  // 转换为数组格式
-  chartData.monthlyTrend = Array.from(monthlyMap.entries()).map(([month, data]) => ({
-    month: formatMonth(month),
-    requirement: data.requirement,
-    release: data.release,
-    techOnline: data.techOnline,
-    bizOnline: data.bizOnline
-  }))
-}
-
-const exportReport = async () => {
-  exporting.value = true
-  try {
-    let reportData: any = {}
-    let filename = ''
-
-    // Prepare data based on active tab
-    switch (activeTab.value) {
-      case 'summary':
-        reportData = {
-          type: 'summary',
-          statistics: summaryStats,
-          timeRange: timeRange.value
-        }
-        filename = `汇总报表_${new Date().toISOString().split('T')[0]}.xlsx`
-        break
-        
-      case 'progress':
-        reportData = {
-          type: 'progress',
-          data: progressData.value,
-          timeRange: timeRange.value
-        }
-        filename = `项目进度报表_${new Date().toISOString().split('T')[0]}.xlsx`
-        break
-        
-      case 'delay':
-        reportData = {
-          type: 'delay',
-          data: delayData.value,
-          timeRange: timeRange.value
-        }
-        filename = `延期分析报表_${new Date().toISOString().split('T')[0]}.xlsx`
-        break
-    }
-
-    // Use Excel API to export
-    await ExcelAPI.exportReport(reportData, filename)
-    
-    ElMessage.success('报表导出成功')
-  } catch (error) {
-    console.error('Failed to export report:', error)
-    ElMessage.error('报表导出失败')
-  } finally {
-    exporting.value = false
-  }
-}
-
-// Chart option getters
-const getTypeChartOptions = (): echarts.EChartsOption => ({
-  tooltip: {
-    trigger: 'item',
-    formatter: '{b}: {c} ({d}%)'
-  },
-  legend: {
-    bottom: 0
-  },
-  series: [{
-    type: 'pie',
-    radius: ['40%', '70%'],
-    avoidLabelOverlap: false,
-    itemStyle: {
-      borderRadius: 10,
-      borderColor: '#fff',
-      borderWidth: 2
-    },
-    label: {
-      show: true,
-      formatter: '{b}\n{c} ({d}%)'
-    },
-    data: chartData.typeDistribution
-  }]
-})
-
-const getTrendChartOptions = (): echarts.EChartsOption => ({
-  tooltip: {
-    trigger: 'axis'
-  },
-  legend: {
-    data: ['需求完成', '发版完成', '技术上线', '业务上线'],
-    bottom: 0
-  },
-  grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '10%',
-    containLabel: true
-  },
-  xAxis: {
-    type: 'category',
-    data: chartData.monthlyTrend.map(item => item.month)
-  },
-  yAxis: {
-    type: 'value'
-  },
-  series: [
-    {
-      name: '需求完成',
-      type: 'line',
-      smooth: true,
-      data: chartData.monthlyTrend.map(item => item.requirement)
-    },
-    {
-      name: '发版完成',
-      type: 'line',
-      smooth: true,
-      data: chartData.monthlyTrend.map(item => item.release)
-    },
-    {
-      name: '技术上线',
-      type: 'line',
-      smooth: true,
-      data: chartData.monthlyTrend.map(item => item.techOnline)
-    },
-    {
-      name: '业务上线',
-      type: 'line',
-      smooth: true,
-      data: chartData.monthlyTrend.map(item => item.bizOnline)
-    }
-  ]
-})
-
-const getProjectChartOptions = (): echarts.EChartsOption => {
-  // 反转数据顺序，让最大的项目在最上面
-  const reversedData = [...chartData.projectStats].reverse().slice(0, 10)
-  const projects = reversedData.map(item => {
-    // 截断过长的项目名称
-    const maxLength = 25
-    const name = item.name
-    return name.length > maxLength ? name.substring(0, maxLength) + '...' : name
-  })
-  const completed = reversedData.map(item => item.completed)
-  const inProgress = reversedData.map(item => item.inProgress)
-  const notStarted = reversedData.map(item => item.notStarted)
-
-  return {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow'
+  const option: echarts.EChartsOption = {
+    title: {
+      text: `${completionPercentage}%`,
+      subtext: '完成比例',
+      left: 'center',
+      top: 'center',
+      textStyle: {
+        fontSize: 48,
+        fontWeight: 'bold',
+        color: '#2d3748'
       },
-      formatter: (params: any) => {
-        const projectData = reversedData[params[0].dataIndex]
-        return `<div style="padding: 8px; max-width: 300px;">
-          <strong style="word-wrap: break-word;">${projectData.name}</strong><br/>
-          总数: ${projectData.total}<br/>
-          已完成: ${projectData.completed} (${projectData.completionRate}%)<br/>
-          进行中: ${projectData.inProgress}<br/>
-          未开始: ${projectData.notStarted}
-        </div>`
-      }
-    },
-    legend: {
-      data: ['已完成', '进行中', '未开始'],
-      top: 0
-    },
-    grid: {
-      left: '3%',
-      right: '15%',
-      bottom: '3%',
-      top: '10%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'value',
-      axisLine: {
-        lineStyle: {
-          color: '#e2e8f0'
-        }
-      },
-      axisLabel: {
+      subtextStyle: {
+        fontSize: 16,
         color: '#718096'
-      },
-      splitLine: {
-        lineStyle: {
-          color: '#f7fafc'
-        }
-      }
-    },
-    yAxis: {
-      type: 'category',
-      data: projects,
-      axisLine: {
-        lineStyle: {
-          color: '#e2e8f0'
-        }
-      },
-      axisLabel: {
-        color: '#718096',
-        fontSize: 11
       }
     },
     series: [
       {
-        name: '已完成',
-        type: 'bar',
-        stack: 'total',
-        barWidth: '50%',
-        itemStyle: { color: '#48bb78' },
-        data: completed
-      },
-      {
-        name: '进行中',
-        type: 'bar',
-        stack: 'total',
-        itemStyle: { color: '#3182ce' },
-        data: inProgress
-      },
-      {
-        name: '未开始',
-        type: 'bar',
-        stack: 'total',
-        itemStyle: { color: '#cbd5e0' },
-        data: notStarted
+        type: 'pie',
+        radius: ['60%', '80%'],
+        center: ['50%', '50%'],
+        avoidLabelOverlap: false,
+        label: {
+          show: false
+        },
+        emphasis: {
+          label: {
+            show: false
+          }
+        },
+        labelLine: {
+          show: false
+        },
+        data: [
+          {
+            value: completed,
+            name: '已完成',
+            itemStyle: { color: '#48bb78' }
+          },
+          {
+            value: statusStats.value[1].count,
+            name: '研发阶段',
+            itemStyle: { color: '#ed8936' }
+          },
+          {
+            value: statusStats.value[3].count,
+            name: '上线阶段',
+            itemStyle: { color: '#3182ce' }
+          },
+          {
+            value: statusStats.value[5].count,
+            name: '未启动',
+            itemStyle: { color: '#cbd5e0' }
+          },
+          {
+            value: statusStats.value[6].count,
+            name: '阻塞',
+            itemStyle: { color: '#f56565' }
+          }
+        ]
       }
     ]
   }
+
+  overviewPieChart.setOption(option)
+
+  // Handle resize
+  window.addEventListener('resize', () => {
+    overviewPieChart?.resize()
+  })
 }
 
-const getProgressDistChartOptions = (): echarts.EChartsOption => ({
-  tooltip: {
-    trigger: 'item',
-    formatter: '{b}: {c} ({d}%)'
-  },
-  legend: {
-    bottom: 0
-  },
-  series: [{
-    type: 'pie',
-    radius: '50%',
-    data: chartData.progressDistribution
-  }]
-})
-
-const getPhaseChartOptions = (): echarts.EChartsOption => ({
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: {
-      type: 'shadow'
-    }
-  },
-  grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    containLabel: true
-  },
-  xAxis: {
-    type: 'category',
-    data: chartData.phaseCompletion.map(item => item.name)
-  },
-  yAxis: {
-    type: 'value'
-  },
-  series: [{
-    type: 'bar',
-    barWidth: '60%',
-    itemStyle: {
-      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: '#667eea' },
-        { offset: 1, color: '#764ba2' }
-      ])
-    },
-    data: chartData.phaseCompletion.map(item => item.value)
-  }]
-})
-
-const getPriorityChartOptions = (): echarts.EChartsOption => ({
-  tooltip: {
-    trigger: 'item',
-    formatter: (params: any) => {
-      const total = chartData.priorityDistribution.reduce((sum, item) => sum + item.value, 0)
-      const percentage = total > 0 ? ((params.value / total) * 100).toFixed(1) : 0
-      return `${params.name}<br/>
-              数量: ${params.value}<br/>
-              占比: ${percentage}%`
-    }
-  },
-  legend: {
-    orient: 'vertical',
-    left: 'left'
-  },
-  series: [
-    {
-      name: '优先级分布',
-      type: 'pie',
-      radius: ['40%', '70%'],
-      center: ['55%', '50%'],
-      avoidLabelOverlap: true,
-      itemStyle: {
-        borderRadius: 10,
-        borderColor: '#fff',
-        borderWidth: 2
-      },
-      label: {
-        show: true,
-        formatter: '{b}\n{c} ({d}%)'
-      },
-      emphasis: {
-        label: {
-          show: true,
-          fontSize: 14,
-          fontWeight: 'bold'
-        },
-        itemStyle: {
-          shadowBlur: 10,
-          shadowOffsetX: 0,
-          shadowColor: 'rgba(0, 0, 0, 0.5)'
-        }
-      },
-      data: chartData.priorityDistribution.map(item => ({
-        name: item.name,
-        value: item.value
-      }))
-    }
-  ]
-})
-
-// Initialize charts - MUST be after function definitions
-const { refresh: refreshTypeChart } = useChart(typeChartRef, computed(() => getTypeChartOptions()))
-const { refresh: refreshTrendChart } = useChart(trendChartRef, computed(() => getTrendChartOptions()))
-const { refresh: refreshProjectChart } = useChart(projectChartRef, computed(() => getProjectChartOptions()))
-const { refresh: refreshPriorityChart } = useChart(priorityChartRef, computed(() => getPriorityChartOptions()))
-const { refresh: refreshProgressDistChart } = useChart(progressDistChartRef, computed(() => getProgressDistChartOptions()))
-const { refresh: refreshPhaseChart } = useChart(phaseChartRef, computed(() => getPhaseChartOptions()))
-
-// Helper functions
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
   const date = new Date(dateStr)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-const formatMonth = (monthStr: string) => {
-  const date = new Date(monthStr + '-01')
-  return date.toLocaleDateString('zh-CN', { year: '2-digit', month: 'short' })
-}
+const exportAsImage = async () => {
+  exportingImage.value = true
+  try {
+    const element = document.querySelector('.reports-view') as HTMLElement
+    if (!element) {
+      throw new Error('报表元素未找到')
+    }
 
-const getProgressColor = (progress: number) => {
-  if (progress >= 80) return '#48bb78'
-  if (progress >= 50) return '#3182ce'
-  if (progress >= 30) return '#ed8936'
-  return '#a0aec0'
-}
+    const canvas = await html2canvas(element, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      logging: false
+    })
 
-const getDelayType = (months: number) => {
-  if (months > 3) return 'danger'  // >3月为严重
-  if (months > 1) return 'warning' // >1月为警告
-  return 'info'
-}
+    const dataURL = canvas.toDataURL('image/png')
+    const link = document.createElement('a')
+    link.download = `云原生双周报_${new Date().toISOString().split('T')[0]}.png`
+    link.href = dataURL
+    link.click()
 
-const getPhaseType = (phase: string) => {
-  const typeMap: Record<string, string> = {
-    '待启动': 'info',
-    '研发进行中': 'primary',
-    '业务上线中': 'warning',
-    '已完成': 'success',
-    '存在阻塞': 'danger'
+    ElMessage.success('图片导出成功')
+  } catch (error) {
+    console.error('Failed to export image:', error)
+    ElMessage.error('图片导出失败')
+  } finally {
+    exportingImage.value = false
   }
-  return typeMap[phase] || 'info'
+}
+
+const handleExportExcel = async (command: string) => {
+  exportingExcel.value = true
+  try {
+    const templateType = command as 'sample1' | 'sample2'
+
+    // Prepare report data for export
+    const reportData = {
+      report_date: reportDate.value,
+      total_applications: totalApplications.value,
+      status_stats: statusStats.value,
+      key_indicators: keyIndicators.value,
+      delayed_apps: delayedApps.value,
+      potential_risk_apps: potentialRiskApps.value
+    }
+
+    await ExcelAPI.exportBiWeeklyReport(templateType, reportData)
+
+    ElMessage.success(`Excel导出成功 (${templateType === 'sample1' ? '双追踪表格式' : '详细追踪表格式'})`)
+  } catch (error) {
+    console.error('Failed to export Excel:', error)
+    ElMessage.error('Excel导出失败，请确保后端API已实现')
+  } finally {
+    exportingExcel.value = false
+  }
+}
+
+const showConfig = () => {
+  ElMessage.info('配置功能开发中')
 }
 
 // Initialize
 onMounted(() => {
+  // Set report date (current date or last day of previous bi-week period)
+  const today = new Date()
+  reportDate.value = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`
+
+  // Load data
   loadReportData()
 })
 </script>
 
 <style scoped>
 .reports-view {
-  padding: 20px;
+  padding: 24px;
+  background: #f7fafc;
+  min-height: 100vh;
 }
 
-.header {
+.report-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.header h2 {
-  margin: 0;
-  color: #2d3748;
-}
-
-.actions {
-  display: flex;
-  gap: 10px;
-}
-
-.report-tabs {
-  margin-bottom: 20px;
-}
-
-.time-range {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  padding: 15px;
-  background: #f7fafc;
-  border-radius: 8px;
-}
-
-.stats-row {
-  margin-bottom: 20px;
-}
-
-.stat-card {
+  margin-bottom: 24px;
   background: white;
-  padding: 20px;
+  padding: 20px 24px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.stat-card.success {
-  border-left: 4px solid #48bb78;
-}
-
-.stat-card.warning {
-  border-left: 4px solid #ed8936;
-}
-
-.stat-card.danger {
-  border-left: 4px solid #f56565;
-}
-
-.stat-value {
-  font-size: 32px;
+.title-section h1 {
+  margin: 0;
+  font-size: 28px;
   font-weight: 700;
   color: #2d3748;
 }
 
-.stat-label {
+.subtitle {
+  margin: 4px 0 0 0;
   font-size: 14px;
   color: #718096;
-  margin-top: 5px;
 }
 
-.stat-percentage {
-  font-size: 18px;
-  color: #48bb78;
-  font-weight: 600;
-  margin-top: 5px;
+.action-buttons {
+  display: flex;
+  gap: 12px;
 }
 
-.charts-section {
+.main-cards {
   margin-bottom: 20px;
 }
 
-.project-stats {
+/* Overview Card */
+.overview-card {
+  height: 100%;
+}
+
+.pie-chart-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 0;
+}
+
+.pie-chart {
+  width: 100%;
+  height: 300px;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+  padding: 0 12px;
+}
+
+.status-item {
+  text-align: center;
+}
+
+.status-count {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.status-count.status-requirement { color: #a0aec0; }
+.status-count.status-development { color: #ed8936; }
+.status-count.status-completed { color: #48bb78; }
+.status-count.status-online { color: #3182ce; }
+.status-count.status-offline { color: #805ad5; }
+.status-count.status-not-started { color: #cbd5e0; }
+.status-count.status-blocked { color: #f56565; }
+
+.status-label {
+  font-size: 14px;
+  color: #718096;
+}
+
+.status-detail {
+  font-size: 12px;
+  color: #a0aec0;
+  margin-top: 4px;
+}
+
+.total-apps {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 16px;
+  color: #2d3748;
+  font-weight: 600;
+  padding: 12px;
+  background: #f7fafc;
+  border-radius: 6px;
+}
+
+/* Indicators Card */
+.indicators-card {
+  height: 100%;
+}
+
+.indicators-list {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 12px 0;
+}
+
+.indicator-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.indicator-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.indicator-progress {
+  position: relative;
+}
+
+.indicator-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.indicator-stats .percentage {
+  font-size: 24px;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.indicator-stats .fraction {
+  font-size: 16px;
+  color: #718096;
+}
+
+/* Risk Section */
+.risk-section {
   margin-top: 20px;
+}
+
+.no-risk {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px;
+  color: #48bb78;
+  font-size: 16px;
+}
+
+.no-risk .el-icon {
+  font-size: 24px;
+}
+
+.risk-category {
+  margin-bottom: 24px;
+}
+
+.risk-category:last-child {
+  margin-bottom: 0;
+}
+
+.risk-category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.risk-category-header.delayed {
+  background: #fff5f5;
+  border-left: 4px solid #f56565;
+}
+
+.risk-category-header.potential {
+  background: #fffaf0;
+  border-left: 4px solid #ed8936;
+}
+
+.risk-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.risk-count {
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.risk-category-header.delayed .risk-count {
+  color: #f56565;
+}
+
+.risk-category-header.potential .risk-count {
+  color: #ed8936;
+}
+
+.trend-up {
+  font-size: 14px;
+}
+
+.no-risk-message {
+  text-align: center;
+  padding: 32px;
+  color: #a0aec0;
+  font-size: 14px;
+}
+
+.risk-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 16px;
+}
+
+.risk-item {
+  padding: 16px;
+  border-radius: 6px;
+  border-left: 4px solid;
+}
+
+.risk-item.delayed-item {
+  background: #fff5f5;
+  border-left-color: #f56565;
+}
+
+.risk-item.potential-item {
+  background: #fffaf0;
+  border-left-color: #ed8936;
+}
+
+.risk-item .app-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 12px;
+}
+
+.app-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  font-size: 14px;
+}
+
+.detail-row .label {
+  color: #718096;
+  min-width: 80px;
+}
+
+.detail-row .value {
+  color: #2d3748;
+  flex: 1;
+}
+
+.detail-row .value.highlight {
+  color: #f56565;
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {
   .reports-view {
-    padding: 10px;
+    padding: 12px;
   }
 
-  .header {
+  .report-header {
     flex-direction: column;
-    gap: 10px;
+    gap: 16px;
+    align-items: flex-start;
   }
 
-  .time-range {
+  .action-buttons {
+    width: 100%;
     flex-wrap: wrap;
   }
 
-  .stat-value {
-    font-size: 24px;
+  .action-buttons button {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .status-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .risk-items {
+    grid-template-columns: 1fr;
   }
 }
 </style>
