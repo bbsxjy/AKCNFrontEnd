@@ -279,7 +279,7 @@ export class ExcelAPI {
       // Generate filename
       const timestamp = new Date().toISOString().split('T')[0]
       const templateName = templateType === 'sample1' ? '双追踪表格式' : '详细追踪表格式'
-      const filename = `云原生双周报_${templateName}_${timestamp}.xlsx`
+      const filename = `报表中心_${templateName}_${timestamp}.xlsx`
 
       // Create blob with proper MIME type
       const blob = new Blob([response.data], {

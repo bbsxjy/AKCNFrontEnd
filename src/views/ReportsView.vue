@@ -341,23 +341,28 @@
 
                   <el-row :gutter="20">
                     <el-col :span="12">
-                      <el-form-item label="已完成">
+                      <el-form-item label="已完成（分子）">
                         <el-input-number
                           v-model="indicator.completed"
                           :min="0"
                           :disabled="!!indicator.autoCalcType"
                           style="width: 100%;"
                         />
+                        <div v-if="indicator.autoCalcType" style="font-size: 12px; color: #909399; margin-top: 4px;">
+                          自动计算
+                        </div>
                       </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                      <el-form-item label="总数">
+                      <el-form-item label="总数（分母）">
                         <el-input-number
                           v-model="indicator.total"
                           :min="1"
-                          :disabled="!!indicator.autoCalcType"
                           style="width: 100%;"
                         />
+                        <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+                          手动填写目标值
+                        </div>
                       </el-form-item>
                     </el-col>
                   </el-row>
@@ -747,28 +752,28 @@ const autoCalcData = computed(() => {
   return {
     total: apps.length,
     completed: apps.filter(app =>
-      app.current_status === '全部完成' || app.current_status === 'completed'
+      app.is_ak_completed === true || app.is_cloud_native_completed === true
     ).length,
     cloudNative: apps.filter(app =>
       app.overall_transformation_target === '云原生'
     ).length,
     cloudNativeCompleted: apps.filter(app =>
       app.overall_transformation_target === '云原生' &&
-      (app.current_status === '全部完成' || app.current_status === 'completed')
+      app.is_cloud_native_completed === true
     ).length,
     ak: apps.filter(app =>
       app.overall_transformation_target === 'AK'
     ).length,
     akCompleted: apps.filter(app =>
       app.overall_transformation_target === 'AK' &&
-      (app.current_status === '全部完成' || app.current_status === 'completed')
+      app.is_ak_completed === true
     ).length,
     year2025: apps.filter(app =>
       app.ak_supervision_acceptance_year === '2025'
     ).length,
     year2025Completed: apps.filter(app =>
       app.ak_supervision_acceptance_year === '2025' &&
-      (app.current_status === '全部完成' || app.current_status === 'completed')
+      (app.is_ak_completed === true || app.is_cloud_native_completed === true)
     ).length,
     cloudNative2025: apps.filter(app =>
       app.overall_transformation_target === '云原生' &&
@@ -777,7 +782,7 @@ const autoCalcData = computed(() => {
     cloudNative2025Completed: apps.filter(app =>
       app.overall_transformation_target === '云原生' &&
       app.ak_supervision_acceptance_year === '2025' &&
-      (app.current_status === '全部完成' || app.current_status === 'completed')
+      app.is_cloud_native_completed === true
     ).length,
     ak2025: apps.filter(app =>
       app.overall_transformation_target === 'AK' &&
@@ -786,7 +791,7 @@ const autoCalcData = computed(() => {
     ak2025Completed: apps.filter(app =>
       app.overall_transformation_target === 'AK' &&
       app.ak_supervision_acceptance_year === '2025' &&
-      (app.current_status === '全部完成' || app.current_status === 'completed')
+      app.is_ak_completed === true
     ).length,
     year20242025: apps.filter(app =>
       app.ak_supervision_acceptance_year === '2024' ||
@@ -795,7 +800,7 @@ const autoCalcData = computed(() => {
     year20242025Completed: apps.filter(app =>
       (app.ak_supervision_acceptance_year === '2024' ||
        app.ak_supervision_acceptance_year === '2025') &&
-      (app.current_status === '全部完成' || app.current_status === 'completed')
+      (app.is_ak_completed === true || app.is_cloud_native_completed === true)
     ).length
   }
 })
@@ -1419,45 +1424,32 @@ const handleAutoCalcChange = (index: number) => {
 
   const data = autoCalcData.value
 
+  // Only auto-fill the numerator (completed), user sets the denominator (total)
   switch (calcType) {
     case 'cloud_native_2025':
       indicator.completed = data.cloudNative2025Completed
-      indicator.total = data.cloudNative2025
-      indicator.name = '2025年云原生完成数'
       break
     case 'ak_2025':
       indicator.completed = data.ak2025Completed
-      indicator.total = data.ak2025
-      indicator.name = '2025年AK完成数'
       break
     case 'all_2025':
       indicator.completed = data.year2025Completed
-      indicator.total = data.year2025
-      indicator.name = '2025年所有应用完成数'
       break
     case 'all_2024_2025':
       indicator.completed = data.year20242025Completed
-      indicator.total = data.year20242025
-      indicator.name = '2024&2025年项目目标进度'
       break
     case 'cloud_native_total':
       indicator.completed = data.cloudNativeCompleted
-      indicator.total = data.cloudNative
-      indicator.name = '云原生总完成数'
       break
     case 'ak_total':
       indicator.completed = data.akCompleted
-      indicator.total = data.ak
-      indicator.name = 'AK总完成数'
       break
     case 'all_total':
       indicator.completed = data.completed
-      indicator.total = data.total
-      indicator.name = '所有应用总完成数'
       break
   }
 
-  // Calculate percentage
+  // Calculate percentage based on user-provided total
   indicator.percentage = indicator.total > 0
     ? Math.round((indicator.completed / indicator.total) * 100)
     : 0
@@ -1468,11 +1460,10 @@ watch(
   () => configIndicators.value,
   (newIndicators) => {
     newIndicators.forEach(indicator => {
-      if (!indicator.autoCalcType) {
-        indicator.percentage = indicator.total > 0
-          ? Math.round((indicator.completed / indicator.total) * 100)
-          : 0
-      }
+      // Always recalculate percentage when completed or total changes
+      indicator.percentage = indicator.total > 0
+        ? Math.round((indicator.completed / indicator.total) * 100)
+        : 0
     })
   },
   { deep: true }

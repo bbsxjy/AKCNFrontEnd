@@ -25,7 +25,8 @@
       "Bash(taskkill:*)",
       "Bash(tskill:*)",
       "Bash(powershell:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []
