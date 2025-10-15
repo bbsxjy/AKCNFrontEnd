@@ -444,13 +444,21 @@
         <el-skeleton :rows="10" animated />
       </div>
 
-      <!-- Applications Data Table -->
-      <el-table
-        v-else
-        :data="applications"
-        style="width: 100%"
-        @selection-change="handleSelectionChange"
-      >
+      <template v-else>
+        <!-- Scroll Hint -->
+        <div v-if="applications.length > 0" class="scroll-hint">
+          <el-icon><el-icon-d-arrow-left /></el-icon>
+          <span>横向滚动查看更多列</span>
+          <el-icon><el-icon-d-arrow-right /></el-icon>
+        </div>
+
+        <!-- Applications Data Table -->
+        <el-table
+          :data="applications"
+          style="width: 100%"
+          :max-height="tableMaxHeight"
+          @selection-change="handleSelectionChange"
+        >
         <el-table-column type="selection" width="50" />
         <!-- 关注 -->
         <el-table-column label="关注" width="60" align="center" fixed="left">
@@ -515,7 +523,7 @@
                     class="phase-badge status-completed"
                     @click="viewSubTasks(row)"
                   >
-                    云原生（含AK）已完成
+                    AK云原生已完成
                   </span>
                 </el-tooltip>
               </template>
@@ -577,7 +585,7 @@
           </template>
         </el-table-column>
         <!-- 关键计划时间点 -->
-        <el-table-column label="计划需求" width="100" align="center">
+        <el-table-column label="计划需求" width="120" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               {{ formatYearMonth(row.planned_requirement_date) }}
@@ -587,7 +595,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划发版" width="100" align="center">
+        <el-table-column label="计划发版" width="120" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               {{ formatYearMonth(row.planned_release_date) }}
@@ -597,7 +605,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划技术上线" width="110" align="center">
+        <el-table-column label="计划技术上线" width="120" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               {{ formatYearMonth(row.planned_tech_online_date) }}
@@ -607,7 +615,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="计划业务上线" width="110" align="center">
+        <el-table-column label="计划业务上线" width="120" align="center">
           <template #default="{ row }">
             <div class="plan-date-cell">
               <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
@@ -660,6 +668,7 @@
           @current-change="handleCurrentChange"
         />
       </div>
+      </template>
       </div>
       <!-- End Applications Content -->
 
@@ -717,7 +726,7 @@
             <div class="main-filters">
               <el-input
                 v-model="subtaskSearchForm.keyword"
-                placeholder="搜索版本名称..."
+                placeholder="搜索 L2 ID 或应用名称..."
                 clearable
                 class="search-input"
               >
@@ -727,18 +736,18 @@
               </el-input>
 
               <el-select
-                v-model="subtaskSearchForm.application"
-                placeholder="所属应用"
+                v-model="subtaskSearchForm.version_name"
+                placeholder="版本名称"
                 clearable
                 filterable
                 class="filter-select"
                 style="width: 200px"
               >
                 <el-option
-                  v-for="app in allApplications"
-                  :key="app.id"
-                  :label="`${app.l2_id} - ${app.app_name}`"
-                  :value="app.l2_id"
+                  v-for="version in subtaskVersionOptions"
+                  :key="version.value"
+                  :label="version.label"
+                  :value="version.value"
                 />
               </el-select>
 
@@ -863,11 +872,19 @@
           <el-skeleton :rows="10" animated />
         </div>
 
+        <template v-else>
+        <!-- Scroll Hint -->
+        <div v-if="paginatedSubTasks.length > 0" class="scroll-hint">
+          <el-icon><el-icon-d-arrow-left /></el-icon>
+          <span>横向滚动查看更多列</span>
+          <el-icon><el-icon-d-arrow-right /></el-icon>
+        </div>
+
         <!-- SubTasks Data Table -->
         <el-table
-          v-else
           :data="paginatedSubTasks"
           style="width: 100%"
+          :max-height="tableMaxHeight"
           @selection-change="handleSubTaskSelectionChange"
         >
           <el-table-column type="selection" width="50" />
@@ -926,14 +943,14 @@
 
           <!-- 需求阶段 -->
           <el-table-column label="需求阶段" align="center">
-            <el-table-column label="计划" width="95" align="center">
+            <el-table-column label="计划" width="105" align="center">
               <template #default="{ row }">
                 <div class="date-cell planned">
                   {{ formatYearMonth(row.planned_requirement_date) }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="实际" width="95" align="center">
+            <el-table-column label="实际" width="105" align="center">
               <template #default="{ row }">
                 <div class="date-cell" :class="getDateComparisonClass(row.planned_requirement_date, row.actual_requirement_date)">
                   {{ formatYearMonth(row.actual_requirement_date) }}
@@ -944,14 +961,14 @@
 
           <!-- 发版阶段 -->
           <el-table-column label="发版阶段" align="center">
-            <el-table-column label="计划" width="95" align="center">
+            <el-table-column label="计划" width="105" align="center">
               <template #default="{ row }">
                 <div class="date-cell planned">
                   {{ formatYearMonth(row.planned_release_date) }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="实际" width="95" align="center">
+            <el-table-column label="实际" width="105" align="center">
               <template #default="{ row }">
                 <div class="date-cell" :class="getDateComparisonClass(row.planned_release_date, row.actual_release_date)">
                   {{ formatYearMonth(row.actual_release_date) }}
@@ -962,14 +979,14 @@
 
           <!-- 技术上线阶段 -->
           <el-table-column label="技术上线" align="center">
-            <el-table-column label="计划" width="95" align="center">
+            <el-table-column label="计划" width="105" align="center">
               <template #default="{ row }">
                 <div class="date-cell planned">
                   {{ formatYearMonth(row.planned_tech_online_date) }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="实际" width="95" align="center">
+            <el-table-column label="实际" width="105" align="center">
               <template #default="{ row }">
                 <div class="date-cell" :class="getDateComparisonClass(row.planned_tech_online_date, row.actual_tech_online_date)">
                   {{ formatYearMonth(row.actual_tech_online_date) }}
@@ -980,14 +997,14 @@
 
           <!-- 业务上线阶段 -->
           <el-table-column label="业务上线" align="center">
-            <el-table-column label="计划" width="95" align="center">
+            <el-table-column label="计划" width="105" align="center">
               <template #default="{ row }">
                 <div class="date-cell planned">
                   <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="实际" width="95" align="center">
+            <el-table-column label="实际" width="120" align="center">
               <template #default="{ row }">
                 <div class="date-cell" :class="getDateComparisonClass(row.planned_biz_online_date, row.actual_biz_online_date)">
                   <strong v-if="row.actual_biz_online_date">{{ formatYearMonth(row.actual_biz_online_date) }}</strong>
@@ -1041,6 +1058,7 @@
             @current-change="handleSubTaskCurrentChange"
           />
         </div>
+        </template>
       </div>
       <!-- End SubTasks Content -->
 
@@ -1678,7 +1696,9 @@ import {
   StarFilled,
   Star,
   Search as ElIconSearch,
-  Filter as ElIconFilter
+  Filter as ElIconFilter,
+  DArrowLeft as ElIconDArrowLeft,
+  DArrowRight as ElIconDArrowRight
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApplicationsAPI, type Application, type CreateApplicationRequest } from '@/api/applications'
@@ -1838,7 +1858,7 @@ const subtaskViewType = ref('all') // 'all' | 'notStarted' | 'inProgress' | 'com
 const subtaskSearchForm = reactive({
   keyword: '',
   status: undefined as string | undefined,
-  application: undefined as string | undefined,
+  version_name: undefined as string | undefined,
   sub_target: undefined as string | undefined,
   dev_owner: undefined as string | undefined,
   ops_owner: undefined as string | undefined,
@@ -1849,6 +1869,7 @@ const subtaskSearchForm = reactive({
 })
 
 // SubTask filter options
+const subtaskVersionOptions = ref<Array<{ label: string; value: string }>>([])
 const subtaskDevOwnerOptions = ref<Array<{ label: string; value: string }>>([])
 const subtaskOpsOwnerOptions = ref<Array<{ label: string; value: string }>>([])
 
@@ -2289,6 +2310,13 @@ const applications = computed(() => {
 // 总数
 const total = computed(() => filteredApplications.value.length)
 
+// Table max height - 让水平滚动条始终在可视区域内
+const tableMaxHeight = computed(() => {
+  // 使用视口高度的 60% 作为表格最大高度
+  // 这样可以确保水平滚动条始终可见，不需要滚动到页面底部
+  return window.innerHeight * 0.6
+})
+
 // SubTask 相关计算属性
 const filteredSubTasks = computed(() => {
   let result = [...allSubTasks.value]
@@ -2304,18 +2332,19 @@ const filteredSubTasks = computed(() => {
     result = filterSubTasksByMonth(result, nextMonthYear, nextMonth)
   }
 
-  // 关键词搜索
+  // 关键词搜索 - 搜索 L2 ID 或应用名称
   if (subtaskSearchForm.keyword) {
     const keyword = subtaskSearchForm.keyword.toLowerCase()
     result = result.filter(task => {
-      const name = task.version_name || ''
-      return name.toLowerCase().includes(keyword)
+      const l2Id = String(task.l2_id || '').toLowerCase()
+      const appName = getApplicationNameByL2Id(task.l2_id).toLowerCase()
+      return l2Id.includes(keyword) || appName.includes(keyword)
     })
   }
 
-  // 应用筛选
-  if (subtaskSearchForm.application) {
-    result = result.filter(task => task.l2_id === subtaskSearchForm.application)
+  // 版本名称筛选
+  if (subtaskSearchForm.version_name) {
+    result = result.filter(task => task.version_name === subtaskSearchForm.version_name)
   }
 
   // 改造目标筛选
@@ -2423,13 +2452,19 @@ const loadAllSubTasks = async () => {
 
 // Update subtask filter options from loaded data
 const updateSubtaskFilterOptions = () => {
+  const versionSet = new Set<string>()
   const devOwnerSet = new Set<string>()
   const opsOwnerSet = new Set<string>()
 
   allSubTasks.value.forEach(task => {
+    if (task.version_name) versionSet.add(task.version_name)
     if (task.dev_owner) devOwnerSet.add(task.dev_owner)
     if (task.ops_owner) opsOwnerSet.add(task.ops_owner)
   })
+
+  subtaskVersionOptions.value = Array.from(versionSet)
+    .sort()
+    .map(version => ({ label: version, value: version }))
 
   subtaskDevOwnerOptions.value = Array.from(devOwnerSet)
     .sort()
@@ -2775,106 +2810,8 @@ watch([
   currentPage.value = 1
 })
 
-const getStatusType = (status: string) => {
-  const statusMap: Record<string, string> = {
-    '待启动': 'info',
-    '研发进行中': 'primary',
-    '业务上线中': 'warning',
-    '全部完成': 'success',
-    '存在阻塞': 'danger'
-  }
-  return statusMap[status] || 'info'
-}
-
-const getProgressColor = (row: Application) => {
-  if (row.progress_percentage >= 80) return '#48bb78'
-  if (row.progress_percentage >= 50) return '#ed8936'
-  return '#667eea'
-}
-
-const formatDate = (dateString: string | null | undefined) => {
-  if (!dateString) return '-'
-
-  try {
-    // Handle different date formats
-    let date: Date
-    if (dateString.includes('T')) {
-      // ISO format: 2024-01-01T00:00:00
-      date = new Date(dateString)
-    } else if (dateString.includes('-')) {
-      // Date format: 2024-01-01
-      date = new Date(dateString + 'T00:00:00')
-    } else {
-      // Fallback
-      date = new Date(dateString)
-    }
-
-    if (isNaN(date.getTime())) {
-      return '-'
-    }
-
-    // Return formatted date
-    if (dateString.includes('T')) {
-      return date.toLocaleString('zh-CN')
-    } else {
-      return date.toLocaleDateString('zh-CN')
-    }
-  } catch (error) {
-    console.error('Date formatting error:', error, 'Input:', dateString)
-    return '-'
-  }
-}
-
-// Format date as xx年xx月
-const formatYearMonth = (dateString: string | null | undefined) => {
-  if (!dateString) return '-'
-
-  try {
-    // Handle different date formats
-    let date: Date
-    if (dateString.includes('T')) {
-      // ISO format: 2024-01-01T00:00:00
-      date = new Date(dateString)
-    } else if (dateString.includes('-')) {
-      // Date format: 2024-01-01
-      date = new Date(dateString + 'T00:00:00')
-    } else {
-      // Fallback
-      date = new Date(dateString)
-    }
-
-    if (isNaN(date.getTime())) {
-      return '-'
-    }
-
-    // Format as xx年xx月
-    const year = date.getFullYear()
-    const month = date.getMonth() + 1
-    const monthStr = month < 10 ? '0' + month : month.toString()
-    return `${year}年${monthStr}月`
-  } catch (error) {
-    console.error('Date formatting error:', error, 'Input:', dateString)
-    return '-'
-  }
-}
-
-const formatShortDate = (dateString: string | null | undefined) => {
-  if (!dateString) return '-'
-
-  try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return '-'
-
-    // Format as MM-DD
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${month}-${day}`
-  } catch (error) {
-    return '-'
-  }
-}
-
-// Removed handleSearch since we have watch
+// Note: getStatusType, getProgressColor, formatDate, formatYearMonth, and formatShortDate
+// are imported from composables and should not be redeclared here
 
 const resetSearch = () => {
   // Reset main filters
@@ -3107,17 +3044,7 @@ const handleMainTabChange = async (tab: string) => {
   }
 }
 
-// Get subtask status tag type
-const getSubTaskStatusType = (status: string) => {
-  const statusMap: Record<string, string> = {
-    '待启动': 'info',
-    '研发进行中': 'primary',
-    '业务上线中': 'warning',
-    '已完成': 'success',
-    '存在阻塞': 'danger'
-  }
-  return statusMap[status] || 'info'
-}
+// Note: getSubTaskStatusType is imported from useStatusHelpers composable
 
 const exportMonthlyPlan = async () => {
   try {
@@ -3214,7 +3141,7 @@ const exportSubTasksExcel = async () => {
   try {
     const filters = {
       ...(subtaskSearchForm.status && { status: subtaskSearchForm.status }),
-      ...(subtaskSearchForm.application && { l2_id: subtaskSearchForm.application }),
+      ...(subtaskSearchForm.version_name && { version_name: subtaskSearchForm.version_name }),
       ...(subtaskSearchForm.resource_applied !== undefined && { resource_applied: subtaskSearchForm.resource_applied }),
       ...(subtaskSearchForm.ops_requirement_submitted !== undefined && { ops_requirement_submitted: subtaskSearchForm.ops_requirement_submitted }),
       ...(subtaskSearchForm.ops_testing_status && { ops_testing_status: subtaskSearchForm.ops_testing_status }),
@@ -3337,132 +3264,19 @@ const getApplicationL2Id = (applicationId: number) => {
 }
 
 // Get application info by L2 ID (string)
-const getApplicationNameByL2Id = (l2Id: string) => {
-  const app = allApplications.value.find(app => app.l2_id === l2Id)
-  return app ? app.app_name : '-'
+const getApplicationNameByL2Id = (l2Id: string | number) => {
+  // Convert both to string for comparison to handle type mismatches
+  const app = allApplications.value.find(app => String(app.l2_id) === String(l2Id))
+  return app ? (app.app_name || app.application_name || '-') : '-'
 }
 
-const getApplicationL2IdDisplay = (l2Id: string) => {
+const getApplicationL2IdDisplay = (l2Id: string | number) => {
   // Since l2Id is already the L2 ID, just return it
-  return l2Id || '-'
+  return l2Id ? String(l2Id) : '-'
 }
 
-const getSubTaskProgressColor = (row: SubTask) => {
-  if (row.task_status === '存在阻塞' || row.is_blocked) return '#f56565'
-  const progress = calculateSubTaskProgress(row)
-  if (progress >= 80) return '#48bb78'
-  return '#667eea'
-}
-
-const calculateSubTaskProgress = (row: SubTask) => {
-  // If progress is explicitly set, use it
-  if (row.progress_percentage !== undefined && row.progress_percentage !== null) {
-    return Number(row.progress_percentage)
-  }
-
-  // Otherwise calculate based on actual dates
-  let progress = 0
-  if (row.actual_requirement_date) progress += 25
-  if (row.actual_release_date) progress += 25
-  if (row.actual_tech_online_date) progress += 25
-  if (row.actual_biz_online_date) progress += 25
-
-  return progress
-}
-
-const getSubTaskWorkingDays = (row: SubTask) => {
-  // Calculate working days from earliest actual date to now
-  const actualDates = [
-    row.actual_requirement_date,
-    row.actual_release_date,
-    row.actual_tech_online_date,
-    row.actual_biz_online_date
-  ].filter(d => d && d !== null) as string[]
-
-  if (actualDates.length === 0) return 0
-
-  const earliestDate = new Date(actualDates.sort()[0])
-  const today = new Date()
-  const diffTime = Math.abs(today.getTime() - earliestDate.getTime())
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-  return diffDays
-}
-
-const getSubTaskDelayInfo = (row: SubTask) => {
-  // Calculate delay based on planned vs actual dates
-  const today = new Date()
-  let delayMonths = 0
-  let delayType = ''
-
-  // Helper function to calculate month difference
-  const calcMonthDiff = (plannedDate: Date) => {
-    const yearDiff = today.getFullYear() - plannedDate.getFullYear()
-    const monthDiff = today.getMonth() - plannedDate.getMonth()
-    return Math.max(0, yearDiff * 12 + monthDiff)
-  }
-
-  // Check each milestone for delays
-  if (row.planned_biz_online_date && !row.actual_biz_online_date) {
-    const plannedDate = new Date(row.planned_biz_online_date)
-    if (today > plannedDate) {
-      delayMonths = calcMonthDiff(plannedDate)
-      delayType = '业务上线'
-    }
-  } else if (row.planned_tech_online_date && !row.actual_tech_online_date) {
-    const plannedDate = new Date(row.planned_tech_online_date)
-    if (today > plannedDate) {
-      delayMonths = calcMonthDiff(plannedDate)
-      delayType = '技术上线'
-    }
-  } else if (row.planned_release_date && !row.actual_release_date) {
-    const plannedDate = new Date(row.planned_release_date)
-    if (today > plannedDate) {
-      delayMonths = calcMonthDiff(plannedDate)
-      delayType = '发版'
-    }
-  }
-
-  if (delayMonths > 0) {
-    return {
-      hasDelay: true,
-      days: delayMonths,
-      type: delayType,
-      text: `${delayType}延期${delayMonths}月`,
-      severity: delayMonths > 3 ? 'danger' : 'warning'
-    }
-  }
-
-  return {
-    hasDelay: false,
-    days: 0,
-    type: '',
-    text: '',
-    severity: ''
-  }
-}
-
-const getDateComparisonClass = (plannedDate: string | null | undefined, actualDate: string | null | undefined) => {
-  if (!actualDate) return 'pending'
-  if (!plannedDate) return 'completed'
-
-  const planned = new Date(plannedDate)
-  const actual = new Date(actualDate)
-
-  if (actual <= planned) {
-    return 'on-time' // 按时或提前完成
-  } else {
-    // Calculate month difference
-    const yearDiff = actual.getFullYear() - planned.getFullYear()
-    const monthDiff = actual.getMonth() - planned.getMonth()
-    const delayMonths = yearDiff * 12 + monthDiff
-    if (delayMonths > 3) {
-      return 'delayed-serious' // 严重延期 (>3个月)
-    } else {
-      return 'delayed' // 轻度延期
-    }
-  }
-}
+// Note: getSubTaskProgressColor, calculateSubTaskProgress, getSubTaskWorkingDays,
+// getSubTaskDelayInfo, and getDateComparisonClass are imported from composables
 
 const showSubTaskDelayDetails = (row: SubTask) => {
   const delayInfo = getSubTaskDelayInfo(row)
@@ -3500,7 +3314,7 @@ const showSubTaskDelayDetails = (row: SubTask) => {
 const resetSubtaskSearch = () => {
   subtaskSearchForm.keyword = ''
   subtaskSearchForm.status = undefined
-  subtaskSearchForm.application = undefined
+  subtaskSearchForm.version_name = undefined
   subtaskSearchForm.sub_target = undefined
   subtaskSearchForm.dev_owner = undefined
   subtaskSearchForm.ops_owner = undefined
@@ -3569,82 +3383,8 @@ const loadAuditRecords = async (applicationId: number) => {
   }
 }
 
-// Get operation type for styling
-const getOperationType = (operation: string) => {
-  const typeMap: Record<string, string> = {
-    'INSERT': 'success',
-    'UPDATE': 'warning',
-    'DELETE': 'danger'
-  }
-  return typeMap[operation] || 'info'
-}
-
-// Get operation text in Chinese
-const getOperationText = (operation: string) => {
-  const textMap: Record<string, string> = {
-    'INSERT': '创建',
-    'UPDATE': '更新',
-    'DELETE': '删除'
-  }
-  return textMap[operation] || operation
-}
-
-// Get field label in Chinese
-const getFieldLabel = (field: string) => {
-  const labelMap: Record<string, string> = {
-    'app_name': '应用名称',
-    'l2_id': 'L2 ID',
-    'belonging_l1_name': '所属L1',
-    'belonging_projects': '所属项目',
-    'belonging_kpi': '所属指标',
-    'ak_supervision_acceptance_year': '监管验收年份',
-    'overall_transformation_target': '改造目标',
-    'current_status': '当前状态',
-    'current_transformation_phase': '当前改造阶段',
-    'dev_owner': '开发负责人',
-    'dev_team': '开发团队',
-    'ops_owner': '运维负责人',
-    'ops_team': '运维团队',
-    'app_tier': '应用档位',
-    'dev_mode': '开发模式',
-    'ops_mode': '运维模式',
-    'acceptance_status': '验收状态',
-    'is_domain_transformation_completed': '域AK改造完成',
-    'is_dbpm_transformation_completed': 'DBPM改造完成',
-    'planned_requirement_date': '计划需求时间',
-    'planned_release_date': '计划发版时间',
-    'planned_tech_online_date': '计划技术上线',
-    'planned_biz_online_date': '计划业务上线',
-    'actual_requirement_date': '实际需求时间',
-    'actual_release_date': '实际发版时间',
-    'actual_tech_online_date': '实际技术上线',
-    'actual_biz_online_date': '实际业务上线',
-    'notes': '备注'
-  }
-  return labelMap[field] || field
-}
-
-// Format field value for display
-const formatFieldValue = (field: string, value: any) => {
-  if (value === null || value === undefined || value === '') return '空'
-
-  // Date fields
-  if (field.includes('_date') || field.includes('_at')) {
-    return formatYearMonth(value)
-  }
-
-  // Boolean fields
-  if (field.startsWith('is_')) {
-    return value ? '是' : '否'
-  }
-
-  // Year field
-  if (field === 'ak_supervision_acceptance_year') {
-    return value + '年'
-  }
-
-  return value.toString()
-}
+// Note: getOperationType, getOperationText, getFieldLabel, and formatFieldValue
+// are imported from composables
 
 // Check if can rollback
 const canRollback = (record: AuditLog) => {
@@ -3828,33 +3568,8 @@ const extractAdjustmentDetails = (audits: AuditLog[]) => {
   return details.sort((a, b) => new Date(b.adjusted_at).getTime() - new Date(a.adjusted_at).getTime())
 }
 
-// Calculate days difference between two dates
-const calculateDaysDiff = (date1: string, date2: string) => {
-  const d1 = new Date(date1)
-  const d2 = new Date(date2)
-  const diffTime = d2.getTime() - d1.getTime()
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-}
-
-// Calculate month difference between two dates
-const calculateMonthsDiff = (date1: string, date2: string) => {
-  const d1 = new Date(date1)
-  const d2 = new Date(date2)
-  const yearDiff = d2.getFullYear() - d1.getFullYear()
-  const monthDiff = d2.getMonth() - d1.getMonth()
-  return yearDiff * 12 + monthDiff
-}
-
-// Get adjustment field label
-const getAdjustmentFieldLabel = (field: string) => {
-  const labels: Record<string, string> = {
-    'planned_requirement_date': '需求完成',
-    'planned_release_date': '发版时间',
-    'planned_tech_online_date': '技术上线',
-    'planned_biz_online_date': '业务上线'
-  }
-  return labels[field] || field
-}
+// Note: calculateDaysDiff, calculateMonthsDiff, and getAdjustmentFieldLabel
+// are imported from composables
 
 // Get phase style for timeline chart
 const getPhaseStyle = (history: any, phase: string) => {
@@ -3897,134 +3612,8 @@ const getDelayCount = (row: Application) => {
   return row.is_delayed ? 1 : 0
 }
 
-// Get delay type for styling
-const getDelayType = (delayMonths: number) => {
-  if (Math.abs(delayMonths) > 3) return 'danger'  // >3月为严重
-  if (Math.abs(delayMonths) > 1) return 'warning' // >1月为警告
-  return 'info'
-}
-
-// Get phase status CSS class
-const getPhaseStatusClass = (status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED') => {
-  const classMap = {
-    'NOT_STARTED': 'status-not-started',
-    'IN_PROGRESS': 'status-in-progress',
-    'COMPLETED': 'status-completed',
-    'BLOCKED': 'status-blocked'
-  }
-  return classMap[status] || 'status-not-started'
-}
-
-// Get detailed phase text based on actual completion dates
-const getDetailedPhaseText = (app: any) => {
-  // 根据实际完成日期判断当前处于哪个阶段
-  // 阶段顺序：需求 < 发版 < 技术上线 < 业务上线
-
-  if (app.actual_biz_online_date) {
-    return '已完成' // 业务上线完成，全部完成
-  }
-  if (app.actual_tech_online_date) {
-    return '业务上线中' // 技术上线完成，正在业务上线
-  }
-  if (app.actual_release_date) {
-    return '技术上线中' // 发版完成，正在技术上线
-  }
-  if (app.actual_requirement_date) {
-    return '研发中' // 需求完成，正在发版
-  }
-
-  // 如果没有任何实际完成日期，看计划日期是否已到
-  const now = new Date()
-
-  // 检查是否已经过了计划业务上线日期
-  if (app.planned_biz_online_date) {
-    const plannedBizDate = new Date(app.planned_biz_online_date)
-    if (now >= plannedBizDate) {
-      return '业务上线中'
-    }
-  }
-
-  // 检查是否已经过了计划技术上线日期
-  if (app.planned_tech_online_date) {
-    const plannedTechDate = new Date(app.planned_tech_online_date)
-    if (now >= plannedTechDate) {
-      return '技术上线中'
-    }
-  }
-
-  // 检查是否已经过了计划发版日期
-  if (app.planned_release_date) {
-    const plannedReleaseDate = new Date(app.planned_release_date)
-    if (now >= plannedReleaseDate) {
-      return '研发中'
-    }
-  }
-
-  // 检查是否已经过了计划需求日期
-  if (app.planned_requirement_date) {
-    const plannedReqDate = new Date(app.planned_requirement_date)
-    if (now >= plannedReqDate) {
-      return '需求中'
-    }
-  }
-
-  // 默认返回需求中（表示项目已启动，在最早期阶段）
-  return '需求中'
-}
-
-// Get phase-specific color class for detailed phases
-const getPhaseColorClass = (phaseText: string, baseStatus: string) => {
-  // 如果是固定状态，使用原有的状态颜色
-  if (phaseText === '已完成') return 'phase-completed'
-  if (phaseText === '阻塞') return 'phase-blocked'
-  if (phaseText === '未开始') return 'phase-not-started'
-
-  // 根据阶段返回不同的颜色
-  if (phaseText.includes('需求')) return 'phase-requirement'
-  if (phaseText.includes('发版')) return 'phase-release'
-  if (phaseText.includes('技术上线')) return 'phase-tech'
-  if (phaseText.includes('业务上线')) return 'phase-biz'
-
-  // 默认使用进行中颜色
-  return 'status-in_progress'
-}
-
-// Get phase status text in Chinese (for simple status display)
-const getPhaseStatusText = (status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED') => {
-  const textMap = {
-    'NOT_STARTED': '未开始',
-    'IN_PROGRESS': '进行中',
-    'COMPLETED': '已完成',
-    'BLOCKED': '阻塞'
-  }
-  return textMap[status] || '未开始'
-}
-
-// Get status tag type for Element Plus
-const getStatusTagType = (status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED') => {
-  const typeMap = {
-    'NOT_STARTED': 'info',
-    'IN_PROGRESS': '',
-    'COMPLETED': 'success',
-    'BLOCKED': 'danger'
-  }
-  return typeMap[status] || 'info'
-}
-
-// Get delay phase label
-const getDelayPhaseLabel = (phase: string) => {
-  const labels: Record<string, string> = {
-    'requirement': '需求阶段',
-    'release': '发版阶段',
-    'tech': '技术上线',
-    'biz': '业务上线',
-    'planned_requirement_date': '需求阶段',
-    'planned_release_date': '发版阶段',
-    'planned_tech_online_date': '技术上线',
-    'planned_biz_online_date': '业务上线'
-  }
-  return labels[phase] || phase
-}
+// Note: getDelayType, getPhaseStatusClass, getDetailedPhaseText, getPhaseColorClass,
+// getPhaseStatusText, getStatusTagType, and getDelayPhaseLabel are imported from composables
 
 // Show delay details dialog
 const showDelayDetails = async (row: Application) => {
@@ -4300,10 +3889,7 @@ const analyzeDelayReasons = (delayHistory: any[]) => {
     .sort((a, b) => b.count - a.count)
 }
 
-// Calculate total delay days
-const calculateTotalDelayDays = (delayHistory: any[]) => {
-  return delayHistory.reduce((sum, item) => sum + item.delayDays, 0)
-}
+// Note: calculateTotalDelayDays is imported from composables
 
 // Load delay data when page changes
 const handlePageChange = async () => {
@@ -4330,7 +3916,7 @@ watch([currentPage, pageSize], () => {
 watch([
   () => subtaskSearchForm.keyword,
   () => subtaskSearchForm.status,
-  () => subtaskSearchForm.application,
+  () => subtaskSearchForm.version_name,
   () => subtaskSearchForm.sub_target,
   () => subtaskSearchForm.dev_owner,
   () => subtaskSearchForm.ops_owner,
@@ -4685,10 +4271,124 @@ watch([
   border-top: 1px solid #e2e8f0;
 }
 
+/* 横向滚动提示 */
+.scroll-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px dashed #7dd3fc;
+  border-radius: 8px;
+  color: #0369a1;
+  font-size: 13px;
+  font-weight: 500;
+  animation: subtle-pulse 3s ease-in-out infinite;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.scroll-hint:hover {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(2, 132, 199, 0.15);
+}
+
+.scroll-hint .el-icon {
+  font-size: 16px;
+  color: #0284c7;
+  animation: arrow-bounce 2s ease-in-out infinite;
+}
+
+.scroll-hint .el-icon:first-child {
+  animation-delay: 0s;
+}
+
+.scroll-hint .el-icon:last-child {
+  animation-delay: 0.1s;
+}
+
+@keyframes subtle-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes arrow-bounce {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+
+/* 移动端隐藏滚动提示 */
+@media (max-width: 768px) {
+  .scroll-hint {
+    display: none;
+  }
+}
+
 /* 移动端响应式设计 */
 /* 表格样式优化 */
 .el-table {
   font-size: 13px;
+  position: relative;
+}
+
+/* 表格固定高度时的滚动优化 */
+.el-table :deep(.el-table__body-wrapper) {
+  /* 自定义滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f7fafc;
+}
+
+.el-table :deep(.el-table__body-wrapper)::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
+}
+
+.el-table :deep(.el-table__body-wrapper)::-webkit-scrollbar-track {
+  background: #f7fafc;
+  border-radius: 6px;
+}
+
+.el-table :deep(.el-table__body-wrapper)::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 6px;
+  border: 2px solid #f7fafc;
+}
+
+.el-table :deep(.el-table__body-wrapper)::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* 横向滚动提示 */
+.el-table::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  background: linear-gradient(to left, rgba(247, 250, 252, 0.95), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 2;
+}
+
+.el-table:hover::after {
+  opacity: 1;
 }
 
 .el-table th {
