@@ -50,26 +50,76 @@
             <h3>应用改造总体情况</h3>
           </template>
 
-          <!-- Center Pie Chart with Completion Percentage -->
-          <div class="pie-chart-container">
-            <div ref="overviewPieRef" class="pie-chart"></div>
-          </div>
-
-          <!-- Status Statistics -->
-          <div class="status-grid">
-            <div class="status-item" v-for="stat in statusStats" :key="stat.label">
-              <div class="status-count" :class="`status-${stat.type}`">
-                {{ stat.count }}
+          <el-tabs v-model="activeOverviewTab" @tab-change="handleOverviewTabChange">
+            <el-tab-pane label="总体" name="all">
+              <!-- Center Pie Chart with Completion Percentage -->
+              <div class="pie-chart-container">
+                <div ref="overviewPieRef" class="pie-chart"></div>
               </div>
-              <div class="status-label">{{ stat.label }}</div>
-              <div v-if="stat.detail" class="status-detail">{{ stat.detail }}</div>
-            </div>
-          </div>
 
-          <!-- Total Applications -->
-          <div class="total-apps">
-            总计：{{ totalApplications }}个应用
-          </div>
+              <!-- Status Statistics -->
+              <div class="status-grid">
+                <div class="status-item" v-for="stat in statusStats" :key="stat.label">
+                  <div class="status-count" :class="`status-${stat.type}`">
+                    {{ stat.count }}
+                  </div>
+                  <div class="status-label">{{ stat.label }}</div>
+                  <div v-if="stat.detail" class="status-detail">{{ stat.detail }}</div>
+                </div>
+              </div>
+
+              <!-- Total Applications -->
+              <div class="total-apps">
+                总计：{{ totalApplications }}个应用
+              </div>
+            </el-tab-pane>
+
+            <el-tab-pane label="AK" name="ak">
+              <!-- AK Pie Chart -->
+              <div class="pie-chart-container">
+                <div ref="akPieRef" class="pie-chart"></div>
+              </div>
+
+              <!-- AK Status Statistics -->
+              <div class="status-grid">
+                <div class="status-item" v-for="stat in akStatusStats" :key="stat.label">
+                  <div class="status-count" :class="`status-${stat.type}`">
+                    {{ stat.count }}
+                  </div>
+                  <div class="status-label">{{ stat.label }}</div>
+                  <div v-if="stat.detail" class="status-detail">{{ stat.detail }}</div>
+                </div>
+              </div>
+
+              <!-- Total AK Applications -->
+              <div class="total-apps">
+                总计：{{ akTotalApplications }}个AK应用
+              </div>
+            </el-tab-pane>
+
+            <el-tab-pane label="云原生" name="cloud-native">
+              <!-- Cloud Native Pie Chart -->
+              <div class="pie-chart-container">
+                <div ref="cloudNativePieRef" class="pie-chart"></div>
+              </div>
+
+              <!-- Cloud Native Status Statistics -->
+              <div class="status-grid">
+                <div class="status-item" v-for="stat in cloudNativeStatusStats" :key="stat.label">
+                  <div class="status-count" :class="`status-${stat.type}`">
+                    {{ stat.count }}
+                  </div>
+                  <div class="status-label">{{ stat.label }}</div>
+                  <div v-if="stat.detail" class="status-detail">{{ stat.detail }}</div>
+                </div>
+              </div>
+
+              <!-- Total Cloud Native Applications -->
+              <div class="total-apps">
+                总计：{{ cloudNativeTotalApplications }}个云原生应用
+              </div>
+            </el-tab-pane>
+          </el-tabs>
         </el-card>
       </el-col>
 
@@ -187,6 +237,36 @@
                   <div class="detail-row">
                     <span class="label">风险原因：</span>
                     <span class="value">{{ app.riskReason }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manual Risk Items -->
+          <div v-if="manualRiskItems.length > 0" class="risk-category" style="margin-top: 20px;">
+            <div class="risk-category-header custom">
+              <span class="risk-title">手动配置的风险项</span>
+              <span class="risk-count">
+                {{ manualRiskItems.length }}个
+              </span>
+            </div>
+
+            <div class="risk-items">
+              <div v-for="risk in manualRiskItems" :key="risk.id" :class="['risk-item', `${risk.riskType}-item`, `severity-${risk.severity}`]">
+                <div class="app-name">
+                  {{ risk.appName }}
+                  <el-tag :type="risk.severity === 'high' ? 'danger' : risk.severity === 'medium' ? 'warning' : 'info'" size="small" style="margin-left: 8px;">
+                    {{ risk.riskType === 'delayed' ? '延迟' : risk.riskType === 'potential' ? '潜在风险' : '自定义' }}
+                  </el-tag>
+                  <el-tag :type="risk.severity === 'high' ? 'danger' : risk.severity === 'medium' ? 'warning' : 'success'" size="small" style="margin-left: 4px;">
+                    {{ risk.severity === 'high' ? '高' : risk.severity === 'medium' ? '中' : '低' }}
+                  </el-tag>
+                </div>
+                <div class="app-details">
+                  <div class="detail-row">
+                    <span class="label">风险描述：</span>
+                    <span class="value">{{ risk.description || '未填写' }}</span>
                   </div>
                 </div>
               </div>
@@ -418,14 +498,83 @@
 
               <el-form-item label="当前风险统计">
                 <el-descriptions :column="2" border size="small">
-                  <el-descriptions-item label="延迟应用数" label-class-name="risk-label">
+                  <el-descriptions-item label="自动检测延迟应用数" label-class-name="risk-label">
                     <span style="color: #f56565; font-weight: bold;">{{ delayedApps.length }}</span>
                   </el-descriptions-item>
-                  <el-descriptions-item label="潜在风险应用数" label-class-name="risk-label">
+                  <el-descriptions-item label="自动检测潜在风险数" label-class-name="risk-label">
                     <span style="color: #ed8936; font-weight: bold;">{{ potentialRiskApps.length }}</span>
+                  </el-descriptions-item>
+                  <el-descriptions-item label="手动配置风险数" label-class-name="risk-label">
+                    <span style="color: #667eea; font-weight: bold;">{{ configManualRisks.length }}</span>
+                  </el-descriptions-item>
+                  <el-descriptions-item label="总风险数" label-class-name="risk-label">
+                    <span style="color: #f56565; font-weight: bold;">{{ delayedApps.length + potentialRiskApps.length + configManualRisks.length }}</span>
                   </el-descriptions-item>
                 </el-descriptions>
               </el-form-item>
+
+              <el-divider>手动风险配置</el-divider>
+
+              <div style="margin-bottom: 20px;">
+                <el-alert type="warning" :closable="false" style="margin-bottom: 12px;">
+                  手动添加的风险项将显示在"当前风险"部分，支持自定义风险描述
+                </el-alert>
+
+                <div v-for="(risk, index) in configManualRisks" :key="risk.id" style="margin-bottom: 12px;">
+                  <el-card shadow="hover">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+                      <div style="flex: 1;">
+                        <el-form :inline="true" size="small">
+                          <el-form-item label="应用名称">
+                            <el-input v-model="risk.appName" placeholder="请输入应用名称" style="width: 200px;" />
+                          </el-form-item>
+                          <el-form-item label="风险类型">
+                            <el-select v-model="risk.riskType" style="width: 120px;">
+                              <el-option label="延迟" value="delayed" />
+                              <el-option label="潜在风险" value="potential" />
+                              <el-option label="自定义" value="custom" />
+                            </el-select>
+                          </el-form-item>
+                          <el-form-item label="严重程度">
+                            <el-select v-model="risk.severity" style="width: 100px;">
+                              <el-option label="高" value="high" />
+                              <el-option label="中" value="medium" />
+                              <el-option label="低" value="low" />
+                            </el-select>
+                          </el-form-item>
+                        </el-form>
+                        <el-form-item label="风险描述" style="margin-top: 8px;">
+                          <el-input
+                            v-model="risk.description"
+                            type="textarea"
+                            :rows="2"
+                            placeholder="请详细描述风险内容..."
+                            style="width: 100%;"
+                          />
+                        </el-form-item>
+                      </div>
+                      <el-button
+                        type="danger"
+                        size="small"
+                        @click="removeManualRisk(index)"
+                        style="flex-shrink: 0;"
+                      >
+                        删除
+                      </el-button>
+                    </div>
+                  </el-card>
+                </div>
+
+                <el-button
+                  type="primary"
+                  plain
+                  style="width: 100%;"
+                  @click="addManualRisk"
+                >
+                  <el-icon><Plus /></el-icon>
+                  添加手动风险项
+                </el-button>
+              </div>
             </el-form>
           </div>
         </el-tab-pane>
@@ -459,6 +608,11 @@ const reportDate = ref('')
 const exportingImage = ref(false)
 const exportingExcel = ref(false)
 const totalApplications = ref(0)
+const akTotalApplications = ref(0)
+const cloudNativeTotalApplications = ref(0)
+
+// Overview tabs
+const activeOverviewTab = ref('all')
 
 // Configuration Dialog
 const configDialogVisible = ref(false)
@@ -470,7 +624,11 @@ const rawSubtasks = ref<any[]>([])
 
 // Chart refs
 const overviewPieRef = ref<HTMLElement | null>(null)
+const akPieRef = ref<HTMLElement | null>(null)
+const cloudNativePieRef = ref<HTMLElement | null>(null)
 let overviewPieChart: echarts.ECharts | null = null
+let akPieChart: echarts.ECharts | null = null
+let cloudNativePieChart: echarts.ECharts | null = null
 
 // Status statistics
 interface StatusStat {
@@ -481,6 +639,26 @@ interface StatusStat {
 }
 
 const statusStats = ref<StatusStat[]>([
+  { label: '需求阶段', count: 0, type: 'requirement' },
+  { label: '研发阶段', count: 0, type: 'development' },
+  { label: '已完成', count: 0, type: 'completed' },
+  { label: '上线阶段', count: 0, type: 'online' },
+  { label: '业务下线', count: 0, type: 'offline' },
+  { label: '未启动', count: 0, type: 'not-started' },
+  { label: '阻塞', count: 0, type: 'blocked', detail: '' }
+])
+
+const akStatusStats = ref<StatusStat[]>([
+  { label: '需求阶段', count: 0, type: 'requirement' },
+  { label: '研发阶段', count: 0, type: 'development' },
+  { label: '已完成', count: 0, type: 'completed' },
+  { label: '上线阶段', count: 0, type: 'online' },
+  { label: '业务下线', count: 0, type: 'offline' },
+  { label: '未启动', count: 0, type: 'not-started' },
+  { label: '阻塞', count: 0, type: 'blocked', detail: '' }
+])
+
+const cloudNativeStatusStats = ref<StatusStat[]>([
   { label: '需求阶段', count: 0, type: 'requirement' },
   { label: '研发阶段', count: 0, type: 'development' },
   { label: '已完成', count: 0, type: 'completed' },
@@ -508,6 +686,15 @@ interface RiskConfig {
   delayThresholdDays: number
   potentialRiskWarningDays: number
   potentialRiskProgressThreshold: number
+}
+
+// Manual risk item
+interface ManualRiskItem {
+  id: string
+  appName: string
+  riskType: 'delayed' | 'potential' | 'custom'
+  description: string
+  severity: 'high' | 'medium' | 'low'
 }
 
 const keyIndicators = ref<KeyIndicator[]>([
@@ -548,6 +735,10 @@ const configRiskSettings = ref<RiskConfig>({
   potentialRiskWarningDays: 30,
   potentialRiskProgressThreshold: 80
 })
+
+// Manual risk items
+const manualRiskItems = ref<ManualRiskItem[]>([])
+const configManualRisks = ref<ManualRiskItem[]>([])
 
 // Auto calculation data
 const autoCalcData = computed(() => {
@@ -665,66 +856,82 @@ const loadReportData = async () => {
 }
 
 const calculateStatusStats = (applications: any[], subtasks: any[]) => {
-  // Reset counts
-  statusStats.value.forEach(stat => {
-    stat.count = 0
-    stat.detail = ''
-  })
+  // Helper function to count status for a given set of applications
+  const countStatus = (apps: any[], statsArray: StatusStat[]) => {
+    // Reset counts
+    statsArray.forEach(stat => {
+      stat.count = 0
+      stat.detail = ''
+    })
 
-  // Count by status
-  applications.forEach(app => {
-    const status = app.current_status || app.status
+    // Count by status
+    apps.forEach(app => {
+      const status = app.current_status || app.status
 
-    switch (status) {
-      case '待启动':
-      case 'not_started':
-        statusStats.value[5].count++ // 未启动
-        break
-      case '需求分析中':
-      case 'requirement_analysis':
-        statusStats.value[0].count++ // 需求阶段
-        break
-      case '研发进行中':
-      case 'in_development':
-      case 'in_progress':
-        statusStats.value[1].count++ // 研发阶段
-        break
-      case '业务上线中':
-      case 'business_online':
-      case '技术上线中':
-      case 'tech_online':
-        statusStats.value[3].count++ // 上线阶段
-        break
-      case '全部完成':
-      case 'completed':
-        statusStats.value[2].count++ // 已完成
-        break
-      case '业务下线':
-      case 'offline':
-        statusStats.value[4].count++ // 业务下线
-        break
-      case '存在阻塞':
-      case 'blocked':
-        statusStats.value[6].count++ // 阻塞
-        break
-      default:
-        // Default to not started
-        statusStats.value[5].count++
-    }
-  })
+      switch (status) {
+        case '待启动':
+        case 'not_started':
+          statsArray[5].count++ // 未启动
+          break
+        case '需求分析中':
+        case 'requirement_analysis':
+          statsArray[0].count++ // 需求阶段
+          break
+        case '研发进行中':
+        case 'in_development':
+        case 'in_progress':
+          statsArray[1].count++ // 研发阶段
+          break
+        case '业务上线中':
+        case 'business_online':
+        case '技术上线中':
+        case 'tech_online':
+          statsArray[3].count++ // 上线阶段
+          break
+        case '全部完成':
+        case 'completed':
+          statsArray[2].count++ // 已完成
+          break
+        case '业务下线':
+        case 'offline':
+          statsArray[4].count++ // 业务下线
+          break
+        case '存在阻塞':
+        case 'blocked':
+          statsArray[6].count++ // 阻塞
+          break
+        default:
+          // Default to not started
+          statsArray[5].count++
+      }
+    })
 
-  // Find blocking reasons for blocked applications
-  if (statusStats.value[6].count > 0) {
-    const blockedApp = applications.find(app =>
-      app.current_status === '存在阻塞' || app.current_status === 'blocked'
-    )
-    if (blockedApp) {
-      const blockedTask = subtasks.find(task => task.l2_id === blockedApp.id && task.block_reason)
-      if (blockedTask) {
-        statusStats.value[6].detail = `（${blockedTask.block_reason}）`
+    // Find blocking reasons for blocked applications
+    if (statsArray[6].count > 0) {
+      const blockedApp = apps.find(app =>
+        app.current_status === '存在阻塞' || app.current_status === 'blocked'
+      )
+      if (blockedApp) {
+        const blockedTask = subtasks.find(task => task.l2_id === blockedApp.id && task.block_reason)
+        if (blockedTask) {
+          statsArray[6].detail = `（${blockedTask.block_reason}）`
+        }
       }
     }
   }
+
+  // Calculate for all applications
+  countStatus(applications, statusStats.value)
+
+  // Calculate for AK applications
+  const akApps = applications.filter(app => app.overall_transformation_target === 'AK')
+  akTotalApplications.value = akApps.length
+  countStatus(akApps, akStatusStats.value)
+
+  // Calculate for Cloud Native applications
+  const cloudNativeApps = applications.filter(app => app.overall_transformation_target === '云原生')
+  cloudNativeTotalApplications.value = cloudNativeApps.length
+  countStatus(cloudNativeApps, cloudNativeStatusStats.value)
 }
 
 const calculateKeyIndicators = (applications: any[], subtasks: any[]) => {
@@ -841,18 +1048,22 @@ const calculateRiskApplications = (applications: any[], subtasks: any[]) => {
   potentialRiskApps.value = potential
 }
 
-const renderOverviewPieChart = () => {
-  if (!overviewPieRef.value) return
+const renderPieChart = (
+  chartRef: HTMLElement | null,
+  chart: echarts.ECharts | null,
+  statsArray: StatusStat[],
+  total: number
+): echarts.ECharts | null => {
+  if (!chartRef) return null
 
-  if (overviewPieChart) {
-    overviewPieChart.dispose()
+  if (chart) {
+    chart.dispose()
   }
 
-  overviewPieChart = echarts.init(overviewPieRef.value)
+  chart = echarts.init(chartRef)
 
   // Calculate completion percentage
-  const completed = statusStats.value[2].count
-  const total = totalApplications.value
+  const completed = statsArray[2].count
   const completionPercentage = total > 0 ? Math.round((completed / total) * 100) : 0
 
   const option: echarts.EChartsOption = {
@@ -895,22 +1106,22 @@ const renderOverviewPieChart = () => {
             itemStyle: { color: '#48bb78' }
           },
           {
-            value: statusStats.value[1].count,
+            value: statsArray[1].count,
             name: '研发阶段',
             itemStyle: { color: '#ed8936' }
           },
           {
-            value: statusStats.value[3].count,
+            value: statsArray[3].count,
             name: '上线阶段',
             itemStyle: { color: '#3182ce' }
           },
           {
-            value: statusStats.value[5].count,
+            value: statsArray[5].count,
             name: '未启动',
             itemStyle: { color: '#cbd5e0' }
           },
           {
-            value: statusStats.value[6].count,
+            value: statsArray[6].count,
             name: '阻塞',
             itemStyle: { color: '#f56565' }
           }
@@ -919,12 +1130,39 @@ const renderOverviewPieChart = () => {
     ]
   }
 
-  overviewPieChart.setOption(option)
+  chart.setOption(option)
 
   // Handle resize
   window.addEventListener('resize', () => {
-    overviewPieChart?.resize()
+    chart?.resize()
   })
+
+  return chart
+}
+
+const renderOverviewPieChart = () => {
+  overviewPieChart = renderPieChart(overviewPieRef.value, overviewPieChart, statusStats.value, totalApplications.value)
+}
+
+const renderAkPieChart = () => {
+  akPieChart = renderPieChart(akPieRef.value, akPieChart, akStatusStats.value, akTotalApplications.value)
+}
+
+const renderCloudNativePieChart = () => {
+  cloudNativePieChart = renderPieChart(cloudNativePieRef.value, cloudNativePieChart, cloudNativeStatusStats.value, cloudNativeTotalApplications.value)
+}
+
+const handleOverviewTabChange = (tabName: string) => {
+  // Render the appropriate chart when tab changes
+  setTimeout(() => {
+    if (tabName === 'all') {
+      renderOverviewPieChart()
+    } else if (tabName === 'ak') {
+      renderAkPieChart()
+    } else if (tabName === 'cloud-native') {
+      renderCloudNativePieChart()
+    }
+  }, 100)
 }
 
 const formatDate = (dateStr: string) => {
@@ -1020,6 +1258,19 @@ const loadConfig = () => {
   } else {
     configRiskSettings.value = { ...riskConfig.value }
   }
+
+  // Load manual risks
+  const savedManualRisks = localStorage.getItem('report_manual_risks')
+  if (savedManualRisks) {
+    try {
+      configManualRisks.value = JSON.parse(savedManualRisks)
+    } catch (error) {
+      console.error('Failed to load manual risks:', error)
+      configManualRisks.value = []
+    }
+  } else {
+    configManualRisks.value = [...manualRiskItems.value]
+  }
 }
 
 const saveConfig = () => {
@@ -1042,9 +1293,13 @@ const saveConfig = () => {
   // Update risk configuration
   riskConfig.value = { ...configRiskSettings.value }
 
+  // Update manual risks
+  manualRiskItems.value = [...configManualRisks.value]
+
   // Save to localStorage
   localStorage.setItem('report_indicators_config', JSON.stringify(configIndicators.value))
   localStorage.setItem('report_risk_config', JSON.stringify(configRiskSettings.value))
+  localStorage.setItem('report_manual_risks', JSON.stringify(configManualRisks.value))
 
   ElMessage.success('配置已保存')
   configDialogVisible.value = false
@@ -1097,6 +1352,9 @@ const resetConfig = () => {
     potentialRiskProgressThreshold: 80
   }
 
+  // Reset manual risks
+  configManualRisks.value = []
+
   ElMessage.success('已重置为默认配置')
 }
 
@@ -1113,6 +1371,20 @@ const addIndicator = () => {
 
 const removeIndicator = (index: number) => {
   configIndicators.value.splice(index, 1)
+}
+
+const addManualRisk = () => {
+  configManualRisks.value.push({
+    id: `manual_${Date.now()}`,
+    appName: '',
+    riskType: 'custom',
+    description: '',
+    severity: 'medium'
+  })
+}
+
+const removeManualRisk = (index: number) => {
+  configManualRisks.value.splice(index, 1)
 }
 
 const handleAutoCalcChange = (index: number) => {
@@ -1197,6 +1469,16 @@ onMounted(() => {
       riskConfig.value = JSON.parse(savedRiskConfig)
     } catch (error) {
       console.error('Failed to load risk config:', error)
+    }
+  }
+
+  // Load saved manual risks
+  const savedManualRisks = localStorage.getItem('report_manual_risks')
+  if (savedManualRisks) {
+    try {
+      manualRiskItems.value = JSON.parse(savedManualRisks)
+    } catch (error) {
+      console.error('Failed to load manual risks:', error)
     }
   }
 
@@ -1402,6 +1684,11 @@ onMounted(() => {
   border-left: 4px solid #ed8936;
 }
 
+.risk-category-header.custom {
+  background: #f0f4ff;
+  border-left: 4px solid #667eea;
+}
+
 .risk-title {
   font-size: 16px;
   font-weight: 600;
@@ -1455,6 +1742,23 @@ onMounted(() => {
 .risk-item.potential-item {
   background: #fffaf0;
   border-left-color: #ed8936;
+}
+
+.risk-item.custom-item {
+  background: #f0f4ff;
+  border-left-color: #667eea;
+}
+
+.risk-item.severity-high {
+  border-left-width: 6px;
+}
+
+.risk-item.severity-medium {
+  border-left-width: 4px;
+}
+
+.risk-item.severity-low {
+  border-left-width: 2px;
 }
 
 .risk-item .app-name {
