@@ -1042,6 +1042,20 @@ onMounted(async () => {
 
   // Add resize listener
   window.addEventListener('resize', handleResize)
+
+  // Check if there's a taskId in the URL query parameter
+  const taskIdParam = route.query.taskId
+  if (taskIdParam) {
+    const taskId = parseInt(taskIdParam as string)
+    // Find the task by ID and open edit dialog
+    const task = subTasks.value.find(t => t.id === taskId)
+    if (task) {
+      // Small delay to ensure the page is fully loaded
+      setTimeout(() => {
+        editTask(task)
+      }, 300)
+    }
+  }
 })
 
 // Cleanup

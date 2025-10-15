@@ -438,8 +438,8 @@ export class DashboardAPI {
     }
   }
 
-  // 获取待办任务（我的任务）
-  static async getMyTasks(limit: number = 5): Promise<any[]> {
+  // 获取待办任务（我的任务）- 根据用户角色和任务阶段筛选
+  static async getMyTasks(limit: number = 5, currentUserName?: string): Promise<any[]> {
     try {
       // 获取当前用户的子任务
       const subtasks = await SubTasksAPI.getMySubTasks()
@@ -453,7 +453,7 @@ export class DashboardAPI {
         })
       }
 
-      // 过滤真正需要处理的任务
+      // 过滤真正需要处理的任务，根据用户角色和任务阶段
       const pendingTasks = subtasks
       .filter(task => {
         // 过滤掉已完成的任务
@@ -464,17 +464,51 @@ export class DashboardAPI {
 
         // 只显示正在进行中或有阻塞的任务
         const isInProgress = task.task_status === '研发进行中' ||
-                            task.task_status === '业务上线中' ||
-                            task.task_status === 'in_progress' ||
-                            task.task_status === 'testing'
+                            task.task_status === 'in_progress'
+
+        const isTesting = task.task_status === '业务上线中' ||
+                         task.task_status === 'testing'
 
         const isBlocked = task.task_status === '存在阻塞' ||
                          task.task_status === 'blocked' ||
                          task.is_blocked === true
 
-        // 只有在进行中或有阻塞的任务才是待办
-        // 待启动的任务不应该出现在待办中
-        return isInProgress || isBlocked
+        // 如果没有提供当前用户名，显示所有任务（向后兼容）
+        if (!currentUserName) {
+          return isInProgress || isTesting || isBlocked
+        }
+
+        // 根据任务阶段和用户角色筛选：
+        // 1. 研发进行中：匹配开发负责人(dev_owner)
+        // 2. 技术上线/业务上线中：匹配运维负责人(ops_owner)
+        // 3. 阻塞状态：匹配开发或运维负责人
+
+        const isDevOwner = task.dev_owner &&
+                          (task.dev_owner === currentUserName ||
+                           task.dev_owner.includes(currentUserName) ||
+                           currentUserName.includes(task.dev_owner))
+
+        const isOpsOwner = task.ops_owner &&
+                          (task.ops_owner === currentUserName ||
+                           task.ops_owner.includes(currentUserName) ||
+                           currentUserName.includes(task.ops_owner))
+
+        // 研发阶段 - 匹配开发负责人
+        if (isInProgress && isDevOwner) {
+          return true
+        }
+
+        // 上线阶段（技术上线、业务上线）- 匹配运维负责人
+        if (isTesting && isOpsOwner) {
+          return true
+        }
+
+        // 阻塞状态 - 匹配开发或运维负责人
+        if (isBlocked && (isDevOwner || isOpsOwner)) {
+          return true
+        }
+
+        return false
       })
       .sort((a, b) => {
         // 按计划结束日期排序，紧急的在前

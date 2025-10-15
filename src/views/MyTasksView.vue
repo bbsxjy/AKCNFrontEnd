@@ -82,31 +82,38 @@
         >
           <div class="task-content">
             <div class="task-header">
-              <el-tag size="small" type="info">{{ task.appId }}</el-tag>
-              <el-tag
-                size="small"
-                :type="getStatusTagType(task.status)"
-              >
-                {{ task.status }}
-              </el-tag>
-              <el-tag
-                v-if="task.isOverdue"
-                size="small"
-                type="danger"
-              >
-                逾期 {{ Math.abs(task.daysRemaining) }} 天
-              </el-tag>
-              <el-tag
-                v-else-if="task.daysRemaining <= 3"
-                size="small"
-                type="warning"
-              >
-                剩余 {{ task.daysRemaining }} 天
-              </el-tag>
+              <div class="app-info-badge">
+                <el-icon><Document /></el-icon>
+                <span class="app-id">{{ task.appId }}</span>
+                <span class="separator">-</span>
+                <span class="app-name">{{ task.appName }}</span>
+              </div>
             </div>
             <div class="task-title">
-              <strong>{{ task.appName }}</strong>
-              <span class="task-name">{{ task.taskName }}</span>
+              <span class="task-label">子任务：</span>
+              <strong class="task-name-value">{{ task.taskName }}</strong>
+              <div class="task-tags">
+                <el-tag
+                  size="small"
+                  :type="getStatusTagType(task.status)"
+                >
+                  {{ task.status }}
+                </el-tag>
+                <el-tag
+                  v-if="task.isOverdue"
+                  size="small"
+                  type="danger"
+                >
+                  逾期 {{ Math.abs(task.daysRemaining) }} 天
+                </el-tag>
+                <el-tag
+                  v-else-if="task.daysRemaining <= 3"
+                  size="small"
+                  type="warning"
+                >
+                  剩余 {{ task.daysRemaining }} 天
+                </el-tag>
+              </div>
             </div>
 
             <div class="task-meta">
@@ -129,14 +136,13 @@
           <div class="task-actions">
             <el-button
               size="small"
-              :type="task.isUrgent ? 'danger' : 'primary'"
-              @click="updateTask(task)"
-              :loading="task.updating"
+              :type="task.isOverdue ? 'danger' : 'primary'"
+              @click="goToTaskDetail(task)"
             >
               {{ task.isOverdue ? '立即处理' : task.isUrgent ? '优先处理' : '编辑' }}
             </el-button>
             <el-button size="small" @click="viewTaskDetails(task)">
-              查看其他子任务
+              查看所有子任务
             </el-button>
           </div>
         </div>
@@ -229,11 +235,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { Refresh, Calendar } from '@element-plus/icons-vue'
+import { Refresh, Calendar, Document } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { SubTasksAPI } from '@/api/subtasks'
 import { DashboardAPI } from '@/api/dashboard'
+import { useAuthStore } from '@/stores/auth'
 
 interface MyTask {
   id: number
@@ -253,12 +260,19 @@ interface MyTask {
 }
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const activeFilter = ref('all')
 const showUpdateDialog = ref(false)
 const selectedTask = ref<MyTask | null>(null)
 const updating = ref(false)
 const loading = ref(false)
+
+// Get current user's name for filtering tasks
+const currentUserName = computed(() => {
+  // Try to use full_name first, fallback to employee_id
+  return authStore.user?.full_name || authStore.user?.employee_id || ''
+})
 
 const updateForm = reactive({
   status: '',
@@ -349,8 +363,10 @@ const loadMyTasks = async () => {
   try {
     loading.value = true
 
-    // Use DashboardAPI to get properly formatted tasks
-    const tasks = await DashboardAPI.getMyTasks(100) // Get more tasks for My Tasks view
+    // Use DashboardAPI to get properly formatted tasks with user filtering
+    const userName = currentUserName.value
+    console.log('Loading tasks for user:', userName)
+    const tasks = await DashboardAPI.getMyTasks(100, userName) // Get more tasks for My Tasks view
 
     // Transform to MyTask format
     allTasks.value = tasks
@@ -376,6 +392,8 @@ const loadMyTasks = async () => {
         isBlocked: task.status === '存在阻塞',
         blockReason: ''
       }))
+
+    console.log(`Loaded ${allTasks.value.length} tasks for current user`)
   } catch (error) {
     console.error('Failed to load my tasks:', error)
     allTasks.value = []
@@ -391,17 +409,14 @@ const refreshTasks = async (isManual = true) => {
   }
 }
 
-const updateTask = (task: MyTask) => {
-  selectedTask.value = task
-  
-  // Pre-fill form with current values
-  updateForm.status = task.status
-  updateForm.progress = task.progress
-  updateForm.isBlocked = task.isBlocked
-  updateForm.blockReason = task.blockReason || ''
-  updateForm.actualDate = null
-  
-  showUpdateDialog.value = true
+// Navigate directly to subtask detail page for editing
+const goToTaskDetail = (task: MyTask) => {
+  if (task.applicationId) {
+    // Navigate to subtasks view with the task ID as a hash
+    router.push(`/subtasks/${task.applicationId}?taskId=${task.id}`)
+  } else {
+    ElMessage.warning('无法找到对应的应用ID')
+  }
 }
 
 const viewTaskDetails = (task: MyTask) => {
@@ -541,21 +556,63 @@ onUnmounted(() => {
 .task-header {
   display: flex;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   align-items: center;
+}
+
+.app-info-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 6px;
+  color: white;
+  font-weight: 500;
+}
+
+.app-info-badge .el-icon {
+  font-size: 16px;
+}
+
+.app-id {
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.separator {
+  opacity: 0.6;
+  margin: 0 2px;
+}
+
+.app-name {
+  font-size: 14px;
 }
 
 .task-title {
   font-size: 14px;
   margin-bottom: 8px;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
-.task-title strong {
+.task-label {
+  color: #718096;
+  font-size: 13px;
+}
+
+.task-name-value {
   color: #2d3748;
   font-size: 15px;
+}
+
+.task-tags {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 .task-name {

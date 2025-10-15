@@ -453,208 +453,18 @@
         </div>
 
         <!-- Applications Data Table -->
-        <el-table
-          :data="applications"
-          style="width: 100%"
-          :max-height="tableMaxHeight"
+        <ApplicationsTable
+          :applications="applications"
+          :table-max-height="tableMaxHeight"
+          :has-date-adjustment="hasDateAdjustment"
+          :get-delay-count="getDelayCount"
           @selection-change="handleSelectionChange"
-        >
-        <el-table-column type="selection" width="50" />
-        <!-- 关注 -->
-        <el-table-column label="关注" width="60" align="center" fixed="left">
-          <template #default="{ row }">
-            <el-icon
-              class="favorite-icon"
-              :class="{ 'is-favorite': row.is_favorite }"
-              @click.stop="toggleFavorite(row)"
-            >
-              <star-filled v-if="row.is_favorite" />
-              <star v-else />
-            </el-icon>
-          </template>
-        </el-table-column>
-        <!-- 核心标识 -->
-        <el-table-column prop="l2_id" label="L2 ID" min-width="120" fixed="left">
-          <template #default="{ row }">
-            <strong>{{ row.l2_id }}</strong>
-          </template>
-        </el-table-column>
-        <el-table-column prop="app_name" label="应用名称" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }">
-            <el-link type="primary" @click="showAppDetail(row)" :underline="false" class="app-name-link">
-              {{ row.app_name || row.application_name }}
-            </el-link>
-          </template>
-        </el-table-column>
-        <!-- 管理信息 -->
-        <el-table-column prop="ak_supervision_acceptance_year" label="监管年份" width="85" align="center">
-          <template #default="{ row }">
-            {{ row.ak_supervision_acceptance_year ? row.ak_supervision_acceptance_year + '年' : '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="overall_transformation_target" label="改造目标" width="90" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.overall_transformation_target === 'AK' ? 'primary' : 'success'" size="small">
-              {{ row.overall_transformation_target || 'AK' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <!-- 当前阶段描述 -->
-        <el-table-column prop="current_phase_description" label="当前阶段" min-width="180" align="center">
-          <template #default="{ row }">
-            <div class="phase-badges">
-              <!-- 如果没有AK子任务但有云原生且完成，显示合并状态 -->
-              <template v-if="row.ak_subtask_count === 0 && row.cloud_native_subtask_count > 0 && row.cloud_native_status === 'COMPLETED'">
-                <el-tooltip placement="top">
-                  <template #content>
-                    <div style="line-height: 1.8">
-                      <div><strong>云原生改造详情</strong></div>
-                      <div>总计：{{ row.cloud_native_subtask_count }} 个子任务</div>
-                      <div style="color: #67c23a">已完成：{{ row.cloud_native_completed_count }} 个</div>
-                      <div style="margin-top: 8px; color: #a0aec0; font-size: 12px;">
-                        云原生已完成，AK改造同步完成
-                      </div>
-                      <div style="margin-top: 8px; color: #667eea; font-size: 12px;">
-                        点击查看子任务详情 →
-                      </div>
-                    </div>
-                  </template>
-                  <span
-                    class="phase-badge status-completed"
-                    @click="viewSubTasks(row)"
-                  >
-                    AK云原生已完成
-                  </span>
-                </el-tooltip>
-              </template>
-
-              <!-- 正常显示AK和云原生状态 -->
-              <template v-else>
-                <!-- AK改造状态 - 可点击进入子任务 -->
-                <el-tooltip v-if="row.ak_subtask_count > 0" placement="top">
-                  <template #content>
-                    <div style="line-height: 1.8">
-                      <div><strong>AK改造详情</strong></div>
-                      <div>总计：{{ row.ak_subtask_count }} 个子任务</div>
-                      <div style="color: #67c23a">已完成：{{ row.ak_completed_count }} 个</div>
-                      <div style="color: #409eff">进行中：{{ row.ak_in_progress_count }} 个</div>
-                      <div style="color: #909399">待启动：{{ row.ak_not_started_count }} 个</div>
-                      <div v-if="row.ak_blocked_count > 0" style="color: #f56c6c">阻塞：{{ row.ak_blocked_count }} 个</div>
-                      <div style="margin-top: 8px; color: #667eea; font-size: 12px;">
-                        点击查看子任务详情 →
-                      </div>
-                    </div>
-                  </template>
-                  <span
-                    :class="['phase-badge', getPhaseColorClass(row.ak_status === 'COMPLETED' ? '已完成' : row.ak_status === 'BLOCKED' ? '阻塞' : row.ak_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row), row.ak_status.toLowerCase())]"
-                    @click="viewSubTasks(row)"
-                  >
-                    AK·{{ row.ak_status === 'COMPLETED' ? '已完成' : row.ak_status === 'BLOCKED' ? '阻塞' : row.ak_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row) }}
-                  </span>
-                </el-tooltip>
-
-                <!-- 云原生改造状态 - 可点击进入子任务 -->
-                <el-tooltip v-if="row.cloud_native_subtask_count > 0" placement="top">
-                  <template #content>
-                    <div style="line-height: 1.8">
-                      <div><strong>云原生改造详情</strong></div>
-                      <div>总计：{{ row.cloud_native_subtask_count }} 个子任务</div>
-                      <div style="color: #67c23a">已完成：{{ row.cloud_native_completed_count }} 个</div>
-                      <div style="color: #409eff">进行中：{{ row.cloud_native_in_progress_count }} 个</div>
-                      <div style="color: #909399">待启动：{{ row.cloud_native_not_started_count }} 个</div>
-                      <div v-if="row.cloud_native_blocked_count > 0" style="color: #f56c6c">阻塞：{{ row.cloud_native_blocked_count }} 个</div>
-                      <div style="margin-top: 8px; color: #667eea; font-size: 12px;">
-                        点击查看子任务详情 →
-                      </div>
-                    </div>
-                  </template>
-                  <span
-                    :class="['phase-badge', getPhaseColorClass(row.cloud_native_status === 'COMPLETED' ? '已完成' : row.cloud_native_status === 'BLOCKED' ? '阻塞' : row.cloud_native_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row), row.cloud_native_status.toLowerCase())]"
-                    @click="viewSubTasks(row)"
-                  >
-                    云原生·{{ row.cloud_native_status === 'COMPLETED' ? '已完成' : row.cloud_native_status === 'BLOCKED' ? '阻塞' : row.cloud_native_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row) }}
-                  </span>
-                </el-tooltip>
-
-                <!-- 如果两者都没有子任务 -->
-                <span v-if="row.ak_subtask_count === 0 && row.cloud_native_subtask_count === 0" class="no-tasks">
-                  暂无子任务
-                </span>
-              </template>
-            </div>
-          </template>
-        </el-table-column>
-        <!-- 关键计划时间点 -->
-        <el-table-column label="计划需求" width="120" align="center">
-          <template #default="{ row }">
-            <div class="plan-date-cell">
-              {{ formatYearMonth(row.planned_requirement_date) }}
-              <el-icon v-if="hasDateAdjustment(row, 'requirement')" class="adjustment-indicator" title="计划已调整">
-                <el-icon-warning />
-              </el-icon>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="计划发版" width="120" align="center">
-          <template #default="{ row }">
-            <div class="plan-date-cell">
-              {{ formatYearMonth(row.planned_release_date) }}
-              <el-icon v-if="hasDateAdjustment(row, 'release')" class="adjustment-indicator" title="计划已调整">
-                <el-icon-warning />
-              </el-icon>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="计划技术上线" width="120" align="center">
-          <template #default="{ row }">
-            <div class="plan-date-cell">
-              {{ formatYearMonth(row.planned_tech_online_date) }}
-              <el-icon v-if="hasDateAdjustment(row, 'tech')" class="adjustment-indicator" title="计划已调整">
-                <el-icon-warning />
-              </el-icon>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="计划业务上线" width="120" align="center">
-          <template #default="{ row }">
-            <div class="plan-date-cell">
-              <strong style="color: #667eea;">{{ formatYearMonth(row.planned_biz_online_date) }}</strong>
-              <el-icon v-if="hasDateAdjustment(row, 'biz')" class="adjustment-indicator" title="计划已调整">
-                <el-icon-warning />
-              </el-icon>
-            </div>
-          </template>
-        </el-table-column>
-        <!-- 延期状态（合并调整和延期） -->
-        <el-table-column label="延期状态" width="130" align="center">
-          <template #default="{ row }">
-            <div v-if="getDelayCount(row) > 0" class="delay-button-wrapper">
-              <el-button
-                size="small"
-                :type="row.is_delayed ? 'danger' : 'warning'"
-                @click="showDelayDetails(row)"
-                class="delay-status-button"
-                plain
-                round
-              >
-                <el-icon class="delay-icon"><el-icon-warning /></el-icon>
-                <span class="delay-text">延期{{ getDelayCount(row) }}次</span>
-                <el-icon class="arrow-icon"><el-icon-arrow-right /></el-icon>
-              </el-button>
-            </div>
-            <el-tag v-else type="success" size="small" effect="plain">
-              <el-icon class="status-icon"><el-icon-circle-check /></el-icon>
-              <span>正常</span>
-            </el-tag>
-          </template>
-        </el-table-column>
-        <!-- 操作按钮 -->
-        <el-table-column label="操作" width="80" fixed="right" align="center">
-          <template #default="{ row }">
-            <el-button size="small" @click="editApplication(row)">编辑</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          @toggle-favorite="toggleFavorite"
+          @show-detail="showAppDetail"
+          @view-subtasks="viewSubTasks"
+          @show-delay-details="showDelayDetails"
+          @edit="editApplication"
+        />
 
       <!-- Pagination -->
       <div class="pagination">
@@ -1065,610 +875,44 @@
     </el-card>
 
     <!-- Create Application Dialog -->
-    <el-dialog v-model="showCreateDialog" title="新增应用" width="700px">
-      <el-form :model="createForm" label-width="120px">
-        <el-form-item label="L2 ID" required>
-          <el-input v-model="createForm.l2_id" placeholder="如：CI000001" />
-        </el-form-item>
-        <el-form-item label="应用名称" required>
-          <el-input v-model="createForm.app_name" placeholder="请输入应用名称" />
-        </el-form-item>
-        <el-form-item label="所属L1">
-          <el-input v-model="createForm.belonging_l1_name" placeholder="请输入所属L1名称" />
-        </el-form-item>
-        <el-form-item label="所属项目">
-          <el-input v-model="createForm.belonging_projects" placeholder="请输入所属项目" />
-        </el-form-item>
-        <el-form-item label="所属指标">
-          <el-input v-model="createForm.belonging_kpi" placeholder="请输入所属指标" />
-        </el-form-item>
-        <el-form-item label="改造目标" required>
-          <el-radio-group v-model="createForm.overall_transformation_target">
-            <el-radio value="AK">AK</el-radio>
-            <el-radio value="云原生">云原生</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="监管验收年份">
-          <el-select v-model="createForm.ak_supervision_acceptance_year" placeholder="请选择年份">
-            <el-option :value="2025" label="2025年" />
-            <el-option :value="2026" label="2026年" />
-            <el-option :value="2027" label="2027年" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="开发团队">
-          <el-input v-model="editForm.dev_team" placeholder="请输入开发团队"/>
-        </el-form-item>
-        <el-form-item label="开发负责人">
-          <el-input v-model="createForm.dev_owner" placeholder="请输入开发负责人" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleCreate" :loading="loading">
-          确认
-        </el-button>
-      </template>
-    </el-dialog>
+    <ApplicationCreateDialog
+      v-model="showCreateDialog"
+      :loading="loading"
+      @create="handleCreate"
+    />
 
     <!-- Edit Application Dialog -->
-    <el-dialog v-model="showEditDialog" title="编辑应用" width="800px">
-      <el-form :model="editForm" label-width="120px">
-        <el-tabs v-model="activeEditTab" type="card">
-          <!-- 基础信息 -->
-          <el-tab-pane label="基础信息" name="basic">
-            <el-form-item label="L2 ID">
-              <el-input v-model="editForm.l2_id" />
-            </el-form-item>
-            <el-form-item label="应用名称" required>
-              <el-input v-model="editForm.app_name" />
-            </el-form-item>
-            <el-form-item label="所属L1">
-              <el-input v-model="editForm.belonging_l1_name" placeholder="请输入所属L1名称" />
-            </el-form-item>
-            <el-form-item label="所属项目">
-              <el-input v-model="editForm.belonging_projects" placeholder="请输入所属项目" />
-            </el-form-item>
-            <el-form-item label="所属指标">
-              <el-input v-model="editForm.belonging_kpi" placeholder="请输入所属指标" />
-            </el-form-item>
-            <el-form-item label="监管验收年份">
-              <el-select v-model="editForm.ak_supervision_acceptance_year" placeholder="请选择年份">
-                <el-option :value="2025" label="2025年" />
-                <el-option :value="2026" label="2026年" />
-                <el-option :value="2027" label="2027年" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="改造目标">
-              <el-radio-group v-model="editForm.overall_transformation_target">
-                <el-radio value="AK">AK</el-radio>
-                <el-radio value="云原生">云原生</el-radio>
-              </el-radio-group>
-            </el-form-item>
-            <el-form-item label="当前状态">
-              <el-select v-model="editForm.current_status" placeholder="请选择状态">
-                <el-option value="待启动" label="待启动" />
-                <el-option value="研发进行中" label="研发进行中" />
-                <el-option value="业务上线中" label="业务上线中" />
-                <el-option value="全部完成" label="全部完成" />
-                <el-option value="存在阻塞" label="存在阻塞" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="验收状态">
-              <el-select v-model="editForm.acceptance_status" placeholder="请选择验收状态" clearable>
-                <el-option value="未验收" label="未验收" />
-                <el-option value="验收中" label="验收中" />
-                <el-option value="已验收" label="已验收" />
-              </el-select>
-            </el-form-item>
-          </el-tab-pane>
-
-          <!-- 团队信息 -->
-          <el-tab-pane label="团队信息" name="team">
-            <el-form-item label="应用档位">
-              <el-input-number v-model="editForm.app_tier" :min="1" :max="5" placeholder="请选择档位" />
-            </el-form-item>
-            <el-form-item label="开发模式">
-              <el-input v-model="editForm.dev_mode" placeholder="请输入开发模式" />
-            </el-form-item>
-            <el-form-item label="运维模式">
-              <el-input v-model="editForm.ops_mode" placeholder="请输入运维模式" />
-            </el-form-item>
-            <el-form-item label="开发负责人">
-              <el-input v-model="editForm.dev_owner" placeholder="请输入开发负责人" />
-            </el-form-item>
-            <el-form-item label="开发团队">
-              <el-input v-model="editForm.dev_team" placeholder="请输入开发团队"/>
-            </el-form-item>
-            <el-form-item label="运维负责人">
-              <el-input v-model="editForm.ops_owner" placeholder="请输入运维负责人" />
-            </el-form-item>
-            <el-form-item label="运维团队">
-              <el-input v-model="editForm.ops_team" placeholder="请输入运维团队"/>
-            </el-form-item>
-          </el-tab-pane>
-
-          <!-- 其他信息 -->
-          <el-tab-pane label="其他信息" name="other">
-            <el-form-item label="域名化改造">
-              <el-switch v-model="editForm.is_domain_transformation_completed" active-text="完成" inactive-text="未完成" />
-            </el-form-item>
-            <el-form-item label="DBPM改造">
-              <el-switch v-model="editForm.is_dbpm_transformation_completed" active-text="完成" inactive-text="未完成" />
-            </el-form-item>
-            <el-form-item label="备注">
-              <el-input
-                v-model="editForm.notes"
-                type="textarea"
-                :rows="4"
-                placeholder="请输入备注信息"
-              />
-            </el-form-item>
-          </el-tab-pane>
-        </el-tabs>
-      </el-form>
-      <template #footer>
-        <div style="display: flex; justify-content: space-between; width: 100%;">
-          <el-button type="danger" @click="deleteApplicationInEdit">删除应用</el-button>
-          <div>
-            <el-button @click="showEditDialog = false">取消</el-button>
-            <el-button type="primary" @click="handleUpdate" :loading="loading">
-              保存
-            </el-button>
-          </div>
-        </div>
-      </template>
-    </el-dialog>
+    <ApplicationEditDialog
+      v-model="showEditDialog"
+      :data="editApplicationData"
+      :loading="loading"
+      @save="handleUpdate"
+      @delete="deleteApplicationInEdit"
+    />
 
     <!-- Application Detail Dialog -->
-    <el-dialog v-model="showDetailDialog" title="应用详情" width="900px">
-      <el-tabs v-model="activeDetailTab" type="card">
-        <!-- 基础信息 -->
-        <el-tab-pane label="基础信息" name="basic">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="L2 ID" label-align="right">
-              <strong>{{ detailData.l2_id }}</strong>
-            </el-descriptions-item>
-            <el-descriptions-item label="应用名称" label-align="right">
-              {{ detailData.app_name }}
-            </el-descriptions-item>
-            <el-descriptions-item label="所属L1" label-align="right">
-              {{ detailData.belonging_l1_name || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="所属项目" label-align="right">
-              {{ detailData.belonging_projects || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="所属指标" label-align="right">
-              {{ detailData.belonging_kpi || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="应用档位" label-align="right">
-              {{ detailData.app_tier || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="监管验收年份" label-align="right">
-              {{ detailData.ak_supervision_acceptance_year ? detailData.ak_supervision_acceptance_year + '年' : '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="改造目标" label-align="right">
-              <el-tag :type="detailData.overall_transformation_target === 'AK' ? 'primary' : 'success'" size="small">
-                {{ detailData.overall_transformation_target || 'AK' }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="当前改造阶段" label-align="right">
-              {{ detailData.current_transformation_phase || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="验收状态" label-align="right">
-              <el-tag v-if="detailData.acceptance_status"
-                     :type="detailData.acceptance_status === '已验收' ? 'success' : 'warning'"
-                     size="small">
-                {{ detailData.acceptance_status }}
-              </el-tag>
-              <span v-else>-</span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-
-        <!-- 团队信息 -->
-        <el-tab-pane label="团队信息" name="team">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="开发模式" label-align="right">
-              {{ detailData.dev_mode || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="运维模式" label-align="right">
-              {{ detailData.ops_mode || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="开发负责人" label-align="right">
-              {{ detailData.dev_owner || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="开发团队" label-align="right">
-              {{ detailData.dev_team || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="运维负责人" label-align="right">
-              {{ detailData.ops_owner || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="运维团队" label-align="right">
-              {{ detailData.ops_team || '-' }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-
-        <!-- 时间进度 -->
-        <el-tab-pane label="时间进度" name="timeline">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="【计划】需求完成" label-align="right">
-              {{ formatYearMonth(detailData.planned_requirement_date) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="【实际】需求到达" label-align="right">
-              <span :style="{ color: detailData.actual_requirement_date ? '#48bb78' : '#999' }">
-                {{ formatYearMonth(detailData.actual_requirement_date) }}
-              </span>
-            </el-descriptions-item>
-            <el-descriptions-item label="【计划】发版时间" label-align="right">
-              {{ formatYearMonth(detailData.planned_release_date) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="【实际】发版时间" label-align="right">
-              <span :style="{ color: detailData.actual_release_date ? '#48bb78' : '#999' }">
-                {{ formatYearMonth(detailData.actual_release_date) }}
-              </span>
-            </el-descriptions-item>
-            <el-descriptions-item label="【计划】技术上线" label-align="right">
-              {{ formatYearMonth(detailData.planned_tech_online_date) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="【实际】技术上线" label-align="right">
-              <span :style="{ color: detailData.actual_tech_online_date ? '#48bb78' : '#999' }">
-                {{ formatYearMonth(detailData.actual_tech_online_date) }}
-              </span>
-            </el-descriptions-item>
-            <el-descriptions-item label="【计划】业务上线" label-align="right">
-              {{ formatYearMonth(detailData.planned_biz_online_date) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="【实际】业务上线" label-align="right">
-              <span :style="{ color: detailData.actual_biz_online_date ? '#48bb78' : '#999' }">
-                {{ formatYearMonth(detailData.actual_biz_online_date) }}
-              </span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-
-        <!-- 进度状态 -->
-        <el-tab-pane label="进度状态" name="progress">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="整体进度" label-align="right">
-              <el-progress :percentage="detailData.progress_percentage || 0" :color="getProgressColor(detailData)" style="width: 200px;" />
-            </el-descriptions-item>
-            <el-descriptions-item label="子任务统计" label-align="right">
-              {{ detailData.completed_subtask_count || 0 }} / {{ detailData.subtask_count || 0 }}
-            </el-descriptions-item>
-            <el-descriptions-item label="延期状态" label-align="right">
-              <el-tag v-if="detailData.is_delayed" type="danger" size="small">
-                延期 {{ detailData.delay_days }} 月
-              </el-tag>
-              <el-tag v-else type="success" size="small">正常</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="当前状态" label-align="right">
-              <el-tag :type="getStatusType(detailData.current_status)" size="small">
-                {{ detailData.current_status || '待启动' }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="域AK改造" label-align="right">
-              <el-tag :type="detailData.is_domain_transformation_completed ? 'success' : 'info'" size="small">
-                {{ detailData.is_domain_transformation_completed ? '完成' : '未完成' }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="DBPM改造" label-align="right">
-              <el-tag :type="detailData.is_dbpm_transformation_completed ? 'success' : 'info'" size="small">
-                {{ detailData.is_dbpm_transformation_completed ? '完成' : '未完成' }}
-              </el-tag>
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-
-        <!-- 其他信息 -->
-        <el-tab-pane label="其他信息" name="other">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="创建时间" label-align="right">
-              {{ formatDate(detailData.created_at) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="更新时间" label-align="right">
-              {{ formatDate(detailData.updated_at) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="备注" label-align="right" :span="2">
-              {{ detailData.notes || '-' }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-
-        <!-- 操作记录 -->
-        <el-tab-pane label="操作记录" name="audit" lazy>
-          <div style="min-height: 300px;">
-            <!-- Loading Skeleton -->
-            <div v-if="auditLoading">
-              <el-skeleton :rows="5" animated />
-            </div>
-
-            <div v-else-if="auditRecords.length === 0" class="audit-empty">
-              <el-empty description="暂无操作记录" />
-            </div>
-            <el-timeline v-else>
-              <el-timeline-item
-                v-for="(record, index) in (auditRecords || [])"
-                :key="record?.id || `audit-${index}`"
-                :timestamp="formatDate(record?.created_at)"
-                placement="top"
-              >
-                <div class="audit-record">
-                  <div class="audit-header">
-                    <span class="audit-user">{{ record?.user_full_name || '系统' }}</span>
-                    <el-tag size="small" :type="getOperationType(record?.operation)">
-                      {{ getOperationText(record?.operation) }}
-                    </el-tag>
-                  </div>
-                  <div class="audit-changes" v-if="record?.changed_fields && record?.changed_fields.length > 0">
-                    <div class="change-item" v-for="(field, fieldIndex) in record.changed_fields" :key="`${field}-${fieldIndex}`">
-                      <span class="field-name">{{ getFieldLabel(field) }}:</span>
-                      <span class="old-value" v-if="record?.old_values && record?.old_values[field] !== undefined">
-                        {{ formatFieldValue(field, record?.old_values[field]) }}
-                      </span>
-                      <span class="arrow" v-if="record?.old_values && record?.old_values[field] !== undefined">→</span>
-                      <span class="new-value" v-if="record?.new_values && record?.new_values[field] !== undefined">
-                        {{ formatFieldValue(field, record?.new_values[field]) }}
-                      </span>
-                    </div>
-                  </div>
-                  <div class="audit-footer" v-if="isAdmin && record?.id">
-                    <el-button
-                      v-if="record?.operation !== 'DELETE' && canRollback(record)"
-                      size="small"
-                      type="warning"
-                      @click="rollbackAudit(record)"
-                    >
-                      回滚此操作
-                    </el-button>
-                  </div>
-                </div>
-              </el-timeline-item>
-            </el-timeline>
-          </div>
-        </el-tab-pane>
-      </el-tabs>
-      <template #footer>
-        <el-button @click="showDetailDialog = false">关闭</el-button>
-      </template>
-    </el-dialog>
+    <ApplicationDetailDialog
+      v-model="showDetailDialog"
+      :data="detailData"
+      :audit-records="auditRecords"
+      :audit-loading="auditLoading"
+      @rollback="rollbackAudit"
+      @load-audit="loadAuditRecords"
+    />
 
     <!-- Delay Details Dialog -->
-    <el-dialog v-model="showDelayDetailsDialog" title="延期详情" width="900px">
-      <div style="min-height: 400px;">
-        <!-- Loading Skeleton -->
-        <div v-if="delayDetailsLoading">
-          <el-skeleton :rows="8" animated />
-        </div>
-
-        <div v-else>
-        <!-- 延期统计 -->
-        <div class="delay-summary">
-          <el-alert type="warning" :closable="false">
-            <template #title>
-              <div class="summary-content">
-                <span>该应用已延期 <strong>{{ delayDetailsData.totalDelayCount }}</strong> 次</span>
-                <span class="total-delay-days">累计延期 <strong>{{ delayDetailsData.totalDelayDays }}</strong> 月</span>
-              </div>
-            </template>
-          </el-alert>
-        </div>
-
-        <!-- 延期历史时间线 -->
-        <div class="delay-timeline" v-if="delayDetailsData.delayHistory && delayDetailsData.delayHistory.length > 0">
-          <h3>延期历史</h3>
-          <el-timeline>
-            <el-timeline-item
-              v-for="(item, index) in delayDetailsData.delayHistory"
-              :key="index"
-              :timestamp="formatDate(item.date)"
-              :type="item.type || 'primary'"
-              placement="top"
-            >
-              <div class="delay-record">
-                <div class="delay-header">
-                  <el-tag size="small" :type="getDelayType(item.delayDays)">
-                    延期 {{ Math.abs(item.delayDays) }} {{ item.delayUnit || '月' }}
-                  </el-tag>
-                  <span class="delay-phase">{{ getDelayPhaseLabel(item.phase) }}</span>
-                </div>
-                <div class="delay-content">
-                  <div class="delay-dates">
-                    <span class="original-date">原计划：{{ formatYearMonth(item.originalDate) || '未设置' }}</span>
-                    <span class="arrow">→</span>
-                    <span class="new-date">调整为：{{ item.newDate ? formatYearMonth(item.newDate) : '待确定' }}</span>
-                  </div>
-                  <div class="delay-reason" v-if="item.reason">
-                    <span class="reason-label">延期原因：</span>
-                    <span class="reason-text">{{ item.reason }}</span>
-                  </div>
-                  <div class="delay-footer">
-                    <span class="operator">操作人：{{ item.operator || '系统' }}</span>
-                  </div>
-                </div>
-              </div>
-            </el-timeline-item>
-          </el-timeline>
-        </div>
-
-        <!-- 各阶段延期统计 -->
-        <div class="delay-statistics" v-if="delayDetailsData.phaseStatistics">
-          <h3>各阶段延期统计</h3>
-          <el-table :data="delayDetailsData.phaseStatistics" border>
-            <el-table-column prop="phase" label="阶段" width="120">
-              <template #default="{ row }">
-                {{ getDelayPhaseLabel(row.phase) }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="delayCount" label="延期次数" width="100" align="center">
-              <template #default="{ row }">
-                <el-badge :value="row.delayCount" type="warning" />
-              </template>
-            </el-table-column>
-            <el-table-column prop="totalDelayDays" label="累计延期月数" width="120" align="center">
-              <template #default="{ row }">
-                <span :class="{ 'text-danger': row.totalDelayDays > 3 }">
-                  {{ row.totalDelayDays }} 月
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="currentStatus" label="当前状态" min-width="150">
-              <template #default="{ row }">
-                <div v-if="row.currentPlannedDate">
-                  计划：{{ formatYearMonth(row.currentPlannedDate) }}
-                  <el-tag
-                    v-if="row.isDelayed"
-                    type="danger"
-                    size="small"
-                    style="margin-left: 10px;"
-                  >
-                    延期中
-                  </el-tag>
-                </div>
-                <div v-else>-</div>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-
-        <!-- 延期原因分析 -->
-        <div class="delay-analysis" v-if="delayDetailsData.reasonAnalysis && delayDetailsData.reasonAnalysis.length > 0">
-          <h3>延期原因分析</h3>
-          <div class="reason-tags">
-            <el-tag
-              v-for="(reason, index) in delayDetailsData.reasonAnalysis"
-              :key="index"
-              size="medium"
-              style="margin: 5px;"
-            >
-              {{ reason.reason }}（{{ reason.count }}次）
-            </el-tag>
-          </div>
-        </div>
-
-        <!-- 无延期记录 -->
-        <div v-if="!delayDetailsData.delayHistory || delayDetailsData.delayHistory.length === 0" class="no-delay-history">
-          <el-empty description="该应用暂无延期记录" />
-        </div>
-        </div>
-      </div>
-      <template #footer>
-        <el-button @click="showDelayDetailsDialog = false">关闭</el-button>
-      </template>
-    </el-dialog>
+    <DelayDetailsDialog
+      v-model="showDelayDetailsDialog"
+      :data="delayDetailsData"
+      :loading="delayDetailsLoading"
+    />
 
     <!-- Plan History Dialog -->
-    <el-dialog v-model="showPlanHistoryDialog" title="计划调整历史" width="900px">
-      <div style="min-height: 400px;">
-        <!-- Loading Skeleton -->
-        <div v-if="planHistoryLoading">
-          <el-skeleton :rows="8" animated />
-        </div>
-
-        <div v-else>
-        <!-- 调整统计 -->
-        <div class="adjustment-summary">
-          <el-alert type="warning" :closable="false">
-            <template #title>
-              <div class="summary-content">
-                <span>该应用计划已调整 <strong>{{ planHistoryData.length }}</strong> 次</span>
-                <span v-if="currentPlanAdjustment" class="latest-adjustment">
-                  最近调整：{{ formatDate(currentPlanAdjustment.adjusted_at) }}
-                </span>
-              </div>
-            </template>
-          </el-alert>
-        </div>
-
-        <!-- 时间线对比视图 -->
-        <div class="timeline-comparison" v-if="planHistoryData.length > 0">
-          <h3>计划时间线对比</h3>
-          <div class="timeline-chart">
-            <div class="timeline-row" v-for="(history, index) in planHistoryData" :key="index">
-              <div class="timeline-label">
-                <div class="version-label">
-                  <el-tag v-if="index === 0" type="success" size="small">当前</el-tag>
-                  <el-tag v-else size="small">第{{ planHistoryData.length - index }}次</el-tag>
-                </div>
-                <div class="adjust-info">
-                  <div class="adjust-date">{{ formatDate(history.adjusted_at) }}</div>
-                  <div class="adjust-user">{{ history.adjusted_by }}</div>
-                </div>
-              </div>
-              <div class="timeline-content">
-                <div class="timeline-bar">
-                  <div class="phase-block requirement" :style="getPhaseStyle(history, 'requirement')">
-                    <span>需求</span>
-                    <span class="phase-date">{{ formatYearMonth(history.planned_requirement_date) }}</span>
-                  </div>
-                  <div class="phase-block release" :style="getPhaseStyle(history, 'release')">
-                    <span>发版</span>
-                    <span class="phase-date">{{ formatYearMonth(history.planned_release_date) }}</span>
-                  </div>
-                  <div class="phase-block tech" :style="getPhaseStyle(history, 'tech')">
-                    <span>技术上线</span>
-                    <span class="phase-date">{{ formatYearMonth(history.planned_tech_online_date) }}</span>
-                  </div>
-                  <div class="phase-block biz" :style="getPhaseStyle(history, 'biz')">
-                    <span>业务上线</span>
-                    <span class="phase-date">{{ formatYearMonth(history.planned_biz_online_date) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 调整明细 -->
-        <div class="adjustment-details" v-if="planHistoryData.length > 0">
-          <h3>调整明细</h3>
-          <el-table :data="planAdjustmentDetails" border>
-            <el-table-column prop="adjusted_at" label="调整时间" width="160">
-              <template #default="{ row }">
-                {{ formatDate(row.adjusted_at) }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="adjusted_by" label="调整人" width="100" />
-            <el-table-column prop="field" label="调整项" width="120">
-              <template #default="{ row }">
-                {{ getAdjustmentFieldLabel(row.field) }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="old_date" label="原计划" width="100">
-              <template #default="{ row }">
-                <span class="old-date">{{ formatYearMonth(row.old_date) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="new_date" label="新计划" width="100">
-              <template #default="{ row }">
-                <span class="new-date">{{ formatYearMonth(row.new_date) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="delay_days" label="延期月数" width="90" align="center">
-              <template #default="{ row }">
-                <el-tag v-if="row.delay_days > 0" type="danger" size="small">
-                  +{{ row.delay_days }}月
-                </el-tag>
-                <el-tag v-else-if="row.delay_days < 0" type="success" size="small">
-                  {{ row.delay_days }}月
-                </el-tag>
-                <span v-else>-</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="reason" label="调整原因" min-width="200" show-overflow-tooltip />
-          </el-table>
-        </div>
-
-        <!-- 无调整记录 -->
-        <div v-if="planHistoryData.length === 0" class="no-adjustment-history">
-          <el-empty description="该应用暂无计划调整记录" />
-        </div>
-        </div>
-      </div>
-      <template #footer>
-        <el-button @click="showPlanHistoryDialog = false">关闭</el-button>
-      </template>
-    </el-dialog>
+    <PlanHistoryDialog
+      v-model="showPlanHistoryDialog"
+      :data="planHistoryDialogData"
+      :loading="planHistoryLoading"
+    />
 
     <!-- SubTask Detail Dialog -->
     <SubTaskDetailDialog
@@ -1710,6 +954,12 @@ import { useFormatters } from '@/composables/applications/useFormatters'
 import { useStatusHelpers } from '@/composables/applications/useStatusHelpers'
 import { useDelayCalculations } from '@/composables/applications/useDelayCalculations'
 import SubTaskDetailDialog from '@/components/applications/dialogs/SubTaskDetailDialog.vue'
+import ApplicationCreateDialog from '@/components/applications/dialogs/ApplicationCreateDialog.vue'
+import ApplicationEditDialog from '@/components/applications/dialogs/ApplicationEditDialog.vue'
+import ApplicationDetailDialog from '@/components/applications/dialogs/ApplicationDetailDialog.vue'
+import DelayDetailsDialog from '@/components/applications/dialogs/DelayDetailsDialog.vue'
+import PlanHistoryDialog from '@/components/applications/dialogs/PlanHistoryDialog.vue'
+import ApplicationsTable from '@/components/applications/ApplicationsTable.vue'
 
 const router = useRouter()
 
@@ -1758,8 +1008,8 @@ const delayDetailsData = ref<any>({})
 const delayDetailsLoading = ref(false)
 const selectedApplications = ref<Application[]>([])
 const editingId = ref<number | null>(null)
+const editApplicationData = ref<Partial<Application>>({})
 const detailData = ref<Partial<Application>>({})
-const activeEditTab = ref('basic')
 const activeDetailTab = ref('basic')
 const planHistoryData = ref<any[]>([])
 const planHistoryLoading = ref(false)
@@ -1798,6 +1048,13 @@ const isAdmin = computed(() => authStore.hasRole('ADMIN'))
 const planAdjustmentCache = ref<Map<number, any>>(new Map())
 const currentPlanAdjustment = ref<any>(null)
 const planAdjustmentDetails = ref<any[]>([])
+
+// Computed property for PlanHistoryDialog data
+const planHistoryDialogData = computed(() => ({
+  planHistory: planHistoryData.value,
+  adjustmentDetails: planAdjustmentDetails.value,
+  currentPlanAdjustment: currentPlanAdjustment.value
+}))
 
 // Tab states
 const activeTab = ref('applications')
@@ -1908,50 +1165,6 @@ const monthOptions = computed(() => {
   return options
 })
 
-const createForm = reactive({
-  l2_id: '',
-  app_name: '',
-  dev_owner: '',
-  dev_team: '',
-  current_status: '待启动',
-  ak_supervision_acceptance_year: 2025,
-  overall_transformation_target: 'AK',
-  belonging_l1_name: '',
-  belonging_projects: '',
-  belonging_kpi: ''
-})
-
-const editForm = reactive({
-  l2_id: '',
-  app_name: '',
-  overall_transformation_target: 'AK',
-  dev_owner: '',
-  dev_team: '',
-  ops_owner: '',
-  ops_team: '',
-  current_status: '待启动',
-  ak_supervision_acceptance_year: 2025,
-  app_tier: undefined as number | undefined,
-  belonging_l1_name: '',
-  belonging_projects: '',
-  belonging_kpi: '',
-  acceptance_status: '',
-  dev_mode: '',
-  ops_mode: '',
-  is_domain_transformation_completed: false,
-  is_dbpm_transformation_completed: false,
-  notes: '',
-  // 计划时间
-  planned_requirement_date: '',
-  planned_release_date: '',
-  planned_tech_online_date: '',
-  planned_biz_online_date: '',
-  // 实际时间
-  actual_requirement_date: '',
-  actual_release_date: '',
-  actual_tech_online_date: '',
-  actual_biz_online_date: ''
-})
 
 // Monthly plan labels
 const currentMonthLabel = computed(() => {
@@ -2858,50 +2071,19 @@ const handleSelectionChange = (selection: Application[]) => {
 
 const editApplication = (row: Application) => {
   editingId.value = row.id
-  activeEditTab.value = 'basic'
-  // Copy data to edit form
-  Object.assign(editForm, {
-    l2_id: row.l2_id,
-    app_name: row.app_name,
-    overall_transformation_target: row.overall_transformation_target || 'AK',
-    dev_owner: row.dev_owner || '',
-    dev_team: row.dev_team || '',
-    ops_owner: row.ops_owner || '',
-    ops_team: row.ops_team || '',
-    current_status: row.current_status || '待启动',
-    ak_supervision_acceptance_year: row.ak_supervision_acceptance_year || 2025,
-    app_tier: row.app_tier || undefined,
-    belonging_l1_name: row.belonging_l1_name || '',
-    belonging_projects: row.belonging_projects || '',
-    belonging_kpi: row.belonging_kpi || '',
-    acceptance_status: row.acceptance_status || '',
-    dev_mode: row.dev_mode || '',
-    ops_mode: row.ops_mode || '',
-    is_domain_transformation_completed: row.is_domain_transformation_completed || false,
-    is_dbpm_transformation_completed: row.is_dbpm_transformation_completed || false,
-    notes: row.notes || '',
-    // 计划时间
-    planned_requirement_date: row.planned_requirement_date || '',
-    planned_release_date: row.planned_release_date || '',
-    planned_tech_online_date: row.planned_tech_online_date || '',
-    planned_biz_online_date: row.planned_biz_online_date || '',
-    // 实际时间
-    actual_requirement_date: row.actual_requirement_date || '',
-    actual_release_date: row.actual_release_date || '',
-    actual_tech_online_date: row.actual_tech_online_date || '',
-    actual_biz_online_date: row.actual_biz_online_date || ''
-  })
+  // Set data for edit dialog
+  editApplicationData.value = { ...row }
   showEditDialog.value = true
 }
 
-const handleUpdate = async () => {
-  if (!editForm.app_name || !editingId.value) {
+const handleUpdate = async (formData: any) => {
+  if (!formData.app_name || !editingId.value) {
     ElMessage.error('请填写必填字段')
     return
   }
 
   try {
-    const updatedApp = await ApplicationsAPI.updateApplication(editingId.value, editForm)
+    const updatedApp = await ApplicationsAPI.updateApplication(editingId.value, formData)
     ElMessage.success('应用更新成功')
     showEditDialog.value = false
 
@@ -2910,7 +2092,7 @@ const handleUpdate = async () => {
     if (index !== -1) {
       allApplications.value[index] = updatedApp
     }
-    
+
     // 更新筛选选项
     updateFilterOptions()
   } catch (error) {
@@ -2989,39 +2171,28 @@ const viewSubTasks = (row: Application) => {
 }
 
 
-const handleCreate = async () => {
-  if (!createForm.l2_id || !createForm.app_name) {
+const handleCreate = async (formData: CreateApplicationRequest) => {
+  if (!formData.l2_id || !formData.app_name) {
     ElMessage.error('请填写必填字段')
     return
   }
 
   try {
-    const newApp = await ApplicationsAPI.createApplication(createForm as CreateApplicationRequest)
+    loading.value = true
+    const newApp = await ApplicationsAPI.createApplication(formData)
     ElMessage.success('应用创建成功')
     showCreateDialog.value = false
 
     // 直接添加到本地数据
     allApplications.value.unshift(newApp)
-    
+
     // 更新筛选选项
     updateFilterOptions()
-
-    // Reset form
-    Object.assign(createForm, {
-      l2_id: '',
-      app_name: '',
-      dev_owner: '',
-      dev_team: '',
-      current_status: '待启动',
-      ak_supervision_acceptance_year: 2025,
-      overall_transformation_target: 'AK',
-      belonging_l1_name: '',
-      belonging_projects: '',
-      belonging_kpi: ''
-    })
   } catch (error) {
     console.error('Failed to create application:', error)
     ElMessage.error('创建应用失败')
+  } finally {
+    loading.value = false
   }
 }
 
