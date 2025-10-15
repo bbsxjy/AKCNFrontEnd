@@ -58,6 +58,12 @@ const router = createRouter({
           meta: { title: '报表中心', roles: ['admin', 'manager'] }
         },
         {
+          path: 'bi-weekly-report',
+          name: 'BiWeeklyReport',
+          component: () => import('@/views/BiWeeklyReportView.vue'),
+          meta: { title: '双周报', roles: ['admin', 'manager', 'viewer'] }
+        },
+        {
           path: 'user-management',
           name: 'UserManagement',
           component: () => import('@/views/UserManagementView.vue'),

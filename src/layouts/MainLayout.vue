@@ -120,7 +120,7 @@
             </el-menu-item-group>
 
             <!-- 数据管理 (Admin, Manager) -->
-            <el-menu-item-group v-if="canViewRoute('Import') || canViewRoute('Reports')" title="数据管理">
+            <el-menu-item-group v-if="canViewRoute('Import') || canViewRoute('Reports') || canViewRoute('BiWeeklyReport')" title="数据管理">
               <el-menu-item v-if="canViewRoute('Import')" index="/import">
                 <el-icon><upload /></el-icon>
                 <span>批量导入</span>
@@ -129,6 +129,11 @@
               <el-menu-item v-if="canViewRoute('Reports')" index="/reports">
                 <el-icon><pie-chart /></el-icon>
                 <span>报表中心</span>
+              </el-menu-item>
+
+              <el-menu-item v-if="canViewRoute('BiWeeklyReport')" index="/bi-weekly-report">
+                <el-icon><document /></el-icon>
+                <span>双周报</span>
               </el-menu-item>
             </el-menu-item-group>
 

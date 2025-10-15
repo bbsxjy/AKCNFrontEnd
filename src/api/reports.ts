@@ -258,6 +258,51 @@ export class ReportsAPI {
 }
 
 export class ExcelAPI {
+  // Export bi-weekly report in specific template format (sample1, sample2, etc.)
+  static async exportBiWeeklyReport(templateType: 'sample1' | 'sample2', reportData?: any): Promise<void> {
+    try {
+      console.log('🔍 [ExcelAPI] Export bi-weekly report:', {
+        templateType,
+        reportData
+      })
+
+      // Send request to backend for bi-weekly report export
+      const response = await api.post('/reports/export/bi-weekly', {
+        template_type: templateType,
+        report_data: reportData || {},
+        export_format: 'excel'
+      }, {
+        responseType: 'blob',
+        timeout: 60000
+      })
+
+      // Generate filename
+      const timestamp = new Date().toISOString().split('T')[0]
+      const templateName = templateType === 'sample1' ? '双追踪表格式' : '详细追踪表格式'
+      const filename = `云原生双周报_${templateName}_${timestamp}.xlsx`
+
+      // Create blob with proper MIME type
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+
+      // Trigger download
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      console.log('✅ [ExcelAPI] Bi-weekly report exported successfully:', filename)
+    } catch (error) {
+      console.error('❌ [ExcelAPI] Failed to export bi-weekly report:', error)
+      throw error
+    }
+  }
+
   // Export report data to Excel
   static async exportReport(reportData: any, filename: string): Promise<void> {
     try {
