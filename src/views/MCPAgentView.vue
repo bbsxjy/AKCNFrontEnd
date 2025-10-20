@@ -5,55 +5,63 @@
       <el-col :xs="24" :sm="24" :md="6" :lg="6">
         <el-card class="tools-panel">
           <template #header>
-            <h3>可用工具</h3>
+            <h3>查询与分析工具</h3>
           </template>
 
-          <el-collapse v-model="activeCategories" accordion>
+          <el-collapse v-model="activeCategories">
             <el-collapse-item
               v-for="(category, key) in toolCategories"
               :key="key"
               :name="key"
-              :title="category.name"
             >
+              <template #title>
+                <div class="category-title">
+                  <span>{{ category.name }}</span>
+                  <el-tag size="small" type="info">{{ getCategoryToolCount(key) }}个工具</el-tag>
+                </div>
+              </template>
+
               <div class="category-description">
                 {{ category.description }}
               </div>
-              <el-tag
-                v-if="canUseEditTools"
-                type="success"
-                size="small"
-                style="margin-top: 8px"
-              >
-                ✓ 拥有编辑权限
-              </el-tag>
-              <el-tag
-                v-else
-                type="info"
-                size="small"
-                style="margin-top: 8px"
-              >
-                仅查询权限
-              </el-tag>
+
+              <!-- Tool List -->
+              <div class="tool-list">
+                <div
+                  v-for="tool in getCategoryTools(key)"
+                  :key="tool.name"
+                  class="tool-item"
+                >
+                  <div class="tool-header">
+                    <span class="tool-name">{{ tool.displayName }}</span>
+                    <el-tag
+                      v-if="tool.requiresEdit"
+                      size="small"
+                      :type="canUseEditTools ? 'success' : 'warning'"
+                    >
+                      {{ canUseEditTools ? '可用' : '需权限' }}
+                    </el-tag>
+                    <el-tag v-else size="small" type="success">可用</el-tag>
+                  </div>
+
+                  <div class="tool-description">{{ tool.description }}</div>
+
+                  <div class="tool-example">
+                    <el-text size="small" type="info">示例：</el-text>
+                    <el-button
+                      size="small"
+                      text
+                      type="primary"
+                      @click="executeToolExample(tool)"
+                      :disabled="tool.requiresEdit && !canUseEditTools"
+                    >
+                      {{ tool.example }}
+                    </el-button>
+                  </div>
+                </div>
+              </div>
             </el-collapse-item>
           </el-collapse>
-        </el-card>
-
-        <el-card class="quick-actions" style="margin-top: 20px">
-          <template #header>
-            <h3>快捷操作</h3>
-          </template>
-
-          <el-button
-            v-for="action in quickActions"
-            :key="action.name"
-            :type="action.type"
-            size="small"
-            style="width: 100%; margin-bottom: 8px"
-            @click="executeQuickAction(action)"
-            :disabled="action.requiresEdit && !canUseEditTools"
-          >
-            {{ action.label }}
-          </el-button>
         </el-card>
       </el-col>
 
@@ -62,7 +70,7 @@
         <el-card class="chat-panel">
           <template #header>
             <div class="chat-header">
-              <h3>MCP 助手</h3>
+              <h3>MCP 智能查询与分析助手</h3>
               <div class="header-actions">
                 <el-tag :type="canUseEditTools ? 'success' : 'info'">
                   {{ userRole }}
@@ -77,7 +85,7 @@
             <div
               v-for="(message, index) in chatMessages"
               :key="index"
-              :class="['message', message.type]"
+              :class="['message', message.type, { 'streaming': message.isStreaming }]"
             >
               <div class="message-header">
                 <span class="message-sender">
@@ -86,72 +94,189 @@
                 <span class="message-time">{{ formatTime(message.timestamp) }}</span>
               </div>
               <div class="message-content">
-                <pre v-if="message.isCode">{{ message.content }}</pre>
-                <p v-else>{{ message.content }}</p>
+                <!-- File attachment info (for user messages) -->
+                <div v-if="message.file && message.type === 'user'" class="message-file">
+                  <el-icon><document /></el-icon>
+                  <span class="file-name">{{ message.file.name }}</span>
+                  <span class="file-size">({{ formatFileSize(message.file.size) }})</span>
+                </div>
+
+                <!-- Template fill config (for user messages) -->
+                <div v-if="message.templateFillConfig && message.type === 'user'" class="template-config">
+                  <el-tag size="small" type="success">模板填充模式</el-tag>
+                  <span v-if="message.templateFillConfig.context" class="config-item">
+                    上下文: {{ message.templateFillConfig.context }}
+                  </span>
+                  <span class="config-item">
+                    行数限制: {{ message.templateFillConfig.limit }}
+                  </span>
+                </div>
+
+                <!-- Streaming status indicator -->
+                <div v-if="message.isStreaming && message.statusMessage" class="streaming-status">
+                  <el-icon class="is-loading"><loading /></el-icon>
+                  <span>{{ message.statusMessage }}</span>
+                </div>
+
+                <!-- Message content with Markdown rendering -->
+                <MarkdownRenderer
+                  v-if="message.content && message.type === 'assistant'"
+                  :content="message.content"
+                  :class="{ 'typing-animation': message.isStreaming }"
+                />
+                <p v-else-if="message.content" :class="{ 'typing-animation': message.isStreaming }">
+                  {{ message.content }}<span v-if="message.isStreaming" class="cursor">|</span>
+                </p>
 
                 <!-- Display result if available -->
-                <el-alert
-                  v-if="message.result"
-                  :type="message.result.success ? 'success' : 'error'"
-                  :closable="false"
-                  style="margin-top: 10px"
-                >
-                  <template #title>
-                    <span v-if="message.result.success">执行成功</span>
-                    <span v-else>执行失败</span>
-                  </template>
-                  <pre v-if="message.result.result" style="margin-top: 8px; white-space: pre-wrap;">{{
-                    typeof message.result.result === 'object'
-                      ? JSON.stringify(message.result.result, null, 2)
-                      : message.result.result
-                  }}</pre>
-                  <p v-if="message.result.error" style="margin-top: 8px; color: #f56565;">
-                    {{ message.result.error }}
-                  </p>
-                </el-alert>
-              </div>
-            </div>
+                <div v-if="message.result && !message.isStreaming" style="margin-top: 10px">
+                  <!-- Template fill result renderer -->
+                  <TemplateFillResultRenderer
+                    v-if="message.result.success && message.result.result?.filename"
+                    :filename="message.result.result.filename"
+                    :metadata="{
+                      rowsFilled: message.result.result.rowsFilled,
+                      dataSource: message.result.result.dataSource,
+                      processingTimeMs: message.result.result.processingTimeMs,
+                      templateTitle: message.result.result.templateTitle,
+                      aiReasoning: message.result.result.aiReasoning
+                    }"
+                  />
 
-            <div v-if="isProcessing" class="message assistant processing">
-              <div class="message-header">
-                <span class="message-sender">MCP助手</span>
-              </div>
-              <div class="message-content">
-                <el-icon class="is-loading"><loading /></el-icon>
-                正在处理...
+                  <!-- Standard result display -->
+                  <template v-else>
+                    <el-alert
+                      :type="message.result.success ? 'success' : 'error'"
+                      :closable="false"
+                    >
+                      <template #title>
+                        <span v-if="message.result.success">执行成功</span>
+                        <span v-else>执行失败</span>
+                      </template>
+                      <p v-if="message.result.error" style="margin-top: 8px; color: #f56565;">
+                        {{ message.result.error }}
+                      </p>
+                    </el-alert>
+
+                    <!-- Application data renderer for result -->
+                    <ApplicationDataRenderer
+                      v-if="message.result.result && isApplicationData(message.result.result)"
+                      :data="extractApplicationData(message.result.result)"
+                    />
+
+                    <!-- Fallback raw JSON display -->
+                    <pre
+                      v-else-if="message.result.result"
+                      class="result-json"
+                    >{{ formatResultData(message.result.result) }}</pre>
+                  </template>
+                </div>
               </div>
             </div>
 
             <el-empty
               v-if="chatMessages.length === 0 && !isProcessing"
-              description="请输入查询或选择快捷操作开始使用MCP助手"
-            />
+              description="MCP智能助手可以帮您执行复杂数据查询、生成SQL分析、导出定制化Excel报表"
+            >
+              <template #default>
+                <div style="margin-top: 16px;">
+                  <el-text type="info" size="small">
+                    💡 点击左侧工具示例快速开始，或直接输入您的查询需求
+                  </el-text>
+                </div>
+              </template>
+            </el-empty>
           </div>
 
           <!-- Chat Input -->
           <div class="chat-input">
+            <!-- File Upload Preview -->
+            <div v-if="uploadedFile" class="file-preview">
+              <div class="file-info">
+                <el-icon><document /></el-icon>
+                <span class="file-name">{{ uploadedFile.name }}</span>
+                <span class="file-size">{{ formatFileSize(uploadedFile.size) }}</span>
+              </div>
+              <el-button
+                size="small"
+                text
+                type="danger"
+                @click="removeFile"
+              >
+                移除
+              </el-button>
+            </div>
+
+            <!-- File Upload Mode Selection -->
+            <div v-if="uploadedFile" class="upload-mode-selector">
+              <el-radio-group v-model="uploadMode" size="small">
+                <el-radio-button value="analysis">文件分析</el-radio-button>
+                <el-radio-button value="template-fill">模板填充</el-radio-button>
+              </el-radio-group>
+
+              <!-- Template Fill Configuration -->
+              <div v-if="uploadMode === 'template-fill'" class="template-fill-config">
+                <el-input
+                  v-model="templateFillContext"
+                  placeholder="输入上下文信息（可选，如：项目进度报告）"
+                  size="small"
+                  clearable
+                  style="flex: 1; max-width: 400px;"
+                >
+                  <template #prepend>上下文</template>
+                </el-input>
+                <el-input-number
+                  v-model="templateFillLimit"
+                  :min="1"
+                  :max="10000"
+                  :step="100"
+                  size="small"
+                  style="width: 150px;"
+                >
+                  <template #prepend>行数</template>
+                </el-input-number>
+              </div>
+            </div>
+
             <el-input
               v-model="userInput"
               type="textarea"
               :rows="3"
-              placeholder="输入查询内容，例如：查询所有进行中的应用..."
+              :placeholder="getInputPlaceholder()"
               @keydown.enter.ctrl="handleSendMessage"
               :disabled="isProcessing"
             />
             <div class="input-actions">
               <div class="input-hints">
                 <el-text size="small" type="info">
-                  Ctrl + Enter 发送 | 支持自然语言查询
+                  Ctrl + Enter 发送 | 支持复杂SQL查询、数据分析、报表生成、Excel文件分析
                 </el-text>
               </div>
-              <el-button
-                type="primary"
-                @click="handleSendMessage"
-                :loading="isProcessing"
-                :disabled="!userInput.trim()"
-              >
-                发送
-              </el-button>
+              <div class="action-buttons">
+                <input
+                  ref="fileInputRef"
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  style="display: none"
+                  @change="handleFileSelect"
+                />
+                <el-button
+                  size="default"
+                  @click="triggerFileUpload"
+                  :disabled="isProcessing"
+                >
+                  <el-icon><upload-filled /></el-icon>
+                  上传Excel
+                </el-button>
+                <el-button
+                  type="primary"
+                  @click="handleSendMessage"
+                  :loading="isProcessing"
+                  :disabled="uploadedFile && uploadMode === 'template-fill' ? false : (!userInput.trim() && !uploadedFile)"
+                >
+                  {{ uploadedFile && uploadMode === 'template-fill' ? '填充模板' : '发送' }}
+                </el-button>
+              </div>
             </div>
           </div>
         </el-card>
@@ -163,10 +288,13 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
-import { MCPAPI, MCP_TOOL_CATEGORIES, requiresEditPermission } from '@/api/mcp'
+import { Loading, Document, UploadFilled } from '@element-plus/icons-vue'
+import { MCPAPI, requiresEditPermission } from '@/api/mcp'
 import { useAuthStore } from '@/stores/auth'
 import { hasPermission, type UserRole, getRoleDisplayName } from '@/utils/permissions'
+import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
+import ApplicationDataRenderer from '@/components/common/ApplicationDataRenderer.vue'
+import TemplateFillResultRenderer from '@/components/common/TemplateFillResultRenderer.vue'
 
 const authStore = useAuthStore()
 
@@ -176,6 +304,11 @@ const chatMessages = ref<any[]>([])
 const chatMessagesRef = ref<HTMLElement>()
 const userInput = ref('')
 const isProcessing = ref(false)
+const uploadedFile = ref<File | null>(null)
+const fileInputRef = ref<HTMLInputElement>()
+const uploadMode = ref<'analysis' | 'template-fill'>('analysis')
+const templateFillContext = ref('')
+const templateFillLimit = ref(1000)
 
 // Computed
 const userRole = computed(() => {
@@ -187,99 +320,406 @@ const canUseEditTools = computed(() => {
   return hasPermission(role, 'canUseMCPEdit')
 })
 
-const toolCategories = computed(() => MCP_TOOL_CATEGORIES)
+// MCP Assistant Tool Categories (聚焦查询和分析)
+const toolCategories = computed(() => ({
+  database: {
+    name: '数据库查询与分析',
+    description: '执行复杂SQL查询，支持联表、聚合、统计分析',
+    icon: 'data-analysis',
+    color: '#667eea'
+  },
+  query: {
+    name: '复杂数据查询',
+    description: '多维度数据查询，支持高级筛选和组合条件',
+    icon: 'search',
+    color: '#48bb78'
+  },
+  analysis: {
+    name: '统计分析与报表',
+    description: '智能分析、趋势预测、自定义Excel报表生成',
+    icon: 'data-board',
+    color: '#f56c6c'
+  },
+  cmdb: {
+    name: 'CMDB系统查询',
+    description: 'L2/L1系统架构查询与层级结构分析',
+    icon: 'collection',
+    color: '#e6a23c'
+  }
+}))
 
-const quickActions = computed(() => [
+// Detailed tool list with usage examples (查询和分析类工具)
+const allTools = computed(() => [
+  // Database Query & Analysis Tools (2)
   {
-    name: 'list_apps',
-    label: '查看应用列表',
-    type: 'primary',
+    name: 'db_query',
+    displayName: 'SQL查询',
+    category: 'database',
+    description: '执行复杂的只读SQL查询，支持联表、聚合、分组等高级操作',
     requiresEdit: false,
-    query: '查询前10个应用'
+    example: '统计每个部门2024年完成的AK改造项目数量，并计算完成率'
   },
   {
-    name: 'progress_summary',
-    label: '进度汇总',
-    type: 'success',
+    name: 'db_get_schema',
+    displayName: '查看表结构',
+    category: 'database',
+    description: '获取数据库表结构信息，便于构建复杂查询',
     requiresEdit: false,
-    query: '获取所有应用的进度汇总统计'
+    example: '显示applications和subtasks表的所有字段和关联关系'
+  },
+
+  // Complex Data Query Tools (4)
+  {
+    name: 'app_list',
+    displayName: '应用列表查询',
+    category: 'query',
+    description: '支持多维度组合筛选的应用列表查询',
+    requiresEdit: false,
+    example: '查询技术部2024年所有AK目标且当前阻塞的应用，并显示阻塞原因'
   },
   {
-    name: 'delayed_projects',
-    label: '延迟项目',
-    type: 'warning',
+    name: 'app_get',
+    displayName: '应用详情查询',
+    category: 'query',
+    description: '获取应用的完整详细信息，包括子任务和历史记录',
     requiresEdit: false,
-    query: '查询所有延迟的项目'
+    example: '查询L2 ID为CI000088398的应用，包括所有子任务的进度详情'
   },
   {
-    name: 'schema_info',
-    label: '数据库架构',
-    type: 'info',
+    name: 'task_list',
+    displayName: '子任务列表查询',
+    category: 'query',
+    description: '高级子任务查询，支持多字段组合筛选',
     requiresEdit: false,
-    query: '显示数据库架构信息'
+    example: '查询张三负责的所有阻塞超过15天的子任务，按阻塞时长排序'
+  },
+  {
+    name: 'audit_get_logs',
+    displayName: '审计日志查询',
+    category: 'query',
+    description: '查询操作审计日志，追溯数据变更历史和操作人员',
+    requiresEdit: false,
+    example: '查看最近30天内状态从进行中改为阻塞的所有应用及修改人'
+  },
+
+  // Statistical Analysis & Reports Tools (3)
+  {
+    name: 'calc_delays',
+    displayName: '延迟项目分析',
+    category: 'analysis',
+    description: '智能分析项目延期情况，识别风险项目，生成预警报告',
+    requiresEdit: false,
+    example: '分析所有延期超过30天的项目，按部门分组并分析延期原因'
+  },
+  {
+    name: 'dashboard_stats',
+    displayName: '统计分析',
+    category: 'analysis',
+    description: '多维度统计分析：进度汇总、部门对比、趋势分析、完成率计算',
+    requiresEdit: false,
+    example: '分析各部门AK和云原生项目的进度差异，生成对比图表'
+  },
+  {
+    name: 'dashboard_export',
+    displayName: 'Excel报表导出',
+    category: 'analysis',
+    description: '按需生成定制化Excel报表，支持自定义字段、排序、筛选',
+    requiresEdit: false,
+    example: '导出2024年所有项目的进度明细表，包含子任务分解和负责人信息'
+  },
+
+  // CMDB System Query Tools (5)
+  {
+    name: 'cmdb_search_l2',
+    displayName: 'L2应用搜索',
+    category: 'cmdb',
+    description: '在CMDB中搜索L2级应用系统，支持多维度筛选',
+    requiresEdit: false,
+    example: '搜索所有集团级且生命周期为运行中的云原生L2应用'
+  },
+  {
+    name: 'cmdb_get_l2',
+    displayName: 'L2应用详情',
+    category: 'cmdb',
+    description: '获取L2应用在CMDB中的完整配置信息',
+    requiresEdit: false,
+    example: '查看L2应用的技术架构、部署环境和依赖关系'
+  },
+  {
+    name: 'cmdb_search_156l1',
+    displayName: '156L1系统搜索',
+    category: 'cmdb',
+    description: '搜索156L1系统（当前分类体系）',
+    requiresEdit: false,
+    example: '搜索所有核心业务系统的156L1分类'
+  },
+  {
+    name: 'cmdb_get_156l1_with_l2s',
+    displayName: 'L1系统层级查询',
+    category: 'cmdb',
+    description: '获取L1系统及其下所有L2应用的完整层级结构',
+    requiresEdit: false,
+    example: '查询风控系统L1下所有L2应用及其改造进度情况'
+  },
+  {
+    name: 'cmdb_search_87l1',
+    displayName: '87L1系统搜索',
+    category: 'cmdb',
+    description: '搜索87L1系统（未来分类体系）',
+    requiresEdit: false,
+    example: '搜索新架构体系下的87L1系统分类'
   }
 ])
 
-// Methods
-const handleSendMessage = async () => {
-  if (!userInput.value.trim() || isProcessing.value) return
+// Get tools for a specific category
+const getCategoryTools = (categoryKey: string) => {
+  return allTools.value.filter(tool => tool.category === categoryKey)
+}
 
-  const message = {
+// Get tool count for a category
+const getCategoryToolCount = (categoryKey: string) => {
+  return getCategoryTools(categoryKey).length
+}
+
+// Execute tool example - fill input but don't auto-send
+const executeToolExample = (tool: any) => {
+  userInput.value = tool.example
+  ElMessage.success('示例已填入输入框，点击发送按钮或按 Ctrl+Enter 发送')
+}
+
+// Methods
+const getInputPlaceholder = () => {
+  if (!uploadedFile.value) {
+    return '输入查询需求，例如：查询各部门进行中项目的延期情况并生成Excel报表...'
+  }
+  if (uploadMode.value === 'template-fill') {
+    return '点击发送开始填充模板（输入框可留空）'
+  }
+  return '输入针对上传文件的分析需求...'
+}
+
+const handleSendMessage = async () => {
+  if ((!userInput.value.trim() && !uploadedFile.value) || isProcessing.value) return
+
+  const currentFile = uploadedFile.value
+  const currentMode = uploadMode.value
+  const query = userInput.value.trim() || (currentMode === 'template-fill' ? '填充Excel模板' : '请分析这个Excel文件')
+
+  // Create user message
+  const message: any = {
     type: 'user',
-    content: userInput.value,
+    content: query,
     timestamp: new Date(),
-    isCode: false
+    isCode: false,
+    mode: currentMode
+  }
+
+  // Add file info if present
+  if (currentFile) {
+    message.file = {
+      name: currentFile.name,
+      size: currentFile.size
+    }
+  }
+
+  // Add template fill config if in template-fill mode
+  if (currentMode === 'template-fill' && currentFile) {
+    message.templateFillConfig = {
+      context: templateFillContext.value,
+      limit: templateFillLimit.value
+    }
   }
 
   chatMessages.value.push(message)
-  const query = userInput.value
   userInput.value = ''
+  uploadedFile.value = null
+  uploadMode.value = 'analysis' // Reset to default mode
+  templateFillContext.value = ''
+  templateFillLimit.value = 1000
 
   scrollToBottom()
 
   // Process the query
-  await processQuery(query)
+  if (currentMode === 'template-fill' && currentFile) {
+    await processTemplateFill(currentFile, message.templateFillConfig)
+  } else {
+    await processQuery(query, currentFile)
+  }
 }
 
-const processQuery = async (query: string) => {
+const processTemplateFill = async (file: File, config: { context: string; limit: number }) => {
   try {
     isProcessing.value = true
 
-    // For now, we'll handle specific queries
-    // In a real implementation, you'd use NLP or pattern matching
-    let result
-
-    if (query.includes('应用列表') || query.includes('查询') && query.includes('应用')) {
-      result = await MCPAPI.executeTool({
-        tool_name: 'app_list',
-        arguments: { limit: 10 }
-      })
-    } else if (query.includes('进度汇总') || query.includes('统计')) {
-      result = await MCPAPI.executeTool({
-        tool_name: 'dashboard_stats',
-        arguments: { stat_type: 'summary' }
-      })
-    } else if (query.includes('延迟') || query.includes('逾期')) {
-      result = await MCPAPI.executeTool({
-        tool_name: 'calc_delays',
-        arguments: { include_details: true }
-      })
-    } else if (query.includes('数据库') || query.includes('架构') || query.includes('schema')) {
-      result = await MCPAPI.getDatabaseSchema()
-    } else {
-      // Default: try to query applications
-      result = await MCPAPI.queryApplications(query)
-    }
-
-    // Add assistant response
+    // Create assistant message placeholder
+    const assistantMessageIndex = chatMessages.value.length
     chatMessages.value.push({
       type: 'assistant',
-      content: '查询结果：',
+      content: '正在填充模板...',
       timestamp: new Date(),
       isCode: false,
-      result: result
+      isStreaming: true,
+      statusMessage: '正在上传模板并填充数据...',
+      result: null
     })
 
+    scrollToBottom()
+
+    // Call template fill API
+    const result = await MCPAPI.fillExcelTemplate(file, config.context, config.limit)
+
+    // Finalize the message
+    const msg = chatMessages.value[assistantMessageIndex]
+    if (msg) {
+      msg.isStreaming = false
+      msg.statusMessage = undefined
+
+      // Build success message
+      const metadata = result.metadata
+      let successMessage = `✅ **模板填充成功**\n\n`
+      successMessage += `- **填充行数**: ${metadata.rowsFilled} 行\n`
+      successMessage += `- **数据源**: ${metadata.dataSource}\n`
+      successMessage += `- **处理时间**: ${metadata.processingTimeMs}ms\n`
+      if (metadata.templateTitle) {
+        successMessage += `- **模板标题**: ${metadata.templateTitle}\n`
+      }
+      if (metadata.aiReasoning) {
+        successMessage += `\n**AI 分析**：${metadata.aiReasoning}\n`
+      }
+      successMessage += `\n文件已自动下载为：**${result.filename}**`
+
+      msg.content = successMessage
+      msg.result = {
+        success: true,
+        result: {
+          filename: result.filename,
+          ...metadata
+        }
+      }
+    }
+
+    // Auto-download the file
+    const url = window.URL.createObjectURL(result.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = result.filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+
+    ElMessage.success(`成功填充 ${result.metadata.rowsFilled} 行数据！文件已下载。`)
+    scrollToBottom()
+  } catch (error: any) {
+    console.error('Template fill error:', error)
+
+    chatMessages.value.push({
+      type: 'assistant',
+      content: '模板填充失败',
+      timestamp: new Date(),
+      isCode: false,
+      result: {
+        success: false,
+        error: error.message || '未知错误'
+      }
+    })
+
+    ElMessage.error(`模板填充失败：${error.message || '未知错误'}`)
+  } finally {
+    isProcessing.value = false
+    scrollToBottom()
+  }
+}
+
+const processQuery = async (query: string, file?: File | null) => {
+  try {
+    isProcessing.value = true
+
+    // Create assistant message placeholder
+    const assistantMessageIndex = chatMessages.value.length
+    chatMessages.value.push({
+      type: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      isCode: false,
+      isStreaming: true,
+      streamingPhase: 'parsing',
+      statusMessage: file ? '正在上传和分析文件...' : '正在解析查询...',
+      result: null
+    })
+
+    let fullContent = ''
+    let queryResult: any = null
+
+    const callbacks = {
+      onStatus: (phase: string, message: string) => {
+        // Update status message
+        const msg = chatMessages.value[assistantMessageIndex]
+        if (msg) {
+          msg.streamingPhase = phase
+          msg.statusMessage = message
+        }
+        scrollToBottom()
+      },
+      onData: (data: any) => {
+        // Store query result data
+        queryResult = data
+        scrollToBottom()
+      },
+      onChunk: (chunk: string) => {
+        // Append AI-generated text chunk
+        fullContent += chunk
+        const msg = chatMessages.value[assistantMessageIndex]
+        if (msg) {
+          msg.content = fullContent
+          msg.streamingPhase = 'generating'
+        }
+        scrollToBottom()
+      },
+      onDone: (success: boolean, message?: string) => {
+        // Finalize the message
+        const msg = chatMessages.value[assistantMessageIndex]
+        if (msg) {
+          msg.isStreaming = false
+          msg.streamingPhase = undefined
+          msg.statusMessage = undefined
+          msg.result = queryResult
+            ? {
+                success: true,
+                result: queryResult
+              }
+            : undefined
+
+          // If no AI content was generated, show default message
+          if (!msg.content) {
+            msg.content = message || '查询完成'
+          }
+        }
+        scrollToBottom()
+      },
+      onError: (error: string) => {
+        // Update message with error
+        const msg = chatMessages.value[assistantMessageIndex]
+        if (msg) {
+          msg.isStreaming = false
+          msg.streamingPhase = undefined
+          msg.statusMessage = undefined
+          msg.content = '抱歉，查询失败'
+          msg.result = {
+            success: false,
+            error: error
+          }
+        }
+        scrollToBottom()
+      }
+    }
+
+    // Use appropriate API based on whether file is present
+    if (file) {
+      await MCPAPI.uploadFileWithQuery(file, query, callbacks)
+    } else {
+      await MCPAPI.queryStream(query, callbacks)
+    }
   } catch (error: any) {
     console.error('MCP query error:', error)
 
@@ -290,23 +730,13 @@ const processQuery = async (query: string) => {
       isCode: false,
       result: {
         success: false,
-        error: error.response?.data?.detail || error.message || '未知错误'
+        error: error.message || '未知错误'
       }
     })
   } finally {
     isProcessing.value = false
     scrollToBottom()
   }
-}
-
-const executeQuickAction = async (action: any) => {
-  if (action.requiresEdit && !canUseEditTools.value) {
-    ElMessage.warning('您没有权限执行此操作')
-    return
-  }
-
-  userInput.value = action.query
-  await handleSendMessage()
 }
 
 const clearChat = () => {
@@ -327,6 +757,100 @@ const formatTime = (timestamp: Date) => {
     minute: '2-digit'
   })
 }
+
+// File upload handlers
+const triggerFileUpload = () => {
+  fileInputRef.value?.click()
+}
+
+const handleFileSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  if (!file) return
+
+  // Validate file type
+  const validTypes = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel', // .xls
+    'text/csv' // .csv
+  ]
+
+  if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
+    ElMessage.error('仅支持 Excel (.xlsx, .xls) 和 CSV (.csv) 文件')
+    return
+  }
+
+  // Validate file size (max 10MB)
+  const maxSize = 10 * 1024 * 1024
+  if (file.size > maxSize) {
+    ElMessage.error('文件大小不能超过 10MB')
+    return
+  }
+
+  uploadedFile.value = file
+  ElMessage.success(`已选择文件：${file.name}`)
+
+  // Clear the input so the same file can be selected again
+  if (target) {
+    target.value = ''
+  }
+}
+
+const removeFile = () => {
+  uploadedFile.value = null
+  ElMessage.info('已移除文件')
+}
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+}
+
+// Helper function to check if data is application-related
+const isApplicationData = (data: any): boolean => {
+  if (!data) return false
+
+  // Check if it's a single application object
+  if (typeof data === 'object' && !Array.isArray(data)) {
+    // Check for nested data structure (common in API responses)
+    if (data.data && typeof data.data === 'object') {
+      const innerData = data.data
+      return !!(innerData.l2_id || innerData.app_name || innerData.current_status)
+    }
+    return !!(data.l2_id || data.app_name || data.current_status)
+  }
+
+  // Check if it's an array of applications
+  if (Array.isArray(data) && data.length > 0) {
+    return !!(data[0].l2_id || data[0].app_name)
+  }
+
+  return false
+}
+
+// Helper function to extract application data from response
+const extractApplicationData = (data: any): any => {
+  if (!data) return data
+
+  // If data has a nested 'data' property, extract it
+  if (typeof data === 'object' && !Array.isArray(data) && data.data) {
+    return data.data
+  }
+
+  return data
+}
+
+// Helper function to format result data for display
+const formatResultData = (data: any): string => {
+  if (typeof data === 'string') {
+    return data
+  }
+  return JSON.stringify(data, null, 2)
+}
 </script>
 
 <style scoped lang="scss">
@@ -334,26 +858,106 @@ const formatTime = (timestamp: Date) => {
   padding: 20px;
 
   .tools-panel {
-    height: fit-content;
+    height: calc(100vh - 140px);
+    display: flex;
+    flex-direction: column;
+
+    :deep(.el-card__header) {
+      flex-shrink: 0;
+    }
+
+    :deep(.el-card__body) {
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
 
     h3 {
       margin: 0;
       font-size: 16px;
       font-weight: 600;
+    }
+
+    .category-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding-right: 10px;
     }
 
     .category-description {
       font-size: 13px;
       color: #718096;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: #f7fafc;
+      border-radius: 4px;
+    }
+
+    .tool-list {
+      margin-top: 12px;
+    }
+
+    .tool-item {
+      padding: 12px;
+      margin-bottom: 10px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      transition: all 0.2s;
+
+      &:hover {
+        border-color: #667eea;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+      }
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    .tool-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+
+      .tool-name {
+        font-weight: 600;
+        font-size: 14px;
+        color: #2d3748;
+      }
+    }
+
+    .tool-description {
+      font-size: 12px;
+      color: #718096;
       margin-bottom: 8px;
     }
-  }
 
-  .quick-actions {
-    h3 {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 600;
+    .tool-example {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #f7fafc;
+
+      .el-text {
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
+      .el-button {
+        padding: 4px 8px;
+        font-size: 12px;
+        height: auto;
+        white-space: normal;
+        word-break: break-all;
+        text-align: left;
+        line-height: 1.5;
+      }
     }
   }
 
@@ -373,6 +977,60 @@ const formatTime = (timestamp: Date) => {
       padding: 0;
       min-height: 0;
       overflow: hidden;
+    }
+
+    .upload-mode-selector {
+      padding: 12px 16px;
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      margin-bottom: 12px;
+
+      .template-fill-config {
+        display: flex;
+        gap: 12px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+    }
+
+    .file-preview {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: #f0f9ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+
+      .file-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+
+        .el-icon {
+          font-size: 20px;
+          color: #3b82f6;
+        }
+
+        .file-name {
+          font-size: 14px;
+          color: #1e40af;
+          font-weight: 500;
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .file-size {
+          font-size: 12px;
+          color: #6b7280;
+        }
+      }
     }
 
     .chat-header {
@@ -406,12 +1064,12 @@ const formatTime = (timestamp: Date) => {
       .message {
         padding: 12px 16px;
         border-radius: 8px;
-        max-width: 80%;
 
         &.user {
           align-self: flex-end;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
+          max-width: 80%;
 
           .message-sender {
             color: rgba(255, 255, 255, 0.9);
@@ -426,6 +1084,7 @@ const formatTime = (timestamp: Date) => {
           align-self: flex-start;
           background: white;
           border: 1px solid #e2e8f0;
+          max-width: 95%;
 
           .message-sender {
             color: #667eea;
@@ -433,8 +1092,37 @@ const formatTime = (timestamp: Date) => {
           }
         }
 
-        &.processing {
-          opacity: 0.8;
+        &.streaming {
+          .message-content {
+            .streaming-status {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 8px 12px;
+              background: #f0f9ff;
+              border-left: 3px solid #667eea;
+              border-radius: 4px;
+              margin-bottom: 12px;
+              font-size: 13px;
+              color: #667eea;
+
+              .el-icon {
+                font-size: 16px;
+              }
+            }
+
+            .typing-animation {
+              position: relative;
+
+              .cursor {
+                display: inline-block;
+                margin-left: 2px;
+                animation: blink 1s infinite;
+                color: #667eea;
+                font-weight: bold;
+              }
+            }
+          }
         }
 
         .message-header {
@@ -456,6 +1144,60 @@ const formatTime = (timestamp: Date) => {
         .message-content {
           font-size: 14px;
           line-height: 1.6;
+
+          .result-json {
+            margin-top: 8px;
+            padding: 12px;
+            background: #2d3748;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #e2e8f0;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+          }
+
+          .message-file {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            font-size: 13px;
+
+            .el-icon {
+              font-size: 16px;
+            }
+
+            .file-name {
+              font-weight: 500;
+            }
+
+            .file-size {
+              opacity: 0.8;
+              font-size: 12px;
+            }
+          }
+
+          .template-config {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            margin-top: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            font-size: 12px;
+            flex-wrap: wrap;
+
+            .config-item {
+              opacity: 0.9;
+            }
+          }
 
           p {
             margin: 0;
@@ -491,27 +1233,48 @@ const formatTime = (timestamp: Date) => {
         .input-hints {
           font-size: 12px;
           color: #a0aec0;
+          flex: 1;
+        }
+
+        .action-buttons {
+          display: flex;
+          gap: 8px;
         }
       }
     }
   }
 
   // 确保滚动条样式美观
-  .chat-messages::-webkit-scrollbar {
+  .chat-messages::-webkit-scrollbar,
+  .tools-panel :deep(.el-card__body)::-webkit-scrollbar {
     width: 6px;
   }
 
-  .chat-messages::-webkit-scrollbar-track {
+  .chat-messages::-webkit-scrollbar-track,
+  .tools-panel :deep(.el-card__body)::-webkit-scrollbar-track {
     background: #f1f1f1;
   }
 
-  .chat-messages::-webkit-scrollbar-thumb {
+  .chat-messages::-webkit-scrollbar-thumb,
+  .tools-panel :deep(.el-card__body)::-webkit-scrollbar-thumb {
     background: #cbd5e0;
     border-radius: 3px;
 
     &:hover {
       background: #a0aec0;
     }
+  }
+}
+
+// Keyframe animations
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
   }
 }
 

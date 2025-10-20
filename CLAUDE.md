@@ -152,6 +152,709 @@ src/
 #### Calculation
 - `POST /calculation/calculate` - Calculate progress and status
 
+### MCP Server Integration
+
+The backend provides a comprehensive **Model Context Protocol (MCP)** server with 27 tools across 8 categories, enabling powerful automation, AI-enhanced analysis, and intelligent assistance.
+
+#### MCP API Endpoints
+- `POST /api/v1/mcp/tools/execute` - Execute a single MCP tool
+- `POST /api/v1/mcp/query` - Natural language query with AI enhancement
+- `GET /api/v1/mcp/tools` - List all available MCP tools
+- `GET /api/v1/mcp/health` - MCP server health check
+
+#### MCP Tools Categories
+
+##### 1. Database Query Tools (2 tools)
+
+**db_query** - Execute read-only SQL queries
+- Parameters:
+  - `query` (string, required) - SQL SELECT statement
+  - `limit` (int, optional) - Maximum rows to return (default: 1000)
+- Returns: Query results as array of objects
+- Security: Read-only, prevents INSERT/UPDATE/DELETE/DROP operations
+- Use cases: Custom data analysis, complex reporting, data validation
+
+**db_get_schema** - Get database table structure
+- Parameters:
+  - `table_name` (string, optional) - Specific table name, or all tables if omitted
+- Returns: Schema information including column names, types, constraints
+- Use cases: Database exploration, query building assistance, schema documentation
+
+##### 2. Application Management Tools (4 tools)
+
+**app_list** - List applications with filtering
+- Parameters:
+  - `status` (string, optional) - Filter by status: "待启动" | "进行中" | "已完成" | "阻塞中"
+  - `team` (string, optional) - Filter by team/department name
+  - `limit` (int, optional) - Maximum results (default: 100)
+  - `offset` (int, optional) - Pagination offset
+- Returns: Array of application objects with metadata
+
+**app_get** - Get single application details
+- Parameters:
+  - `application_id` (string, optional) - Application UUID
+  - `l2_id` (string, optional) - L2 identifier (either application_id or l2_id required)
+- Returns: Complete application details including subtasks
+- Use cases: Detailed inspection, data verification
+
+**app_create** - Create new application
+- Parameters:
+  - `l2_id` (string, required) - Unique L2 identifier
+  - `app_name` (string, required) - Application name
+  - `supervision_year` (int, required) - Year of supervision
+  - `target` (string, required) - "AK" or "云原生"
+  - Additional optional fields for team, contacts, etc.
+- Returns: Created application object with generated ID
+
+**app_update** - Update existing application
+- Parameters:
+  - `application_id` (string, required) - Target application UUID
+  - `update_data` (object, required) - Fields to update
+- Returns: Updated application object
+- Note: Automatically creates audit log entry
+
+##### 3. Sub-task Management Tools (3 tools)
+
+**task_list** - List subtasks with filtering
+- Parameters:
+  - `application_id` (string, optional) - Filter by parent application
+  - `status` (string, optional) - Filter by task status
+  - `assigned_to` (string, optional) - Filter by assignee
+  - `limit` (int, optional) - Maximum results
+- Returns: Array of subtask objects
+
+**task_create** - Create new subtask
+- Parameters:
+  - `application_id` (string, required) - Parent application ID
+  - `module_name` (string, required) - Module/component name
+  - `sub_target` (string, optional) - Sub-target description
+  - `task_status` (string, optional) - Initial status
+  - `assigned_to` (string, optional) - Assignee name
+  - Date fields: `plan_start_date`, `plan_end_date`, etc.
+- Returns: Created subtask object
+
+**task_batch_update** - Batch update multiple subtasks
+- Parameters:
+  - `task_ids` (array<string>, required) - Array of subtask IDs to update
+  - `update_data` (object, required) - Fields to apply to all tasks
+- Returns: Batch operation summary (success/failure counts)
+- Use cases: Bulk status changes, reassignment, date adjustments
+
+##### 4. Excel Operations Tools (2 tools)
+
+**excel_import** - Import data from Excel file
+- Parameters:
+  - `file_path` (string, required) - Path to Excel file
+  - `import_type` (string, required) - "applications" or "subtasks"
+- Returns: Import statistics (success/failure counts, error details)
+- Supports: Chinese column names, two-sheet format (总追踪表 + 子追踪表)
+
+**excel_export** - Export data to Excel file
+- Parameters:
+  - `export_type` (string, required) - "applications" | "subtasks" | "reports"
+  - `filters` (object, optional) - Filter criteria for export
+  - `output_path` (string, optional) - Target file path
+- Returns: Export file path and statistics
+- Use cases: Backup, reporting, data sharing
+
+##### 5. Calculation Service Tools (2 tools)
+
+**calc_progress** - Calculate application progress
+- Parameters:
+  - `application_ids` (array<string>, optional) - Specific apps to recalculate
+  - `recalculate_all` (boolean, optional) - Recalculate all applications
+- Returns: Updated progress percentages and statuses
+- Logic: Aggregates subtask progress, updates parent application status
+
+**calc_delays** - Analyze project delays
+- Parameters:
+  - `include_details` (boolean, optional) - Include detailed delay breakdown
+- Returns: Delay statistics and list of delayed projects
+- Identifies: Projects past planned end date, blocked tasks, at-risk projects
+
+##### 6. Audit Operations Tools (2 tools)
+
+**audit_get_logs** - Retrieve audit log entries
+- Parameters:
+  - `table_name` (string, optional) - Filter by table (applications, subtasks)
+  - `operation` (string, optional) - Filter by operation (INSERT, UPDATE, DELETE)
+  - `user_id` (string, optional) - Filter by user
+  - `start_date` (string, optional) - ISO date range start
+  - `end_date` (string, optional) - ISO date range end
+  - `limit` (int, optional) - Maximum records (default: 100, no maximum limit)
+  - `offset` (int, optional) - Pagination offset
+- Returns: Array of audit log entries with old/new values
+- Use cases: Change tracking, compliance auditing, troubleshooting
+
+**audit_rollback** - Rollback changes to previous state
+- Parameters:
+  - `audit_log_id` (string, required) - Audit log entry ID to rollback
+- Returns:
+  - `success` (boolean) - Rollback success status
+  - `restored_values` - Data restored to previous state
+  - `rollback_audit_id` - New audit entry for the rollback operation
+- How it works:
+  1. Reads `old_values` from specified audit log
+  2. Restores record to pre-modification state
+  3. Creates new audit log for the rollback action
+- Use cases: Undo mistakes, emergency recovery, data restoration
+- Security: Only supports rollback of UPDATE/DELETE operations (prevents INSERT conflicts)
+
+##### 7. CMDB System Catalog Tools (7 tools)
+
+The CMDB (Configuration Management Database) system stores and manages information about enterprise systems and applications in 3 tables: L2 Applications table, 156L1 Systems table, and 87L1 Systems table. Each record has a unique Configuration Item ID, with relationships established between applications and systems.
+
+**CMDB Data Structure:**
+- **L2 Applications Table**: Records all L2 applications with various lifecycle statuses (立项通过/Approved, 建设中/Under Construction, 运行中/In Operation, etc.). See `system_status` field for complete status list.
+- **156L1 Systems Table**: Contains 156 L1 systems plus 9 virtual collections (EC应用集, 代建应用集, 国际应用集, etc.). "其他" represents commercial products. This is the **current classification** used for external reporting.
+- **87L1 Systems Table**: Contains 87 L1 systems plus 9 virtual collections. This is the **planned target state** that will replace 156L1 by the end of 2027.
+- **Configuration Item ID**: Unique identifier for each record, used to establish relationships between L2 applications and L1 systems.
+
+**L2 Application Fields:**
+The CMDB maintains comprehensive information for each L2 application:
+- **规范名称 (Canonical Name)**: Official short name in the master table
+- **其他名称 (Other Names)**: Alternative names and aliases
+- **配置项ID (Configuration Item ID)**: Unique identifier
+- **业务主管单位 (Business Supervising Department)**: Business owner department
+- **联系人 (Contact Person)**: Primary contact
+- **系统开发单位 (System Development Unit)**: Development organization
+- **系统开发接口人 (Development Interface Person)**: Development contact
+- **应用软件层运维单位 (Application Operations Unit)**: Operations organization
+- **应用软件层运维接口人 (Operations Interface Person)**: Operations contact
+- **管理级别 (Management Level)**: Classification level (集团级/Group Level, 156一级部门级/156 L1 Department Level, 二级部门级/L2 Department Level)
+- **系统状态 (System Status)**: Lifecycle status
+- **所属156L1系统 (Belongs to 156L1 System)**: Parent 156L1 system
+- **所属87L1系统 (Belongs to 87L1 System)**: Parent 87L1 system (future)
+
+**L2 ↔ L1 System Relationship Rules:**
+1. **Unique Association**: Based on application architecture review, each L2 application is typically uniquely associated with one 156L1 system.
+2. **Virtual Collections**: L2 applications that don't fit into specific L1 systems are associated with virtual collections (代建应用集/Commissioned Apps, 国际应用集/International Apps, etc.).
+3. **Dual Classification**: Each L2 application can be associated with both 156L1 (current) and 87L1 (future) systems.
+4. **Management Level Inheritance**: The management level of an L1 system is derived from the highest management level among all its child L2 applications.
+
+**Management Level (管理级别):**
+The management level is evaluated according to "中国银联系统及应用分类分级管理办法" (China UnionPay System and Application Classification Management Measures). It is used in:
+- Disaster recovery planning
+- Change management processes
+- Security incident handling
+- IT outsourcing management
+- Network security level protection
+
+Management levels are reviewed quarterly by the Technical Department for dynamic adjustments. Application owners can proactively submit adjustment requests through the "办公流程 - 系统备案及域名申请" (Office Process - System Registration and Domain Application) workflow.
+
+**System and Application Query Channels:**
+- **OA Portal**: Access via "系统及应用" (Systems & Applications) icon on OA homepage for online queries
+- **Bulk Operations**: Contact Technical Department Qi Lingtao (技术部祁凌涛) for batch filtering, downloads, or access issues
+- **Offline Applications**: Applications that have been decommissioned are not displayed in OA directory but remain in the backend database. Query via MCP assistant or contact Technical Department for lists.
+
+**Interface Person Adjustment Process:**
+1. **Within Department**: Send email to Technical Department Qi Lingtao, cc new interface person, specify which L2 application and which role's interface person is being adjusted.
+2. **Cross-Department**: Submit information change through "办公流程 - 系统备案及域名申请" (Office Process - System Registration and Domain Application).
+
+**L2-L1 Relationship Adjustment Process:**
+- Submit information change through "办公流程 - 系统备案及域名申请" (Office Process - System Registration and Domain Application)
+- Provide justification and undergo cross-department review
+- Focus on reviewing reasonability and impact on existing Xinchuang (信创) and cloud-native transformation plans
+
+**156L1 vs 87L1 Systems:**
+- **156L1**: Current classification system with 156 L1 systems, also used for external reporting
+- **87L1**: Planned target state with 87 L1 systems, expected to transition from 156L1 by the end of 2027
+- Both include 9 virtual collections for special categories (EC应用集, 代建应用集, etc.)
+
+---
+
+**cmdb_search_l2** - Search L2 applications in CMDB
+- Parameters:
+  - `keyword` (string, optional) - Search in canonical name (规范名称) and other names (其他名称)
+  - `status` (string, optional) - Filter by lifecycle status (立项通过/建设中/运行中/etc.)
+  - `management_level` (string, optional) - Filter by management level: "集团级" | "156一级部门级" | "二级部门级"
+  - `belongs_to_156l1` (string, optional) - Filter by 156L1 parent system
+  - `belongs_to_87l1` (string, optional) - Filter by 87L1 parent system (future)
+  - `limit` (int, optional) - Maximum results
+- Returns: Array of L2 application records with all fields (规范名称, 配置项ID, 联系人, 开发接口人, 运维接口人, etc.)
+- Use cases:
+  - Query canonical name, ID, contacts, and interface persons for an L2 application
+  - Find all applications belonging to a specific 156L1 or 87L1 system
+  - Search by management level or system status
+
+**cmdb_get_l2** - Get single L2 application details by L2 ID
+- Parameters:
+  - `l2_id` (string, required) - L2 identifier (规范名称)
+- Returns: Complete L2 application details including:
+  - Configuration Item ID (配置项ID)
+  - Canonical and other names (规范名称, 其他名称)
+  - Business supervising department (业务主管单位)
+  - Contact person (联系人)
+  - Development unit and interface person (系统开发单位, 系统开发接口人)
+  - Operations unit and interface person (应用软件层运维单位, 应用软件层运维接口人)
+  - Management level (管理级别)
+  - System status (系统状态)
+  - Associated 156L1 and 87L1 systems (所属156L1系统, 所属87L1系统)
+- Use cases: Get comprehensive information for a specific L2 application
+
+**cmdb_create_l2** - Create new L2 application in CMDB
+- Parameters:
+  - `l2_id` (string, required) - Unique L2 identifier (规范名称)
+  - `l2_name` (string, required) - Application canonical name
+  - `configuration_item_id` (string, auto-generated) - Unique configuration item ID
+  - `management_level` (string, required) - Management level classification
+  - `system_status` (string, optional) - Initial lifecycle status (default: 立项通过)
+  - `belongs_to_156l1` (string, optional) - 156L1 parent system
+  - `belongs_to_87l1` (string, optional) - 87L1 parent system
+  - `contact_person` (string, optional) - Contact person
+  - `dev_unit` (string, optional) - Development unit
+  - `dev_interface_person` (string, optional) - Development interface person
+  - `ops_unit` (string, optional) - Operations unit
+  - `ops_interface_person` (string, optional) - Operations interface person
+  - Additional metadata fields
+- Returns: Created L2 record with generated Configuration Item ID
+- Note: Configuration Item ID is unique and auto-generated
+
+**cmdb_update_l2** - Update L2 application
+- Parameters:
+  - `l2_id` (string, required) - L2 identifier
+  - `update_data` (object, required) - Fields to update (can include any L2 application fields)
+- Returns: Updated L2 record
+- Use cases: Update contact persons, interface persons, management level, system status, etc.
+
+**cmdb_search_156l1** - Search 156L1 systems (current classification for external reporting)
+- Parameters:
+  - `keyword` (string, optional) - Search in system name
+  - `limit` (int, optional) - Maximum results
+- Returns: Array of 156L1 system records
+- Note: Includes 156 L1 systems + 9 virtual collections (EC应用集, 代建应用集, 国际应用集, etc.)
+
+**cmdb_get_156l1_with_l2s** - Get 156L1 system with all child L2 applications
+- Parameters:
+  - `l1_156_id` (string, required) - 156L1 system identifier
+- Returns:
+  - 156L1 system details
+  - Array of all child L2 applications with full details
+  - Calculated management level (highest among all child L2s)
+- Use cases: View all applications under a specific 156L1 system
+
+**cmdb_search_87l1** - Search 87L1 systems (future target state, planned for 2027 transition)
+- Parameters:
+  - `keyword` (string, optional) - Search in system name
+  - `limit` (int, optional) - Maximum results
+- Returns: Array of 87L1 system records
+- Note: Includes 87 L1 systems + 9 virtual collections, will replace 156L1 by end of 2027
+
+**CMDB Key Features:**
+- **Dual Classification Support**: 156L1 (current) and 87L1 (future target state)
+- **Complete L2 ↔ L1 Relationship Mapping**: Each L2 uniquely associates with L1 systems or virtual collections
+- **Configuration Item ID**: Unique identifier for each record, establishes relationships
+- **Comprehensive Contact Management**: Tracks business contacts, development interface persons, operations interface persons
+- **Management Level Tracking**: Classification levels used across disaster recovery, change management, security, etc.
+- **Lifecycle Status Management**: Tracks applications from approval through construction to operation
+- **Multi-dimensional Search and Filtering**: By name, status, management level, parent system, etc.
+- **Interface Person Adjustment Workflows**: Documented processes for within-department and cross-department changes
+- **Virtual Collection Support**: For applications that don't fit specific L1 systems (代建应用集, 国际应用集, etc.)
+- **Excel Bulk Import Capability**: Batch operations for system and application data
+
+##### 8. Dashboard & Analytics Tools (2 tools)
+
+**dashboard_stats** - Get dashboard statistics
+- Parameters:
+  - `stat_type` (string, required) - "summary" | "progress_trend" | "department" | "delayed"
+  - `date_range` (object, optional) - Time range filter with start/end dates
+- Returns: Aggregated statistics based on type
+- Use cases: Executive dashboards, team reports, progress monitoring
+
+**dashboard_export** - Export dashboard data
+- Parameters:
+  - `format` (string, required) - "json" | "csv" | "excel"
+  - `include_charts` (boolean, optional) - Include chart data (default: false)
+- Returns: Export file path or data object
+- Use cases: Report generation, data archival, external sharing
+
+#### AI-Enhanced Features
+
+The MCP server includes **3 core AI capabilities** powered by LLM integration:
+
+##### 1. Natural Language Report Generation
+
+**Function:** `generate_report(data: Dict[str, Any]) -> str`
+
+Converts structured data into professional natural language reports with automatic analysis and key insight extraction.
+
+**Example:**
+```python
+report_data = {
+    "total_applications": 258,
+    "completed": 69,
+    "in_progress": 83,
+    "delayed": 23
+}
+report = await ai_assistant.generate_report(report_data)
+# Output: "本期项目进展报告显示，总计258个应用中，已完成69个（26.7%），
+#          正在进行中的有83个，延期项目23个需要重点关注..."
+```
+
+**Use cases:**
+- Executive summary generation
+- Automated progress reports
+- Status update emails
+- Management presentations
+
+##### 2. AI Intelligent Suggestions
+
+**Function:** `suggest_next_actions(context: Dict[str, Any]) -> List[str]`
+
+Analyzes current context and recommends 3-5 prioritized next actions with specific tool names.
+
+**Example:**
+```python
+context = {
+    "delayed_projects": 23,
+    "blocked_tasks": 5,
+    "recent_changes": [...]
+}
+suggestions = await ai_assistant.suggest_next_actions(context)
+# Output: [
+#   "使用 calc_delays 分析延期项目根本原因",
+#   "使用 task_list 检查阻塞任务详情",
+#   "使用 audit_get_logs 查看最近变更记录",
+#   ...
+# ]
+```
+
+**Use cases:**
+- Project management decision support
+- Workflow automation recommendations
+- Risk warning and mitigation
+- Resource allocation optimization
+
+##### 3. SQL Query Analysis
+
+**Function:** `analyze_query(query: str) -> Dict[str, Any]`
+
+AI-powered deep analysis of SQL queries with optimization suggestions and security checks.
+
+**Analysis includes:**
+1. **Query Explanation** - Natural language description of query logic
+2. **Performance Issues** - Identifies potential bottlenecks:
+   - Missing indexes
+   - Unnecessary full table scans
+   - N+1 query problems
+   - Excessive result sets
+3. **Optimization Suggestions** - Specific improvements:
+   - Index recommendations
+   - Query rewrite options
+   - JOIN optimization
+   - Subquery optimization
+4. **Security Checks** - SQL injection risk assessment:
+   - Parameterization recommendations
+   - Permission checks
+   - Sensitive data access warnings
+
+**Example:**
+```python
+query = "SELECT * FROM applications WHERE status = 'IN_PROGRESS'"
+analysis = await ai_assistant.analyze_query(query)
+# Output: {
+#   "explanation": "查询所有进行中的应用，返回全部字段",
+#   "performance_issues": ["使用SELECT *，建议指定具体字段"],
+#   "optimization": "建议在status字段上添加索引",
+#   "security": "参数化处理，防止SQL注入"
+# }
+```
+
+**Use cases:**
+- Development-stage SQL optimization
+- Production slow query analysis
+- Database performance tuning
+- Security auditing
+
+#### AI Configuration
+
+The MCP server supports **4 LLM providers**:
+
+1. **OpenAI (GPT-3.5/GPT-4)**
+   ```env
+   OPENAI_API_KEY=sk-...
+   OPENAI_MODEL=gpt-4
+   OPENAI_BASE_URL=https://api.openai.com/v1  # Optional: for proxy/Azure
+   ```
+
+2. **Anthropic Claude**
+   ```env
+   ANTHROPIC_API_KEY=sk-ant-...
+   ANTHROPIC_MODEL=claude-3-opus-20240229
+   ```
+
+3. **Azure OpenAI**
+   ```env
+   AZURE_OPENAI_API_KEY=...
+   AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+   AZURE_OPENAI_DEPLOYMENT=your-deployment-name
+   ```
+
+4. **Local LLM (Ollama/LlamaCpp)**
+   ```env
+   LOCAL_LLM_BASE_URL=http://localhost:11434
+   LOCAL_LLM_MODEL=llama2
+   ```
+
+**Enable AI Features:**
+```env
+MCP_ENABLE_AI_TOOLS=true
+```
+
+**Performance & Security:**
+- Async calls, non-blocking execution
+- 60-second timeout
+- Error fallback: AI failure doesn't affect core functionality
+- Optional toggle: Can completely disable AI features
+- API key secure storage (environment variables)
+- Local LLM option (data stays on-premises)
+- Sensitive data anonymization
+- All AI calls are logged for auditing
+
+#### MCP Usage Examples
+
+**Execute a Tool:**
+```typescript
+// Frontend API call
+import { mcpApi } from '@/api/mcp'
+
+// Example 1: Get audit logs
+const logs = await mcpApi.executeTool('audit_get_logs', {
+  limit: 100,
+  table_name: 'applications'
+})
+
+// Example 2: Batch update tasks
+const result = await mcpApi.executeTool('task_batch_update', {
+  task_ids: ['task-1', 'task-2', 'task-3'],
+  update_data: { status: '已完成' }
+})
+
+// Example 3: Rollback changes
+const rollback = await mcpApi.executeTool('audit_rollback', {
+  audit_log_id: 'log-456'
+})
+```
+
+**Natural Language Query (AI-Enhanced):**
+```typescript
+// AI-powered query
+const response = await mcpApi.query(
+  "列出所有延期超过7天的应用，并分析原因"
+)
+// AI automatically:
+// 1. Determines which tools to use (calc_delays, app_list, etc.)
+// 2. Executes the tools
+// 3. Analyzes the results
+// 4. Generates natural language report
+```
+
+**Dashboard Statistics:**
+```typescript
+// Get summary stats
+const stats = await mcpApi.executeTool('dashboard_stats', {
+  stat_type: 'summary'
+})
+
+// Get delayed projects
+const delayed = await mcpApi.executeTool('dashboard_stats', {
+  stat_type: 'delayed',
+  date_range: {
+    start: '2024-01-01',
+    end: '2024-12-31'
+  }
+})
+```
+
+**CMDB Operations:**
+```typescript
+// Example 1: Query L2 application details (对应需求 #1)
+// 某个L2应用的规范名称是什么？ID是什么？联系人？开发单位接口人？运维单位接口人？
+const appDetails = await mcpApi.executeTool('cmdb_get_l2', {
+  l2_id: '支付系统'
+})
+// Returns: 规范名称, 配置项ID, 联系人, 系统开发接口人, 应用软件层运维接口人, etc.
+
+// Example 2: Search L2 applications by keyword (对应需求 #3)
+// XX应用的管理级别是多少？其所属156L1系统是什么？
+const searchResults = await mcpApi.executeTool('cmdb_search_l2', {
+  keyword: '支付',
+  limit: 10
+})
+// If exact match found, returns management level and 156L1 system
+// If no exact match, returns all L2 applications matching the keyword
+
+// Example 3: Get all L2 applications under a 156L1 system
+const l1WithApps = await mcpApi.executeTool('cmdb_get_156l1_with_l2s', {
+  l1_156_id: '核心业务系统'
+})
+// Returns 156L1 system details + all child L2 applications
+
+// Example 4: Filter by management level
+const highLevelApps = await mcpApi.executeTool('cmdb_search_l2', {
+  management_level: '集团级',
+  limit: 100
+})
+
+// Example 5: Update L2 application interface person (对应需求 #4)
+// 系统的接口人调整流程
+const updated = await mcpApi.executeTool('cmdb_update_l2', {
+  l2_id: '支付系统',
+  update_data: {
+    dev_interface_person: '张三',
+    ops_interface_person: '李四'
+  }
+})
+// Note: For within-department changes, email Technical Department Qi Lingtao
+// For cross-department changes, submit via "办公流程 - 系统备案及域名申请"
+
+// Example 6: Query applications in different lifecycle status
+const inConstructionApps = await mcpApi.executeTool('cmdb_search_l2', {
+  status: '建设中',
+  limit: 50
+})
+
+const operationalApps = await mcpApi.executeTool('cmdb_search_l2', {
+  status: '运行中',
+  limit: 50
+})
+
+// Example 7: Search 87L1 systems (future target state, planned for 2027)
+// 对应需求 #7: 156L1系统与87L1系统有什么区别？
+const future87L1 = await mcpApi.executeTool('cmdb_search_87l1', {
+  keyword: '核心',
+  limit: 10
+})
+```
+
+**CMDB Natural Language Queries:**
+```typescript
+// AI-enhanced CMDB queries matching requirements from 需求.xlsx
+
+// 对应需求 #1: 某个L2应用的规范名称是什么？ID是什么？联系人？开发单位接口人？运维单位接口人？
+const response1 = await mcpApi.query(
+  "支付系统的规范名称是什么？配置项ID是什么？联系人是谁？开发接口人和运维接口人是谁？"
+)
+
+// 对应需求 #3: XX应用的管理级别是多少？其所属156L1系统是什么？
+const response2 = await mcpApi.query(
+  "账户管理系统的管理级别是多少？它属于哪个156L1系统？"
+)
+
+// 对应需求 #6: XX系统在OA上的系统及应用目录查询不到，是什么原因？
+const response3 = await mcpApi.query(
+  "为什么旧版报表系统在OA上查询不到？它是否已经下线？"
+)
+// AI will check system status and explain if application is offline
+
+// 对应需求 #7: 156L1系统与87L1系统有什么区别？
+const response4 = await mcpApi.query(
+  "156L1系统和87L1系统有什么区别？什么时候会过渡到87L1？"
+)
+// AI explains: 156L1 is current, 87L1 is future target state, transition by end of 2027
+
+// 对应需求 #9: L2应用的管理级别与L1系统的管理级别是什么关系？
+const response5 = await mcpApi.query(
+  "L2应用的管理级别和L1系统的管理级别有什么关系？如何确定？"
+)
+// AI explains management level inheritance rules
+
+// 对应需求 #10: L2应用的管理级别有什么用处？有哪些具体管理要求？
+const response6 = await mcpApi.query(
+  "L2应用的管理级别在哪些方面会用到？有什么管理要求？"
+)
+// AI lists: disaster recovery, change management, security, IT outsourcing, etc.
+```
+
+#### MCP Tools Summary
+
+| Category | Tool Count | Prefix | Key Features |
+|----------|-----------|--------|--------------|
+| 1. Database Query | 2 | `db_*` | Read-only SQL, schema inspection |
+| 2. Application Mgmt | 4 | `app_*` | CRUD operations, filtering |
+| 3. Sub-task Mgmt | 3 | `task_*` | Task operations, batch updates |
+| 4. Excel Operations | 2 | `excel_*` | Import/export with validation |
+| 5. Calculation | 2 | `calc_*` | Progress, delay analysis |
+| 6. Audit Operations | 2 | `audit_*` | Logging, rollback capability |
+| 7. CMDB System | 7 | `cmdb_*` | L2/L1 management, search |
+| 8. Dashboard | 2 | `dashboard_*` | Statistics, export |
+| **AI Enhancement** | **3** | N/A (internal) | **Report, suggestions, SQL analysis** |
+| **Total** | **24 tools + 3 AI capabilities** | | |
+
+#### Frontend Integration Recommendations
+
+1. **Create MCP API Module** (`src/api/mcp.ts`):
+   ```typescript
+   import request from './index'
+
+   export const mcpApi = {
+     // Execute MCP tool
+     executeTool(toolName: string, params: any) {
+       return request.post('/mcp/tools/execute', {
+         tool_name: toolName,
+         parameters: params
+       })
+     },
+
+     // AI-enhanced query
+     query(query: string) {
+       return request.post('/mcp/query', { query })
+     },
+
+     // List available tools
+     listTools() {
+       return request.get('/mcp/tools')
+     }
+   }
+   ```
+
+2. **MCP Store** (`src/stores/mcp.ts`) - ✅ Implemented:
+   - **State Management**:
+     - `availableTools` - Cached tool definitions (27 tools)
+     - `executionHistory` - Last 100 tool executions with results
+     - `aiEnabled` - AI feature toggle
+     - `lastAISuggestions` - AI-generated action suggestions
+     - `mcpHealthy` - MCP server health status
+
+   - **Tool Execution Methods**:
+     - Database: `dbQuery()`, `dbGetSchema()`
+     - Application: `appList()`, `appGet()`, `appCreate()`, `appUpdate()`
+     - Subtask: `taskList()`, `taskCreate()`, `taskBatchUpdate()`
+     - Calculation: `calcProgress()`, `calcDelays()`
+     - Audit: `auditGetLogs()`, `auditRollback()`
+     - CMDB: `cmdbSearchL2()`, `cmdbGetL2()`, `cmdbCreateL2()`, `cmdbUpdateL2()`, `cmdbSearch156L1()`, `cmdbGet156L1WithL2s()`, `cmdbSearch87L1()`
+     - Dashboard: `dashboardStats()`, `dashboardExport()`
+     - Excel: `excelImport()`, `excelExport()`
+
+   - **Core Actions**:
+     - `checkHealth()` - Verify MCP server connectivity
+     - `loadTools()` - Fetch available tool definitions
+     - `executeTool(name, params)` - Generic tool execution
+     - `query(text, context)` - Natural language AI query
+     - `clearHistory()` - Clear execution history
+     - `initialize()` - Auto-initialize on app startup
+
+3. **MCP Type Definitions** (`src/types/mcp.ts`) - ✅ Implemented:
+   - 560+ lines of comprehensive TypeScript types
+   - All 27 tool request/response types
+   - AI feature types (report generation, action suggestions, query analysis)
+   - Execution history and state management types
+   - Helper types and union types for type safety
+
+4. **UI Components** - ✅ Implemented:
+   - `ApplicationDataRenderer.vue` - Renders application data with schema awareness
+   - `MarkdownRenderer.vue` - Renders AI-generated markdown reports
+   - `TemplateFillResultRenderer.vue` - Displays template fill results
+   - `MCPAgentView.vue` - Complete MCP agent interface with tool execution
+   - Enhanced `AuditView.vue` with rollback functionality
+   - Enhanced `ReportsView.vue` with AI-powered insights
+
+4. **Use Cases in Existing Views**:
+   - **Audit Log View**: Add rollback buttons using `audit_rollback`
+   - **Dashboard**: Use `dashboard_stats` for real-time metrics
+   - **Application List**: Add "AI Analyze" button for suggestions
+   - **Reports**: Generate AI reports using `generate_report`
+
 ### Excel Import Notes
 
 The system now sends original Excel files directly to the backend without client-side transformation. The backend is expected to handle:
@@ -172,6 +875,7 @@ Key stores:
 - `useApplicationStore` - Application data and operations
 - `useSubTaskStore` - Sub-task management
 - `useAuditStore` - Audit log operations
+- `useMCPStore` - ✅ MCP tool execution, AI features, and execution history (Implemented)
 
 ### Component Guidelines
 
@@ -534,9 +1238,39 @@ npm run type-check
 - **Batch Import**: 4-step wizard, validation, error reporting
 - **Reports**: Multiple chart types, export options, department comparison
 
-#### Latest Updates (2025-09-17)
+#### Latest Updates
 
-**Excel导入功能重大调整**:
+**2025-10-20: MCP 功能完整实现**:
+1. **✅ MCP Store 完整实现** (`src/stores/mcp.ts`):
+   - 27个MCP工具的完整封装
+   - 执行历史管理（最近100条记录）
+   - AI功能状态管理
+   - 健康检查和自动初始化
+   - 完整的错误处理和用户反馈
+
+2. **✅ MCP 类型定义完成** (`src/types/mcp.ts`):
+   - 560+行完整的TypeScript类型定义
+   - 所有27个工具的请求/响应类型
+   - AI功能类型（报表生成、行动建议、查询分析）
+   - 执行历史和状态管理类型
+
+3. **✅ MCP UI 组件实现**:
+   - `ApplicationDataRenderer.vue` - 应用数据渲染器（支持schema感知）
+   - `MarkdownRenderer.vue` - Markdown渲染器（AI生成报告展示）
+   - `TemplateFillResultRenderer.vue` - 模板填充结果显示
+   - `MCPAgentView.vue` - MCP Agent完整界面（工具执行、自然语言查询）
+
+4. **✅ 增强现有视图**:
+   - `AuditView.vue` - 添加回滚功能，与MCP audit工具集成
+   - `ReportsView.vue` - 添加AI洞察功能，支持自然语言报表生成
+   - MCP API全面重构，支持所有27个工具
+
+5. **✅ 文档完善**:
+   - `docs/MCP_STREAMING_API_USAGE.md` - MCP流式API使用指南
+   - `docs/汇报PPT内容.md` - 项目汇报材料
+   - `docs/评委问答准备.md` - 答辩准备材料
+
+**2025-09-17: Excel导入功能重大调整**:
 1. **✅ 改为直接上传原始文件**: 不再进行客户端转换，直接发送原始Excel文件给后端
 2. **✅ 保留中文列名**: 后端需要处理中文列名的映射
 3. **✅ 双表支持**: 支持总追踪表（应用数据）和子追踪表（子任务数据）

@@ -223,6 +223,10 @@ import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
 import type { AuditLog } from '@/types'
 import { AuditAPI } from '@/api/audit'
 import { formatDate } from '@/utils'
+import { useMCPStore } from '@/stores/mcp'
+
+// Initialize MCP store
+const mcpStore = useMCPStore()
 
 const filters = reactive({
   table_name: undefined as string | undefined,
@@ -424,43 +428,76 @@ const viewDetails = (log: AuditLog) => {
 
 const rollback = async (log: AuditLog) => {
   try {
-    const result = await ElMessageBox.prompt(
-      `确定要将 ${getTableText(log.table_name)} (ID: ${log.record_id}) 回滚到此操作之前的状态吗？\n请输入回滚原因（可选）：`,
-      '确认回滚',
-      {
-        confirmButtonText: '确定回滚',
-        cancelButtonText: '取消',
-        type: 'warning',
-        inputPlaceholder: '输入回滚原因...'
-      }
-    )
+    // Build detailed rollback preview
+    const changedFieldsList = log.changed_fields
+      .map(field => {
+        const oldValue = log.old_values?.[field] || '-'
+        const newValue = log.new_values[field] || '-'
+        return `• ${field}: ${newValue} → ${oldValue}`
+      })
+      .join('\n')
+
+    const confirmMessage = `
+🔄 即将回滚以下操作：
+
+📋 表名：${getTableText(log.table_name)}
+🆔 记录ID：${log.record_id}
+👤 操作人：${log.user?.full_name || log.user_full_name || '未知'}
+⏰ 操作时间：${formatTime(log.created_at)}
+
+📝 将要恢复的变更：
+${changedFieldsList}
+
+⚠️ 此操作将创建新的审计记录，原记录不会被删除。
+    `.trim()
+
+    await ElMessageBox.confirm(confirmMessage, '⚠️ 确认回滚操作', {
+      confirmButtonText: '✅ 确认回滚',
+      cancelButtonText: '❌ 取消',
+      type: 'warning',
+      dangerouslyUseHTMLString: false,
+      center: false,
+      customClass: 'rollback-confirm-dialog'
+    })
 
     const loadingInstance = ElLoading.service({
-      text: '正在执行回滚...'
+      text: '🔄 正在执行MCP审计回滚...',
+      background: 'rgba(0, 0, 0, 0.7)'
     })
 
     try {
-      const response = await AuditAPI.rollbackAuditLog(log.id, {
-        confirm: true,
-        reason: result.value && result.value.trim() ? result.value : undefined
-      })
+      // Use MCP Store for rollback
+      const result = await mcpStore.auditRollback(log.id.toString())
 
-      ElMessage.success(`回滚成功：${response.message}`)
-      // Reload audit logs to show the new rollback entry
-      await loadAuditLogs()
+      if (result && result.success) {
+        const rollbackData = result.result
+        ElMessage({
+          type: 'success',
+          message: `✅ 回滚成功！\n已恢复 ${rollbackData?.restored_values ? Object.keys(rollbackData.restored_values).length : 0} 个字段`,
+          duration: 3000,
+          showClose: true
+        })
+
+        // Close detail dialog if open
+        detailDialogVisible.value = false
+
+        // Reload audit logs to show the new rollback entry
+        await loadAuditLogs()
+      } else {
+        ElMessage.error('回滚操作失败，请查看错误详情')
+      }
     } finally {
       loadingInstance.close()
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      console.error('Rollback failed:', error)
+      console.error('MCP Rollback failed:', error)
       if (error?.response?.status === 403) {
-        ElMessage.error('权限不足：仅管理员和经理可以执行回滚操作')
+        ElMessage.error('❌ 权限不足：仅管理员和经理可以执行回滚操作')
       } else if (error?.response?.data?.detail) {
-        const detail = error.response.data.detail
-        ElMessage.error(`回滚失败：${detail}`)
+        ElMessage.error(`❌ 回滚失败：${error.response.data.detail}`)
       } else {
-        ElMessage.error('回滚操作失败，请稍后重试')
+        ElMessage.error('❌ 回滚操作失败，请稍后重试')
       }
     }
   }
@@ -706,5 +743,17 @@ onMounted(() => {
 
 .new-value {
   color: #38a169;
+}
+
+/* MCP Rollback confirm dialog */
+:deep(.rollback-confirm-dialog) {
+  width: 600px;
+}
+
+:deep(.rollback-confirm-dialog .el-message-box__message) {
+  white-space: pre-line;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.6;
 }
 </style>

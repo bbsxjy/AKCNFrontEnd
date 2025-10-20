@@ -34,6 +34,10 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+        <el-button type="primary" @click="generateAIReport" :loading="generatingAI">
+          <el-icon><MagicStick /></el-icon>
+          AI报告
+        </el-button>
         <el-button type="primary" @click="showConfig">
           <el-icon><Setting /></el-icon>
           配置
@@ -130,14 +134,33 @@
             <h3>项目关键指标完成情况</h3>
           </template>
 
-          <div class="indicators-list">
+          <div v-if="keyIndicators.length === 0" class="empty-indicators">
+            <el-empty description="">
+              <template #description>
+                <div style="text-align: center;">
+                  <p style="font-size: 13px; color: #718096; margin-bottom: 8px;">
+                    暂无关键指标
+                  </p>
+                  <p style="font-size: 11px; color: #a0aec0; margin-bottom: 14px;">
+                    点击右上角"配置"按钮，可以自定义添加关键指标
+                  </p>
+                  <el-button type="primary" size="small" @click="showConfig">
+                    <el-icon><Setting /></el-icon>
+                    立即配置
+                  </el-button>
+                </div>
+              </template>
+            </el-empty>
+          </div>
+
+          <div v-else class="indicators-list">
             <div v-for="indicator in keyIndicators" :key="indicator.name" class="indicator-item">
               <div class="indicator-name">{{ indicator.name }}</div>
               <div class="indicator-progress">
                 <el-progress
                   :percentage="indicator.percentage"
                   :color="indicator.color"
-                  :stroke-width="20"
+                  :stroke-width="14"
                   :show-text="false"
                 />
                 <div class="indicator-stats">
@@ -275,6 +298,37 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- AI Report Dialog -->
+    <el-dialog
+      v-model="aiReportDialogVisible"
+      title="🤖 AI智能报告"
+      width="900px"
+      :close-on-click-modal="false"
+    >
+      <el-alert
+        type="info"
+        :closable="false"
+        style="margin-bottom: 20px;"
+      >
+        AI已根据当前报表数据生成以下分析报告，包含关键洞察和建议。
+      </el-alert>
+
+      <div class="ai-report-content">
+        <div v-if="aiReportContent" v-html="formatAIReport(aiReportContent)"></div>
+        <el-empty v-else description="暂无AI报告内容" />
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: space-between;">
+          <el-button @click="copyAIReport" type="info">
+            <el-icon><DocumentCopy /></el-icon>
+            复制报告
+          </el-button>
+          <el-button type="primary" @click="aiReportDialogVisible = false">关闭</el-button>
+        </div>
+      </template>
+    </el-dialog>
 
     <!-- Configuration Dialog -->
     <el-dialog
@@ -600,18 +654,25 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { Camera, Setting, SuccessFilled, CaretTop, Download, ArrowDown, Plus } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { Camera, Setting, SuccessFilled, CaretTop, Download, ArrowDown, Plus, MagicStick, DocumentCopy } from '@element-plus/icons-vue'
+import { ElMessage, ElLoading } from 'element-plus'
 import { ApplicationsAPI } from '@/api/applications'
 import { SubTasksAPI } from '@/api/subtasks'
 import { ExcelAPI } from '@/api/reports'
+import { useMCPStore } from '@/stores/mcp'
 import * as echarts from 'echarts'
 import html2canvas from 'html2canvas'
+
+// Initialize MCP store for AI features
+const mcpStore = useMCPStore()
 
 // State
 const reportDate = ref('')
 const exportingImage = ref(false)
 const exportingExcel = ref(false)
+const generatingAI = ref(false)
+const aiReportDialogVisible = ref(false)
+const aiReportContent = ref('')
 const totalApplications = ref(0)
 const akTotalApplications = ref(0)
 const cloudNativeTotalApplications = ref(0)
@@ -702,29 +763,7 @@ interface ManualRiskItem {
   severity: 'high' | 'medium' | 'low'
 }
 
-const keyIndicators = ref<KeyIndicator[]>([
-  {
-    name: '2025年AK验收目标（仅含云原生）',
-    percentage: 31,
-    completed: 19,
-    total: 61,
-    color: '#667eea'
-  },
-  {
-    name: '2025年技术条线OKR',
-    percentage: 91,
-    completed: 32,
-    total: 35,
-    color: '#667eea'
-  },
-  {
-    name: '2024&2025年项目目标进度',
-    percentage: 61,
-    completed: 69,
-    total: 114,
-    color: '#667eea'
-  }
-])
+const keyIndicators = ref<KeyIndicator[]>([])
 
 const configIndicators = ref<KeyIndicatorConfig[]>([])
 
@@ -962,13 +1001,21 @@ const calculateStatusStats = (applications: any[], subtasks: any[]) => {
 }
 
 const calculateKeyIndicators = (applications: any[], subtasks: any[]) => {
+  // Only update indicators if they don't exist or are not manually configured
+  // Skip this auto-update if user has saved custom config
+  const hasSavedConfig = localStorage.getItem('report_indicators_config')
+  if (hasSavedConfig || keyIndicators.value.length === 0) {
+    // Don't auto-update if user has custom config
+    return
+  }
+
   // 2025年AK验收目标（仅含云原生）
   const cloudNativeApps = applications.filter(app =>
     app.overall_transformation_target === '云原生' &&
     app.ak_supervision_acceptance_year === '2025'
   )
   const completedCloudNative = cloudNativeApps.filter(app =>
-    app.current_status === '全部完成' || app.current_status === 'completed'
+    app.is_cloud_native_completed === true
   )
   keyIndicators.value[0].total = cloudNativeApps.length
   keyIndicators.value[0].completed = completedCloudNative.length
@@ -981,7 +1028,7 @@ const calculateKeyIndicators = (applications: any[], subtasks: any[]) => {
     app.ak_supervision_acceptance_year === '2025'
   )
   const completedOKR = okrApps.filter(app =>
-    app.current_status === '全部完成' || app.current_status === 'completed'
+    app.is_ak_completed === true || app.is_cloud_native_completed === true
   )
   keyIndicators.value[1].total = okrApps.length
   keyIndicators.value[1].completed = completedOKR.length
@@ -995,7 +1042,7 @@ const calculateKeyIndicators = (applications: any[], subtasks: any[]) => {
     app.ak_supervision_acceptance_year === '2025'
   )
   const completedProject = projectApps.filter(app =>
-    app.current_status === '全部完成' || app.current_status === 'completed'
+    app.is_ak_completed === true || app.is_cloud_native_completed === true
   )
   keyIndicators.value[2].total = projectApps.length
   keyIndicators.value[2].completed = completedProject.length
@@ -1100,12 +1147,12 @@ const renderPieChart = (
       left: 'center',
       top: 'center',
       textStyle: {
-        fontSize: 48,
+        fontSize: 34,
         fontWeight: 'bold',
         color: '#2d3748'
       },
       subtextStyle: {
-        fontSize: 16,
+        fontSize: 12,
         color: '#718096'
       }
     },
@@ -1250,6 +1297,127 @@ const handleExportExcel = async (command: string) => {
     ElMessage.error('Excel导出失败，请确保后端API已实现')
   } finally {
     exportingExcel.value = false
+  }
+}
+
+/**
+ * Generate AI Report using MCP
+ */
+const generateAIReport = async () => {
+  generatingAI.value = true
+
+  try {
+    const loadingInstance = ElLoading.service({
+      text: '🤖 AI正在分析报表数据并生成报告...',
+      background: 'rgba(0, 0, 0, 0.7)'
+    })
+
+    try {
+      // Prepare comprehensive report data for AI analysis
+      const reportData = {
+        report_date: reportDate.value,
+        overview: {
+          total_applications: totalApplications.value,
+          ak_applications: akTotalApplications.value,
+          cloud_native_applications: cloudNativeTotalApplications.value
+        },
+        status_statistics: {
+          overall: statusStats.value.map(s => ({ label: s.label, count: s.count })),
+          ak: akStatusStats.value.map(s => ({ label: s.label, count: s.count })),
+          cloud_native: cloudNativeStatusStats.value.map(s => ({ label: s.label, count: s.count }))
+        },
+        key_indicators: keyIndicators.value.map(ki => ({
+          name: ki.name,
+          percentage: ki.percentage,
+          completed: ki.completed,
+          total: ki.total
+        })),
+        risks: {
+          delayed_count: delayedApps.value.length,
+          potential_risk_count: potentialRiskApps.value.length,
+          manual_risk_count: manualRiskItems.value.length,
+          delayed_apps: delayedApps.value.map(app => ({
+            name: app.appName,
+            team: app.team,
+            delay_months: app.delayMonths,
+            reason: app.delayReason
+          })),
+          potential_risks: potentialRiskApps.value.map(app => ({
+            name: app.appName,
+            team: app.team,
+            reason: app.riskReason
+          }))
+        }
+      }
+
+      // Use MCP natural language query to generate report
+      const query = `
+请基于以下报表数据生成一份专业的项目进展分析报告，要求：
+
+1. **总体概况**：总结应用总数、AK应用数、云原生应用数
+2. **完成情况分析**：分析各阶段应用数量和完成比例
+3. **关键指标评估**：评价关键指标的完成情况
+4. **风险识别**：分析当前风险和潜在风险，给出优先级建议
+5. **改进建议**：提供3-5条具体的改进措施
+
+报表数据：
+${JSON.stringify(reportData, null, 2)}
+      `.trim()
+
+      const response = await mcpStore.query(query, {
+        report_type: 'summary',
+        language: 'zh-CN'
+      })
+
+      if (response && response.success) {
+        aiReportContent.value = response.answer || '未生成报告内容'
+        aiReportDialogVisible.value = true
+        ElMessage.success('✅ AI报告生成成功！')
+      } else {
+        ElMessage.error('AI报告生成失败，请重试')
+      }
+    } finally {
+      loadingInstance.close()
+    }
+  } catch (error: any) {
+    console.error('Failed to generate AI report:', error)
+    ElMessage.error('生成AI报告时出错：' + (error.message || '未知错误'))
+  } finally {
+    generatingAI.value = false
+  }
+}
+
+/**
+ * Format AI report content to HTML
+ */
+const formatAIReport = (content: string): string => {
+  if (!content) return ''
+
+  // Convert markdown-like formatting to HTML
+  let formatted = content
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/^(\d+)\.\s/gm, '<li>')
+    .replace(/^- /gm, '<li>')
+    .replace(/<li>/g, '</li><li>')
+    .replace(/^<\/li>/, '')
+    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+
+  return `<div class="formatted-content"><p>${formatted}</p></div>`
+}
+
+/**
+ * Copy AI report to clipboard
+ */
+const copyAIReport = async () => {
+  try {
+    await navigator.clipboard.writeText(aiReportContent.value)
+    ElMessage.success('📋 报告已复制到剪贴板')
+  } catch (error) {
+    console.error('Failed to copy to clipboard:', error)
+    ElMessage.error('复制失败，请手动复制')
   }
 }
 
@@ -1475,6 +1643,31 @@ onMounted(() => {
   const today = new Date()
   reportDate.value = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`
 
+  // Load saved indicators configuration FIRST
+  const savedIndicatorsConfig = localStorage.getItem('report_indicators_config')
+  if (savedIndicatorsConfig) {
+    try {
+      const parsedConfig = JSON.parse(savedIndicatorsConfig)
+      keyIndicators.value = parsedConfig.map((indicator: KeyIndicatorConfig) => {
+        // Calculate percentage
+        const percentage = indicator.total > 0
+          ? Math.round((indicator.completed / indicator.total) * 100)
+          : 0
+
+        return {
+          name: indicator.name,
+          completed: indicator.completed,
+          total: indicator.total,
+          percentage,
+          color: indicator.color
+        }
+      })
+    } catch (error) {
+      console.error('Failed to load indicators config:', error)
+      keyIndicators.value = []
+    }
+  }
+
   // Load saved risk configuration
   const savedRiskConfig = localStorage.getItem('report_risk_config')
   if (savedRiskConfig) {
@@ -1502,7 +1695,7 @@ onMounted(() => {
 
 <style scoped>
 .reports-view {
-  padding: 24px;
+  padding: 16px;
   background: #f7fafc;
   min-height: 100vh;
 }
@@ -1511,33 +1704,33 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   background: white;
-  padding: 20px 24px;
-  border-radius: 8px;
+  padding: 14px 16px;
+  border-radius: 6px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .title-section h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 700;
   color: #2d3748;
 }
 
 .subtitle {
-  margin: 4px 0 0 0;
-  font-size: 14px;
+  margin: 3px 0 0 0;
+  font-size: 12px;
   color: #718096;
 }
 
 .action-buttons {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
 .main-cards {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 /* Overview Card */
@@ -1549,20 +1742,20 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px 0;
+  padding: 14px 0;
 }
 
 .pie-chart {
   width: 100%;
-  height: 300px;
+  height: 210px;
 }
 
 .status-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 16px;
-  margin-top: 24px;
-  padding: 0 12px;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 11px;
+  margin-top: 16px;
+  padding: 0 8px;
 }
 
 .status-item {
@@ -1570,9 +1763,9 @@ onMounted(() => {
 }
 
 .status-count {
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .status-count.status-requirement { color: #a0aec0; }
@@ -1584,25 +1777,25 @@ onMounted(() => {
 .status-count.status-blocked { color: #f56565; }
 
 .status-label {
-  font-size: 14px;
+  font-size: 11px;
   color: #718096;
 }
 
 .status-detail {
-  font-size: 12px;
+  font-size: 10px;
   color: #a0aec0;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
 .total-apps {
   text-align: center;
-  margin-top: 24px;
-  font-size: 16px;
+  margin-top: 16px;
+  font-size: 13px;
   color: #2d3748;
   font-weight: 600;
-  padding: 12px;
+  padding: 8px;
   background: #f7fafc;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 /* Indicators Card */
@@ -1610,21 +1803,29 @@ onMounted(() => {
   height: 100%;
 }
 
+.empty-indicators {
+  padding: 28px 14px;
+  min-height: 210px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .indicators-list {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding: 12px 0;
+  gap: 22px;
+  padding: 8px 0;
 }
 
 .indicator-item {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .indicator-name {
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 600;
   color: #2d3748;
 }
@@ -1637,41 +1838,41 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .indicator-stats .percentage {
-  font-size: 24px;
+  font-size: 17px;
   font-weight: 700;
   color: #667eea;
 }
 
 .indicator-stats .fraction {
-  font-size: 16px;
+  font-size: 12px;
   color: #718096;
 }
 
 /* Risk Section */
 .risk-section {
-  margin-top: 20px;
+  margin-top: 14px;
 }
 
 .no-risk {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 32px;
+  gap: 6px;
+  padding: 22px;
   color: #48bb78;
-  font-size: 16px;
+  font-size: 13px;
 }
 
 .no-risk .el-icon {
-  font-size: 24px;
+  font-size: 17px;
 }
 
 .risk-category {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .risk-category:last-child {
@@ -1682,9 +1883,9 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  border-radius: 6px;
-  margin-bottom: 12px;
+  padding: 8px 11px;
+  border-radius: 4px;
+  margin-bottom: 8px;
 }
 
 .risk-category-header.delayed {
@@ -1703,17 +1904,17 @@ onMounted(() => {
 }
 
 .risk-title {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   color: #2d3748;
 }
 
 .risk-count {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .risk-category-header.delayed .risk-count {
@@ -1725,26 +1926,26 @@ onMounted(() => {
 }
 
 .trend-up {
-  font-size: 14px;
+  font-size: 11px;
 }
 
 .no-risk-message {
   text-align: center;
-  padding: 32px;
+  padding: 22px;
   color: #a0aec0;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .risk-items {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+  gap: 11px;
 }
 
 .risk-item {
-  padding: 16px;
-  border-radius: 6px;
-  border-left: 4px solid;
+  padding: 11px;
+  border-radius: 4px;
+  border-left: 3px solid;
 }
 
 .risk-item.delayed-item {
@@ -1763,11 +1964,11 @@ onMounted(() => {
 }
 
 .risk-item.severity-high {
-  border-left-width: 6px;
+  border-left-width: 4px;
 }
 
 .risk-item.severity-medium {
-  border-left-width: 4px;
+  border-left-width: 3px;
 }
 
 .risk-item.severity-low {
@@ -1775,27 +1976,27 @@ onMounted(() => {
 }
 
 .risk-item .app-name {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   color: #2d3748;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .app-details {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .detail-row {
   display: flex;
   align-items: baseline;
-  font-size: 14px;
+  font-size: 11px;
 }
 
 .detail-row .label {
   color: #718096;
-  min-width: 80px;
+  min-width: 56px;
 }
 
 .detail-row .value {
@@ -1808,14 +2009,57 @@ onMounted(() => {
   font-weight: 600;
 }
 
+/* AI Report Dialog Styles */
+.ai-report-content {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 14px;
+  background: #f7fafc;
+  border-radius: 6px;
+  line-height: 1.6;
+}
+
+.ai-report-content :deep(.formatted-content) {
+  color: #2d3748;
+  font-size: 12px;
+}
+
+.ai-report-content :deep(p) {
+  margin-bottom: 11px;
+}
+
+.ai-report-content :deep(strong) {
+  color: #1a202c;
+  font-weight: 600;
+}
+
+.ai-report-content :deep(em) {
+  color: #667eea;
+  font-style: normal;
+}
+
+.ai-report-content :deep(ul) {
+  margin: 8px 0;
+  padding-left: 17px;
+}
+
+.ai-report-content :deep(li) {
+  margin: 6px 0;
+  list-style-type: disc;
+}
+
+.ai-report-content :deep(br) {
+  line-height: 1.6;
+}
+
 @media (max-width: 768px) {
   .reports-view {
-    padding: 12px;
+    padding: 8px;
   }
 
   .report-header {
     flex-direction: column;
-    gap: 16px;
+    gap: 11px;
     align-items: flex-start;
   }
 
@@ -1826,7 +2070,7 @@ onMounted(() => {
 
   .action-buttons button {
     flex: 1;
-    min-width: 120px;
+    min-width: 84px;
   }
 
   .status-grid {
@@ -1835,6 +2079,10 @@ onMounted(() => {
 
   .risk-items {
     grid-template-columns: 1fr;
+  }
+
+  .ai-report-content {
+    max-height: 280px;
   }
 }
 </style>

@@ -1,14 +1,16 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
-const API_BASE_URL = 'http://localhost:8000/api/v1'
+// Use environment variable or fallback to localhost
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 60000, // Increased to 60 seconds for large operations
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  withCredentials: true // Enable CORS credentials
 })
 
 // Token refresh function - DISABLED FOR TESTING
