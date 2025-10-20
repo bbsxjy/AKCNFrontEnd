@@ -1,7 +1,39 @@
 <template>
   <div class="mcp-result-renderer">
+    <!-- 应用列表结果 - 直接使用ApplicationsTable组件 -->
+    <div v-if="isApplicationListResult" class="result-container">
+      <el-card shadow="hover">
+        <template #header>
+          <div class="result-header">
+            <el-icon :size="18"><list /></el-icon>
+            <span class="header-title">查询到 {{ resultData.length }} 个应用</span>
+            <div class="header-actions">
+              <el-button size="small" type="primary" @click="navigateToApplications">
+                <el-icon><right /></el-icon>
+                在应用管理中查看全部
+              </el-button>
+            </div>
+          </div>
+        </template>
+
+        <!-- 直接复用ApplicationsTable组件 -->
+        <ApplicationsTable
+          :applications="resultData"
+          :table-max-height="600"
+          :has-date-adjustment="() => false"
+          :get-delay-count="getDelayCount"
+          @selection-change="() => {}"
+          @toggle-favorite="() => {}"
+          @show-detail="navigateToApplicationByRow"
+          @view-subtasks="navigateToApplicationByRow"
+          @show-delay-details="() => {}"
+          @edit="navigateToApplicationByRow"
+        />
+      </el-card>
+    </div>
+
     <!-- CMDB L2应用详情 (如CI000088398) -->
-    <div v-if="isCMDBL2DetailResult" class="result-container">
+    <div v-else-if="isCMDBL2DetailResult" class="result-container">
       <el-card shadow="hover">
         <template #header>
           <div class="result-header">
@@ -258,145 +290,11 @@
       </el-card>
     </div>
 
-    <!-- 应用列表结果 -->
-    <div v-else-if="isApplicationListResult" class="result-container">
-      <el-card shadow="hover">
-        <template #header>
-          <div class="result-header">
-            <el-icon :size="18"><list /></el-icon>
-            <span class="header-title">查询到 {{ resultData.length }} 个应用</span>
-            <div class="header-actions">
-              <el-button size="small" type="primary" @click="navigateToApplications">
-                <el-icon><right /></el-icon>
-                在应用管理中查看全部
-              </el-button>
-            </div>
-          </div>
-        </template>
-
-        <el-table :data="resultData" border stripe max-height="600">
-          <el-table-column prop="l2_id" label="L2 ID" width="140" fixed />
-          <el-table-column prop="app_name" label="应用名称" width="180" show-overflow-tooltip />
-          <el-table-column label="改造目标" width="100" align="center">
-            <template #default="{ row }">
-              <el-tag :type="row.overall_transformation_target === 'AK' ? 'primary' : 'success'" size="small">
-                {{ row.overall_transformation_target }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="current_status" label="当前状态" width="120" />
-          <el-table-column label="进度" width="150" align="center">
-            <template #default="{ row }">
-              <el-progress :percentage="row.progress_percentage || 0" />
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="100" align="center" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" text type="primary" @click="navigateToApplication(row.l2_id)">
-                查看
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-    </div>
-
-    <!-- 统计分析结果 -->
-    <div v-else-if="isStatisticsResult" class="result-container">
-      <el-card shadow="hover">
-        <template #header>
-          <div class="result-header">
-            <el-icon :size="18"><data-analysis /></el-icon>
-            <span class="header-title">统计分析结果</span>
-          </div>
-        </template>
-        <el-table :data="resultData" border stripe>
-          <el-table-column
-            v-for="(value, key) in resultData[0]"
-            :key="key"
-            :prop="key"
-            :label="formatColumnLabel(key)"
-            :min-width="getColumnWidth(key)"
-            :align="isNumberColumn(key) ? 'right' : 'left'"
-          >
-            <template #default="{ row }">
-              <template v-if="isNumberColumn(key)">
-                <el-text type="primary" style="font-weight: 600;">{{ formatNumber(row[key]) }}</el-text>
-              </template>
-              <template v-else>
-                {{ row[key] }}
-              </template>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-    </div>
-
-    <!-- 通用表格展示 -->
-    <div v-else-if="isTableData" class="result-container">
-      <el-card shadow="hover">
-        <template #header>
-          <div class="result-header">
-            <el-icon :size="18"><data-board /></el-icon>
-            <span class="header-title">查询结果 ({{ resultData.length }} 条记录)</span>
-          </div>
-        </template>
-        <el-table :data="resultData" border stripe max-height="600">
-          <el-table-column
-            v-for="(value, key) in resultData[0]"
-            :key="key"
-            :prop="key"
-            :label="formatColumnLabel(key)"
-            :min-width="getColumnWidth(key)"
-            show-overflow-tooltip
-          />
-        </el-table>
-      </el-card>
-    </div>
-
-    <!-- 通用对象展示 -->
-    <div v-else-if="isObjectData" class="result-container">
-      <el-card shadow="hover">
-        <template #header>
-          <div class="result-header">
-            <el-icon :size="18"><document /></el-icon>
-            <span class="header-title">详细信息</span>
-          </div>
-        </template>
-        <el-descriptions :column="2" border>
-          <el-descriptions-item
-            v-for="(value, key) in resultData"
-            :key="key"
-            :label="formatColumnLabel(key)"
-            :span="isLongValue(value) ? 2 : 1"
-          >
-            <template v-if="isDateField(key)">
-              {{ formatDate(value) }}
-            </template>
-            <template v-else-if="isBooleanValue(value)">
-              <el-tag :type="value ? 'success' : 'info'" size="small">
-                {{ value ? '是' : '否' }}
-              </el-tag>
-            </template>
-            <template v-else>
-              {{ value }}
-            </template>
-          </el-descriptions-item>
-        </el-descriptions>
-      </el-card>
-    </div>
-
-    <!-- Fallback: 简洁的JSON展示 -->
+    <!-- 其他数据：提示用户在应用管理中查看 -->
     <div v-else class="result-container">
-      <el-card shadow="hover">
-        <template #header>
-          <div class="result-header">
-            <el-icon :size="18"><document /></el-icon>
-            <span class="header-title">执行结果</span>
-          </div>
-        </template>
-        <pre class="result-json">{{ JSON.stringify(resultData, null, 2) }}</pre>
-      </el-card>
+      <el-empty description="数据格式无法识别，请尝试在应用管理中查看完整数据">
+        <el-button type="primary" @click="navigateToApplications">前往应用管理</el-button>
+      </el-empty>
     </div>
   </div>
 </template>
@@ -413,10 +311,10 @@ import {
   Calendar,
   Connection,
   List,
-  Warning,
-  DataAnalysis,
-  DataBoard
+  Warning
 } from '@element-plus/icons-vue'
+import ApplicationsTable from '@/components/applications/ApplicationsTable.vue'
+import type { Application } from '@/api/applications'
 
 interface Props {
   result: any
@@ -445,24 +343,6 @@ const isApplicationListResult = computed(() => {
          resultData.value[0]?.app_name
 })
 
-const isStatisticsResult = computed(() => {
-  return Array.isArray(resultData.value) &&
-         resultData.value.length > 0 &&
-         Object.keys(resultData.value[0]).some(key =>
-           key.includes('count') || key.includes('total') || key.includes('avg')
-         )
-})
-
-const isTableData = computed(() => {
-  return Array.isArray(resultData.value) && resultData.value.length > 0
-})
-
-const isObjectData = computed(() => {
-  return typeof resultData.value === 'object' &&
-         !Array.isArray(resultData.value) &&
-         resultData.value !== null
-})
-
 // Navigation
 const navigateToApplication = (l2Id: string) => {
   router.push({
@@ -471,58 +351,24 @@ const navigateToApplication = (l2Id: string) => {
   })
 }
 
+const navigateToApplicationByRow = (app: Application) => {
+  navigateToApplication(app.l2_id)
+}
+
 const navigateToApplications = () => {
   router.push('/applications')
+}
+
+// Helper for ApplicationsTable
+const getDelayCount = (row: Application): number => {
+  // 简单返回0，ApplicationsTable会自己计算
+  return 0
 }
 
 // Formatters
 const formatDate = (date: string | null | undefined) => {
   if (!date) return '-'
   return new Date(date).toLocaleDateString('zh-CN')
-}
-
-const formatColumnLabel = (key: string) => {
-  const labelMap: Record<string, string> = {
-    'l2_id': 'L2 ID',
-    'app_name': '应用名称',
-    'overall_transformation_target': '改造目标',
-    'current_status': '当前状态',
-    'progress_percentage': '进度',
-    'count': '数量',
-    'total': '总计',
-    'avg': '平均值'
-  }
-  return labelMap[key] || key
-}
-
-const formatNumber = (value: any) => {
-  if (typeof value !== 'number') return value
-  return value.toLocaleString('zh-CN')
-}
-
-const getColumnWidth = (key: string) => {
-  if (key.includes('id')) return 140
-  if (key.includes('name')) return 180
-  if (key.includes('count') || key.includes('total')) return 100
-  return 150
-}
-
-const isNumberColumn = (key: string) => {
-  return key.includes('count') || key.includes('total') || key.includes('avg') || key.includes('percentage')
-}
-
-const isDateField = (key: string) => {
-  return key.includes('date') || key.includes('time')
-}
-
-const isBooleanValue = (value: any) => {
-  return typeof value === 'boolean'
-}
-
-const isLongValue = (value: any) => {
-  if (typeof value === 'string' && value.length > 50) return true
-  if (typeof value === 'object') return true
-  return false
 }
 
 // Tag types
@@ -621,27 +467,6 @@ const getTaskStatusType = (status: string | undefined) => {
   line-height: 1.6;
   white-space: pre-wrap;
   word-wrap: break-word;
-}
-
-.result-json {
-  background: #f5f7fa;
-  padding: 16px;
-  border-radius: 4px;
-  font-size: 12px;
-  line-height: 1.6;
-  max-height: 400px;
-  overflow: auto;
-  margin: 0;
-
-  &::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: #dcdfe6;
-    border-radius: 4px;
-  }
 }
 
 :deep(.el-descriptions__label) {
