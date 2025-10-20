@@ -98,7 +98,7 @@
                 </div>
               </template>
               <span
-                :class="['phase-badge', getPhaseColorClass(row.ak_status === 'COMPLETED' ? '已完成' : row.ak_status === 'BLOCKED' ? '阻塞' : row.ak_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row), row.ak_status.toLowerCase())]"
+                :class="['phase-badge', getPhaseColorClass(row.ak_status === 'COMPLETED' ? '已完成' : row.ak_status === 'BLOCKED' ? '阻塞' : row.ak_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row), row.ak_status)]"
                 @click="emit('view-subtasks', row)"
               >
                 AK·{{ row.ak_status === 'COMPLETED' ? '已完成' : row.ak_status === 'BLOCKED' ? '阻塞' : row.ak_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row) }}
@@ -121,7 +121,7 @@
                 </div>
               </template>
               <span
-                :class="['phase-badge', getPhaseColorClass(row.cloud_native_status === 'COMPLETED' ? '已完成' : row.cloud_native_status === 'BLOCKED' ? '阻塞' : row.cloud_native_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row), row.cloud_native_status.toLowerCase())]"
+                :class="['phase-badge', getPhaseColorClass(row.cloud_native_status === 'COMPLETED' ? '已完成' : row.cloud_native_status === 'BLOCKED' ? '阻塞' : row.cloud_native_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row), row.cloud_native_status)]"
                 @click="emit('view-subtasks', row)"
               >
                 云原生·{{ row.cloud_native_status === 'COMPLETED' ? '已完成' : row.cloud_native_status === 'BLOCKED' ? '阻塞' : row.cloud_native_status === 'NOT_STARTED' ? '未开始' : getDetailedPhaseText(row) }}
@@ -347,6 +347,93 @@ const handleSelectionChange = (selection: Application[]) => {
   color: #909399;
   font-size: 12px;
 }
+
+/* Phase-specific color schemes - distinct professional colors for each transformation phase */
+.phase-badge.phase-requirement {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #c4b5fd;
+}
+
+.phase-badge.phase-requirement:hover {
+  background: #ede9fe;
+  border-color: #a78bfa;
+  color: #5b21b6;
+}
+
+.phase-badge.phase-release {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.phase-badge.phase-release:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+  color: #1e3a8a;
+}
+
+.phase-badge.phase-tech {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
+.phase-badge.phase-tech:hover {
+  background: #fef3c7;
+  border-color: #fbbf24;
+  color: #92400e;
+}
+
+.phase-badge.phase-biz {
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #5eead4;
+}
+
+.phase-badge.phase-biz:hover {
+  background: #ccfbf1;
+  border-color: #2dd4bf;
+  color: #0d5e54;
+}
+
+/* Phase-specific colors for completion states */
+.phase-badge.phase-completed {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.phase-badge.phase-completed:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+  color: #166534;
+}
+
+.phase-badge.phase-blocked {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.phase-badge.phase-blocked:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.phase-badge.phase-not-started {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.phase-badge.phase-not-started:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #475569;
+}
+
 
 /* 计划调整指示器 */
 .plan-date-cell {

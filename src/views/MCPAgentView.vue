@@ -143,33 +143,25 @@
                     }"
                   />
 
-                  <!-- Standard result display -->
-                  <template v-else>
-                    <el-alert
-                      :type="message.result.success ? 'success' : 'error'"
-                      :closable="false"
-                    >
-                      <template #title>
-                        <span v-if="message.result.success">执行成功</span>
-                        <span v-else>执行失败</span>
-                      </template>
-                      <p v-if="message.result.error" style="margin-top: 8px; color: #f56565;">
-                        {{ message.result.error }}
-                      </p>
-                    </el-alert>
+                  <!-- Error display -->
+                  <el-alert
+                    v-else-if="!message.result.success"
+                    type="error"
+                    :closable="false"
+                  >
+                    <template #title>
+                      <span>执行失败</span>
+                    </template>
+                    <p v-if="message.result.error" style="margin-top: 8px; color: #f56565;">
+                      {{ message.result.error }}
+                    </p>
+                  </el-alert>
 
-                    <!-- Application data renderer for result -->
-                    <ApplicationDataRenderer
-                      v-if="message.result.result && isApplicationData(message.result.result)"
-                      :data="extractApplicationData(message.result.result)"
-                    />
-
-                    <!-- Fallback raw JSON display -->
-                    <pre
-                      v-else-if="message.result.result"
-                      class="result-json"
-                    >{{ formatResultData(message.result.result) }}</pre>
-                  </template>
+                  <!-- Smart MCP Result Renderer -->
+                  <MCPResultRenderer
+                    v-else-if="message.result.result"
+                    :result="message.result.result"
+                  />
                 </div>
               </div>
             </div>
@@ -286,7 +278,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading, Document, UploadFilled } from '@element-plus/icons-vue'
 import { MCPAPI, requiresEditPermission } from '@/api/mcp'
@@ -295,8 +287,13 @@ import { hasPermission, type UserRole, getRoleDisplayName } from '@/utils/permis
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
 import ApplicationDataRenderer from '@/components/common/ApplicationDataRenderer.vue'
 import TemplateFillResultRenderer from '@/components/common/TemplateFillResultRenderer.vue'
+import MCPResultRenderer from '@/components/common/MCPResultRenderer.vue'
 
 const authStore = useAuthStore()
+
+// Constants
+const CHAT_HISTORY_KEY = 'mcp_chat_history'
+const MAX_HISTORY_SIZE = 50 // 最多保存50条对话记录
 
 // Data
 const activeCategories = ref<string[]>([])
@@ -741,6 +738,7 @@ const processQuery = async (query: string, file?: File | null) => {
 
 const clearChat = () => {
   chatMessages.value = []
+  saveChatHistory() // 保存空的历史记录
   ElMessage.success('对话已清空')
 }
 
@@ -750,6 +748,50 @@ const scrollToBottom = async () => {
     chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight
   }
 }
+
+// 持久化相关函数
+const saveChatHistory = () => {
+  try {
+    // 只保存最近的MAX_HISTORY_SIZE条记录
+    const historyToSave = chatMessages.value.slice(-MAX_HISTORY_SIZE)
+    localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(historyToSave))
+  } catch (error) {
+    console.error('保存聊天历史失败:', error)
+  }
+}
+
+const loadChatHistory = () => {
+  try {
+    const savedHistory = localStorage.getItem(CHAT_HISTORY_KEY)
+    if (savedHistory) {
+      const parsed = JSON.parse(savedHistory)
+      // 恢复Date对象
+      chatMessages.value = parsed.map((msg: any) => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp),
+        isStreaming: false // 重新加载时不显示流式效果
+      }))
+      nextTick(() => scrollToBottom())
+    }
+  } catch (error) {
+    console.error('加载聊天历史失败:', error)
+    chatMessages.value = []
+  }
+}
+
+// 监听chatMessages变化，自动保存（使用debounce避免频繁保存）
+let saveTimeout: ReturnType<typeof setTimeout> | null = null
+watch(chatMessages, () => {
+  if (saveTimeout) clearTimeout(saveTimeout)
+  saveTimeout = setTimeout(() => {
+    saveChatHistory()
+  }, 1000) // 1秒后保存
+}, { deep: true })
+
+// 组件挂载时加载历史记录
+onMounted(() => {
+  loadChatHistory()
+})
 
 const formatTime = (timestamp: Date) => {
   return timestamp.toLocaleTimeString('zh-CN', {
@@ -808,48 +850,6 @@ const formatFileSize = (bytes: number): string => {
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
-}
-
-// Helper function to check if data is application-related
-const isApplicationData = (data: any): boolean => {
-  if (!data) return false
-
-  // Check if it's a single application object
-  if (typeof data === 'object' && !Array.isArray(data)) {
-    // Check for nested data structure (common in API responses)
-    if (data.data && typeof data.data === 'object') {
-      const innerData = data.data
-      return !!(innerData.l2_id || innerData.app_name || innerData.current_status)
-    }
-    return !!(data.l2_id || data.app_name || data.current_status)
-  }
-
-  // Check if it's an array of applications
-  if (Array.isArray(data) && data.length > 0) {
-    return !!(data[0].l2_id || data[0].app_name)
-  }
-
-  return false
-}
-
-// Helper function to extract application data from response
-const extractApplicationData = (data: any): any => {
-  if (!data) return data
-
-  // If data has a nested 'data' property, extract it
-  if (typeof data === 'object' && !Array.isArray(data) && data.data) {
-    return data.data
-  }
-
-  return data
-}
-
-// Helper function to format result data for display
-const formatResultData = (data: any): string => {
-  if (typeof data === 'string') {
-    return data
-  }
-  return JSON.stringify(data, null, 2)
 }
 </script>
 

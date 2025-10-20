@@ -161,15 +161,20 @@ export function useStatusHelpers() {
 
   // 获取阶段颜色类
   const getPhaseColorClass = (phaseText: string, baseStatus: string): string => {
+    // 完成状态
     if (phaseText === '已完成') return 'phase-completed'
+    // 阻塞状态
     if (phaseText === '阻塞') return 'phase-blocked'
+    // 未开始状态
     if (phaseText === '未开始') return 'phase-not-started'
 
-    if (phaseText.includes('需求')) return 'phase-requirement'
+    // 匹配阶段文本（包含需求、研发、发版、技术上线、业务上线等关键词）
+    if (phaseText.includes('需求') || phaseText.includes('研发')) return 'phase-requirement'
     if (phaseText.includes('发版')) return 'phase-release'
     if (phaseText.includes('技术上线')) return 'phase-tech'
     if (phaseText.includes('业务上线')) return 'phase-biz'
 
+    // 默认返回进行中状态
     return 'status-in_progress'
   }
 
