@@ -38,12 +38,12 @@
         <template #header>
           <div class="result-header">
             <el-icon :size="18"><document /></el-icon>
-            <span class="header-title">{{ resultData.data.l2_id }} - {{ resultData.data.cmdb_info?.short_name }}</span>
+            <span class="header-title">{{ resultData.l2_id }} - {{ resultData.cmdb_info?.short_name }}</span>
             <div class="header-actions">
               <el-button
                 size="small"
                 type="primary"
-                @click="navigateToApplication(resultData.data.l2_id)"
+                @click="navigateToApplication(resultData.l2_id)"
               >
                 <el-icon><right /></el-icon>
                 在应用管理中查看
@@ -60,26 +60,26 @@
           </h4>
           <el-descriptions :column="2" border>
             <el-descriptions-item label="配置项ID">
-              {{ resultData.data.cmdb_info?.config_id }}
+              {{ resultData.cmdb_info?.config_id }}
             </el-descriptions-item>
             <el-descriptions-item label="规范名称">
-              {{ resultData.data.cmdb_info?.short_name }}
+              {{ resultData.cmdb_info?.short_name }}
             </el-descriptions-item>
             <el-descriptions-item label="英文名称">
-              {{ resultData.data.cmdb_info?.english_name }}
+              {{ resultData.cmdb_info?.english_name }}
             </el-descriptions-item>
             <el-descriptions-item label="系统状态">
-              <el-tag :type="getSystemStatusType(resultData.data.cmdb_info?.system_status)">
-                {{ resultData.data.cmdb_info?.system_status }}
+              <el-tag :type="getSystemStatusType(resultData.cmdb_info?.system_status)">
+                {{ resultData.cmdb_info?.system_status }}
               </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="管理级别">
               <el-tag type="warning">
-                {{ resultData.data.cmdb_info?.management_level }}
+                {{ resultData.cmdb_info?.management_level }}
               </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="系统产权">
-              {{ resultData.data.cmdb_info?.system_ownership }}
+              {{ resultData.cmdb_info?.system_ownership }}
             </el-descriptions-item>
           </el-descriptions>
         </div>
@@ -92,88 +92,88 @@
           </h4>
           <el-descriptions :column="2" border>
             <el-descriptions-item label="业务主管单位">
-              {{ resultData.data.cmdb_info?.business_supervisor_unit }}
+              {{ resultData.cmdb_info?.business_supervisor_unit }}
             </el-descriptions-item>
             <el-descriptions-item label="联系人">
-              {{ resultData.data.cmdb_info?.contact_person }}
+              {{ resultData.cmdb_info?.contact_person }}
             </el-descriptions-item>
             <el-descriptions-item label="开发单位">
-              {{ resultData.data.cmdb_info?.dev_unit }}
+              {{ resultData.cmdb_info?.dev_unit }}
             </el-descriptions-item>
             <el-descriptions-item label="开发接口人">
-              <el-text type="primary">{{ resultData.data.cmdb_info?.dev_contact }}</el-text>
+              <el-text type="primary">{{ resultData.cmdb_info?.dev_contact }}</el-text>
             </el-descriptions-item>
             <el-descriptions-item label="运维单位">
-              {{ resultData.data.cmdb_info?.ops_unit }}
+              {{ resultData.cmdb_info?.ops_unit }}
             </el-descriptions-item>
             <el-descriptions-item label="运维接口人">
-              <el-text type="primary">{{ resultData.data.cmdb_info?.ops_contact }}</el-text>
+              <el-text type="primary">{{ resultData.cmdb_info?.ops_contact }}</el-text>
             </el-descriptions-item>
           </el-descriptions>
         </div>
 
         <!-- 改造信息 -->
-        <div class="section" v-if="resultData.data.transformation_info">
+        <div class="section" v-if="resultData.transformation_info">
           <h4 class="section-title">
             <el-icon><odometer /></el-icon>
             改造进度
           </h4>
           <el-descriptions :column="2" border>
             <el-descriptions-item label="监管年份">
-              {{ resultData.data.transformation_info.ak_supervision_acceptance_year }}年
+              {{ resultData.transformation_info.ak_supervision_acceptance_year }}年
             </el-descriptions-item>
             <el-descriptions-item label="改造目标">
-              <el-tag :type="resultData.data.transformation_info.overall_transformation_target === 'AK' ? 'primary' : 'success'">
-                {{ resultData.data.transformation_info.overall_transformation_target }}
+              <el-tag :type="resultData.transformation_info.overall_transformation_target === 'AK' ? 'primary' : 'success'">
+                {{ resultData.transformation_info.overall_transformation_target }}
               </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="AK改造状态">
-              <el-tag :type="resultData.data.transformation_info.is_ak_completed ? 'success' : 'warning'">
-                {{ resultData.data.transformation_info.is_ak_completed ? '已完成' : '进行中' }}
+              <el-tag :type="resultData.transformation_info.is_ak_completed ? 'success' : 'warning'">
+                {{ resultData.transformation_info.is_ak_completed ? '已完成' : '进行中' }}
               </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="云原生改造状态">
-              <el-tag :type="resultData.data.transformation_info.is_cloud_native_completed ? 'success' : 'warning'">
-                {{ resultData.data.transformation_info.is_cloud_native_completed ? '已完成' : '进行中' }}
+              <el-tag :type="resultData.transformation_info.is_cloud_native_completed ? 'success' : 'warning'">
+                {{ resultData.transformation_info.is_cloud_native_completed ? '已完成' : '进行中' }}
               </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="当前状态">
-              {{ resultData.data.transformation_info.current_status }}
+              {{ resultData.transformation_info.current_status }}
             </el-descriptions-item>
             <el-descriptions-item label="应用等级">
-              第{{ resultData.data.transformation_info.app_tier }}级
+              第{{ resultData.transformation_info.app_tier }}级
             </el-descriptions-item>
           </el-descriptions>
         </div>
 
         <!-- 延期状态 -->
-        <div class="section" v-if="resultData.data.cmdb_info">
+        <div class="section" v-if="resultData.cmdb_info">
           <h4 class="section-title">
             <el-icon><calendar /></el-icon>
             上线时间
           </h4>
           <el-descriptions :column="2" border>
             <el-descriptions-item label="计划业务上线">
-              {{ formatDate(resultData.data.cmdb_info.planned_biz_online_date) }}
+              {{ formatDate(resultData.cmdb_info.planned_biz_online_date) }}
             </el-descriptions-item>
             <el-descriptions-item label="实际业务上线">
-              {{ formatDate(resultData.data.cmdb_info.actual_biz_online_date) }}
+              {{ formatDate(resultData.cmdb_info.actual_biz_online_date) }}
             </el-descriptions-item>
             <el-descriptions-item label="延期状态">
-              <el-tag :type="resultData.data.cmdb_info.is_delayed ? 'danger' : 'success'">
-                {{ resultData.data.cmdb_info.is_delayed ? `延期${resultData.data.cmdb_info.delay_days}天` : '正常' }}
+              <el-tag :type="resultData.cmdb_info.is_delayed ? 'danger' : 'success'">
+                {{ resultData.cmdb_info.is_delayed ? `延期${resultData.cmdb_info.delay_days}天` : '正常' }}
               </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="验收状态">
-              <el-tag :type="getAcceptanceStatusType(resultData.data.cmdb_info.acceptance_status)">
-                {{ resultData.data.cmdb_info.acceptance_status }}
+              <el-tag :type="getAcceptanceStatusType(resultData.cmdb_info.acceptance_status)">
+                {{ resultData.cmdb_info.acceptance_status }}
               </el-tag>
             </el-descriptions-item>
           </el-descriptions>
         </div>
 
         <!-- L1系统关联 -->
-        <div class="section" v-if="resultData.data.l1_systems">
+        <div class="section" v-if="resultData.l1_systems">
           <h4 class="section-title">
             <el-icon><connection /></el-icon>
             L1系统关联
@@ -189,16 +189,16 @@
                 </template>
                 <el-descriptions :column="1" border>
                   <el-descriptions-item label="系统名称">
-                    {{ resultData.data.l1_systems.l1_156?.short_name }}
+                    {{ resultData.l1_systems.l1_156?.short_name }}
                   </el-descriptions-item>
                   <el-descriptions-item label="管理级别">
-                    <el-tag type="warning">{{ resultData.data.l1_systems.l1_156?.management_level }}</el-tag>
+                    <el-tag type="warning">{{ resultData.l1_systems.l1_156?.management_level }}</el-tag>
                   </el-descriptions-item>
                   <el-descriptions-item label="所属域">
-                    {{ resultData.data.l1_systems.l1_156?.belongs_to_domain }}
+                    {{ resultData.l1_systems.l1_156?.belongs_to_domain }}
                   </el-descriptions-item>
                   <el-descriptions-item label="所属层">
-                    {{ resultData.data.l1_systems.l1_156?.belongs_to_layer }}
+                    {{ resultData.l1_systems.l1_156?.belongs_to_layer }}
                   </el-descriptions-item>
                 </el-descriptions>
               </el-card>
@@ -213,17 +213,17 @@
                 </template>
                 <el-descriptions :column="1" border>
                   <el-descriptions-item label="系统名称">
-                    {{ resultData.data.l1_systems.l1_87?.short_name }}
+                    {{ resultData.l1_systems.l1_87?.short_name }}
                   </el-descriptions-item>
                   <el-descriptions-item label="管理级别">
-                    <el-tag type="warning">{{ resultData.data.l1_systems.l1_87?.management_level }}</el-tag>
+                    <el-tag type="warning">{{ resultData.l1_systems.l1_87?.management_level }}</el-tag>
                   </el-descriptions-item>
                   <el-descriptions-item label="所属域">
-                    {{ resultData.data.l1_systems.l1_87?.belongs_to_domain }}
+                    {{ resultData.l1_systems.l1_87?.belongs_to_domain }}
                   </el-descriptions-item>
                   <el-descriptions-item label="关键系统">
-                    <el-tag :type="resultData.data.l1_systems.l1_87?.is_critical_system ? 'danger' : 'info'" size="small">
-                      {{ resultData.data.l1_systems.l1_87?.is_critical_system ? '是' : '否' }}
+                    <el-tag :type="resultData.l1_systems.l1_87?.is_critical_system ? 'danger' : 'info'" size="small">
+                      {{ resultData.l1_systems.l1_87?.is_critical_system ? '是' : '否' }}
                     </el-tag>
                   </el-descriptions-item>
                 </el-descriptions>
@@ -233,12 +233,12 @@
         </div>
 
         <!-- 子任务列表 -->
-        <div class="section" v-if="resultData.data.subtasks && resultData.data.subtasks.length > 0">
+        <div class="section" v-if="resultData.subtasks && resultData.subtasks.length > 0">
           <h4 class="section-title">
             <el-icon><list /></el-icon>
-            子任务详情 ({{ resultData.data.subtasks.length }}个)
+            子任务详情 ({{ resultData.subtasks.length }}个)
           </h4>
-          <el-table :data="resultData.data.subtasks" border stripe>
+          <el-table :data="resultData.subtasks" border stripe>
             <el-table-column prop="sub_target" label="子目标" width="100" />
             <el-table-column prop="version_name" label="版本" width="120" />
             <el-table-column label="任务状态" width="120" align="center">
@@ -274,7 +274,7 @@
         </div>
 
         <!-- 备注信息 -->
-        <div class="section" v-if="resultData.data.cmdb_info?.notes">
+        <div class="section" v-if="resultData.cmdb_info?.notes">
           <h4 class="section-title">
             <el-icon><warning /></el-icon>
             备注与风险提示
@@ -284,7 +284,7 @@
             :closable="false"
             show-icon
           >
-            <pre class="notes-content">{{ resultData.data.cmdb_info.notes }}</pre>
+            <pre class="notes-content">{{ resultData.cmdb_info.notes }}</pre>
           </el-alert>
         </div>
       </el-card>
@@ -359,36 +359,64 @@ const router = useRouter()
 const resultData = computed(() => {
   let data = props.result
 
+  console.log('[MCP Debug] 原始props.result:', data)
+
+  // 处理三层嵌套：{ success: true, result: { result: { success: true, data: {...} } } }
+  if (data?.result?.result?.data) {
+    console.log('[MCP Debug] ✅ 使用 data.result.result.data (三层嵌套):', data.result.result.data)
+    return data.result.result.data
+  }
+
   // 处理多层嵌套：{ result: { success: true, data: {...} } }
   if (data?.result?.data) {
+    console.log('[MCP Debug] ✅ 使用 data.result.data (二层嵌套):', data.result.data)
     return data.result.data
   }
 
   // 处理标准嵌套：{ success: true, data: {...} }
   if (data?.data) {
+    console.log('[MCP Debug] ✅ 使用 data.data (标准嵌套):', data.data)
     return data.data
   }
 
   // 处理单层嵌套：{ result: {...} }
   if (data?.result) {
+    console.log('[MCP Debug] ⚠️ 使用 data.result (单层):', data.result)
     return data.result
   }
 
   // 直接返回原始数据
+  console.log('[MCP Debug] ⚠️ 使用原始数据:', data)
   return data
 })
 
 // Type detection
 const isCMDBL2DetailResult = computed(() => {
   const data = resultData.value
-  return !!(data?.l2_id && data?.cmdb_info && data?.transformation_info)
+  const matched = !!(data?.l2_id && data?.cmdb_info && data?.transformation_info)
+  console.log('[MCP Debug] CMDB详情检测:', {
+    matched,
+    hasL2Id: !!data?.l2_id,
+    hasCMDB: !!data?.cmdb_info,
+    hasTransform: !!data?.transformation_info,
+    actualL2Id: data?.l2_id
+  })
+  return matched
 })
 
 const isApplicationListResult = computed(() => {
-  return Array.isArray(resultData.value) &&
+  const matched = Array.isArray(resultData.value) &&
          resultData.value.length > 0 &&
          resultData.value[0]?.l2_id &&
          resultData.value[0]?.app_name
+  console.log('[MCP Debug] 应用列表检测:', {
+    matched,
+    isArray: Array.isArray(resultData.value),
+    length: resultData.value?.length,
+    firstItemHasL2Id: !!resultData.value?.[0]?.l2_id,
+    firstItemHasAppName: !!resultData.value?.[0]?.app_name
+  })
+  return matched
 })
 
 // Navigation
