@@ -927,7 +927,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import {
   Plus,
   Upload,
@@ -962,6 +962,7 @@ import PlanHistoryDialog from '@/components/applications/dialogs/PlanHistoryDial
 import ApplicationsTable from '@/components/applications/ApplicationsTable.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 // 使用 composables
 const {
@@ -1909,24 +1910,33 @@ onMounted(async () => {
   loadFavoritesFromStorage()
   loadSubTaskFavoritesFromStorage()
 
-  // 恢复保存的页面状态（如果存在）
-  const savedState = sessionStorage.getItem('applicationListState')
-  if (savedState) {
-    try {
-      const state = JSON.parse(savedState)
-      currentPage.value = state.currentPage || 1
-      pageSize.value = state.pageSize || 20
-      if (state.searchForm) {
-        searchForm.keyword = state.searchForm.keyword || ''
-        searchForm.status = state.searchForm.status || undefined
-        searchForm.department = state.searchForm.department || undefined
-        searchForm.target = state.searchForm.target || undefined
-        debouncedKeyword.value = state.searchForm.keyword || ''
+  // 检查URL查询参数，优先级最高
+  const searchQuery = route.query.search as string
+  if (searchQuery) {
+    searchForm.keyword = searchQuery
+    debouncedKeyword.value = searchQuery
+    // 清除URL参数，避免刷新时重复搜索
+    router.replace({ query: {} })
+  } else {
+    // 只在没有search参数时才恢复保存的页面状态
+    const savedState = sessionStorage.getItem('applicationListState')
+    if (savedState) {
+      try {
+        const state = JSON.parse(savedState)
+        currentPage.value = state.currentPage || 1
+        pageSize.value = state.pageSize || 20
+        if (state.searchForm) {
+          searchForm.keyword = state.searchForm.keyword || ''
+          searchForm.status = state.searchForm.status || undefined
+          searchForm.department = state.searchForm.department || undefined
+          searchForm.target = state.searchForm.target || undefined
+          debouncedKeyword.value = state.searchForm.keyword || ''
+        }
+        // 清除已恢复的状态
+        sessionStorage.removeItem('applicationListState')
+      } catch (error) {
+        console.error('Failed to restore page state:', error)
       }
-      // 清除已恢复的状态
-      sessionStorage.removeItem('applicationListState')
-    } catch (error) {
-      console.error('Failed to restore page state:', error)
     }
   }
 
