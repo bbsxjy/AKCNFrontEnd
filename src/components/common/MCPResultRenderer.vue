@@ -359,64 +359,41 @@ const router = useRouter()
 const resultData = computed(() => {
   let data = props.result
 
-  console.log('[MCP Debug] 原始props.result:', data)
-
   // 处理三层嵌套：{ success: true, result: { result: { success: true, data: {...} } } }
   if (data?.result?.result?.data) {
-    console.log('[MCP Debug] ✅ 使用 data.result.result.data (三层嵌套):', data.result.result.data)
     return data.result.result.data
   }
 
   // 处理多层嵌套：{ result: { success: true, data: {...} } }
   if (data?.result?.data) {
-    console.log('[MCP Debug] ✅ 使用 data.result.data (二层嵌套):', data.result.data)
     return data.result.data
   }
 
   // 处理标准嵌套：{ success: true, data: {...} }
   if (data?.data) {
-    console.log('[MCP Debug] ✅ 使用 data.data (标准嵌套):', data.data)
     return data.data
   }
 
   // 处理单层嵌套：{ result: {...} }
   if (data?.result) {
-    console.log('[MCP Debug] ⚠️ 使用 data.result (单层):', data.result)
     return data.result
   }
 
   // 直接返回原始数据
-  console.log('[MCP Debug] ⚠️ 使用原始数据:', data)
   return data
 })
 
 // Type detection
 const isCMDBL2DetailResult = computed(() => {
   const data = resultData.value
-  const matched = !!(data?.l2_id && data?.cmdb_info && data?.transformation_info)
-  console.log('[MCP Debug] CMDB详情检测:', {
-    matched,
-    hasL2Id: !!data?.l2_id,
-    hasCMDB: !!data?.cmdb_info,
-    hasTransform: !!data?.transformation_info,
-    actualL2Id: data?.l2_id
-  })
-  return matched
+  return !!(data?.l2_id && data?.cmdb_info && data?.transformation_info)
 })
 
 const isApplicationListResult = computed(() => {
-  const matched = Array.isArray(resultData.value) &&
+  return Array.isArray(resultData.value) &&
          resultData.value.length > 0 &&
          resultData.value[0]?.l2_id &&
          resultData.value[0]?.app_name
-  console.log('[MCP Debug] 应用列表检测:', {
-    matched,
-    isArray: Array.isArray(resultData.value),
-    length: resultData.value?.length,
-    firstItemHasL2Id: !!resultData.value?.[0]?.l2_id,
-    firstItemHasAppName: !!resultData.value?.[0]?.app_name
-  })
-  return matched
 })
 
 // Navigation
