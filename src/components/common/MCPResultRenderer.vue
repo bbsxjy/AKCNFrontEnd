@@ -290,11 +290,43 @@
       </el-card>
     </div>
 
-    <!-- 其他数据：提示用户在应用管理中查看 -->
+    <!-- 其他数据：显示调试信息 -->
     <div v-else class="result-container">
-      <el-empty description="数据格式无法识别，请尝试在应用管理中查看完整数据">
-        <el-button type="primary" @click="navigateToApplications">前往应用管理</el-button>
-      </el-empty>
+      <el-card shadow="hover">
+        <template #header>
+          <div class="result-header">
+            <el-icon :size="18"><warning /></el-icon>
+            <span class="header-title">数据格式待优化</span>
+            <div class="header-actions">
+              <el-button size="small" type="primary" @click="navigateToApplications">
+                前往应用管理
+              </el-button>
+            </div>
+          </div>
+        </template>
+
+        <el-alert type="info" :closable="false" style="margin-bottom: 16px;">
+          <template #title>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span>此数据格式暂不支持可视化展示</span>
+            </div>
+          </template>
+          <div style="margin-top: 8px; font-size: 13px; line-height: 1.6;">
+            <p>检测到的数据类型：{{ getDataType() }}</p>
+            <p v-if="Array.isArray(resultData)">数组长度：{{ resultData.length }}</p>
+            <p v-if="resultData && typeof resultData === 'object' && !Array.isArray(resultData)">
+              对象键：{{ Object.keys(resultData).slice(0, 10).join(', ') }}{{ Object.keys(resultData).length > 10 ? '...' : '' }}
+            </p>
+          </div>
+        </el-alert>
+
+        <!-- 简洁的数据预览 -->
+        <el-collapse>
+          <el-collapse-item title="查看原始数据（调试用）" name="1">
+            <pre style="background: #f5f7fa; padding: 12px; border-radius: 4px; font-size: 12px; max-height: 400px; overflow: auto;">{{ JSON.stringify(resultData, null, 2) }}</pre>
+          </el-collapse-item>
+        </el-collapse>
+      </el-card>
     </div>
   </div>
 </template>
@@ -323,17 +355,33 @@ interface Props {
 const props = defineProps<Props>()
 const router = useRouter()
 
-// Extract actual data from result
+// Extract actual data from result - 智能处理多层嵌套
 const resultData = computed(() => {
-  if (props.result?.data) return props.result.data
-  if (props.result?.result) return props.result.result
-  return props.result
+  let data = props.result
+
+  // 处理多层嵌套：{ result: { success: true, data: {...} } }
+  if (data?.result?.data) {
+    return data.result.data
+  }
+
+  // 处理标准嵌套：{ success: true, data: {...} }
+  if (data?.data) {
+    return data.data
+  }
+
+  // 处理单层嵌套：{ result: {...} }
+  if (data?.result) {
+    return data.result
+  }
+
+  // 直接返回原始数据
+  return data
 })
 
 // Type detection
 const isCMDBL2DetailResult = computed(() => {
   const data = resultData.value
-  return data?.l2_id && data?.cmdb_info && data?.transformation_info
+  return !!(data?.l2_id && data?.cmdb_info && data?.transformation_info)
 })
 
 const isApplicationListResult = computed(() => {
@@ -363,6 +411,16 @@ const navigateToApplications = () => {
 const getDelayCount = (row: Application): number => {
   // 简单返回0，ApplicationsTable会自己计算
   return 0
+}
+
+// Helper for debugging
+const getDataType = () => {
+  const data = resultData.value
+  if (data === null) return 'null'
+  if (data === undefined) return 'undefined'
+  if (Array.isArray(data)) return `数组 (${data.length}项)`
+  if (typeof data === 'object') return `对象 (${Object.keys(data).length}个键)`
+  return typeof data
 }
 
 // Formatters

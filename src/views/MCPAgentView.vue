@@ -159,8 +159,8 @@
 
                   <!-- Smart MCP Result Renderer -->
                   <MCPResultRenderer
-                    v-else-if="message.result.result"
-                    :result="message.result.result"
+                    v-else-if="message.result.result != null"
+                    :result="message.result"
                   />
                 </div>
               </div>
