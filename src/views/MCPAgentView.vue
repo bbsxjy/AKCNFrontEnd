@@ -70,7 +70,7 @@
         <el-card class="chat-panel">
           <template #header>
             <div class="chat-header">
-              <h3>MCP 智能查询与分析助手</h3>
+              <h3>智能查询与分析助手</h3>
               <div class="header-actions">
                 <el-tag :type="canUseEditTools ? 'success' : 'info'">
                   {{ userRole }}
@@ -89,7 +89,7 @@
             >
               <div class="message-header">
                 <span class="message-sender">
-                  {{ message.type === 'user' ? '我' : 'MCP助手' }}
+                  {{ message.type === 'user' ? '我' : '智能助手' }}
                 </span>
                 <span class="message-time">{{ formatTime(message.timestamp) }}</span>
               </div>
@@ -168,12 +168,12 @@
 
             <el-empty
               v-if="chatMessages.length === 0 && !isProcessing"
-              description="MCP智能助手可以帮您执行复杂数据查询、生成SQL分析、导出定制化Excel报表"
+              description="智能助手可以帮您执行应用改造进度查询、档位统计分析、导出定制化Excel报表"
             >
               <template #default>
                 <div style="margin-top: 16px;">
                   <el-text type="info" size="small">
-                    💡 点击左侧工具示例快速开始，或直接输入您的查询需求
+                    💡 点击左侧工具示例快速开始，或输入如：统计第一档位AK改造应用的完成率
                   </el-text>
                 </div>
               </template>
@@ -241,7 +241,7 @@
             <div class="input-actions">
               <div class="input-hints">
                 <el-text size="small" type="info">
-                  Ctrl + Enter 发送 | 支持复杂SQL查询、数据分析、报表生成、Excel文件分析
+                  Ctrl + Enter 发送 | 支持应用管理、档位统计、项目进度、CMDB查询、Excel报表生成
                 </el-text>
               </div>
               <div class="action-buttons">
@@ -347,22 +347,14 @@ const toolCategories = computed(() => ({
 
 // Detailed tool list with usage examples (查询和分析类工具)
 const allTools = computed(() => [
-  // Database Query & Analysis Tools (2)
+  // Database Query & Analysis Tools
   {
     name: 'db_query',
     displayName: 'SQL查询',
     category: 'database',
     description: '执行复杂的只读SQL查询，支持联表、聚合、分组等高级操作',
     requiresEdit: false,
-    example: '统计每个部门2024年完成的AK改造项目数量，并计算完成率'
-  },
-  {
-    name: 'db_get_schema',
-    displayName: '查看表结构',
-    category: 'database',
-    description: '获取数据库表结构信息，便于构建复杂查询',
-    requiresEdit: false,
-    example: '显示applications和subtasks表的所有字段和关联关系'
+    example: '查询现在有多少个应用已经完成了云原生改造'
   },
 
   // Complex Data Query Tools (4)
@@ -372,7 +364,7 @@ const allTools = computed(() => [
     category: 'query',
     description: '支持多维度组合筛选的应用列表查询',
     requiresEdit: false,
-    example: '查询技术部2024年所有AK目标且当前阻塞的应用，并显示阻塞原因'
+    example: '查询第三档位、AK改造目标、当前状态为业务上线中的应用'
   },
   {
     name: 'app_get',
@@ -380,24 +372,24 @@ const allTools = computed(() => [
     category: 'query',
     description: '获取应用的完整详细信息，包括子任务和历史记录',
     requiresEdit: false,
-    example: '查询L2 ID为CI000088398的应用，包括所有子任务的进度详情'
+    example: '查询L2 ID为"CI000548240"的应用，显示应用和子任务的完成情况'
   },
-  {
-    name: 'task_list',
-    displayName: '子任务列表查询',
-    category: 'query',
-    description: '高级子任务查询，支持多字段组合筛选',
-    requiresEdit: false,
-    example: '查询张三负责的所有阻塞超过15天的子任务，按阻塞时长排序'
-  },
-  {
-    name: 'audit_get_logs',
-    displayName: '审计日志查询',
-    category: 'query',
-    description: '查询操作审计日志，追溯数据变更历史和操作人员',
-    requiresEdit: false,
-    example: '查看最近30天内状态从进行中改为阻塞的所有应用及修改人'
-  },
+  // {
+  //   name: 'task_list',
+  //   displayName: '子任务列表查询',
+  //   category: 'query',
+  //   description: '高级子任务查询，支持多字段组合筛选',
+  //   requiresEdit: false,
+  //   example: '查询所有云原生改造子任务中，当前阻塞且资源未申请的任务'
+  // },
+  // {
+  //   name: 'audit_get_logs',
+  //   displayName: '审计日志查询',
+  //   category: 'query',
+  //   description: '查询操作审计日志，追溯数据变更历史和操作人员',
+  //   requiresEdit: false,
+  //   example: '查看本月所有应用改造目标被修改的记录，显示修改前后的值'
+  // },
 
   // Statistical Analysis & Reports Tools (3)
   {
@@ -406,66 +398,66 @@ const allTools = computed(() => [
     category: 'analysis',
     description: '智能分析项目延期情况，识别风险项目，生成预警报告',
     requiresEdit: false,
-    example: '分析所有延期超过30天的项目，按部门分组并分析延期原因'
+    example: '统计各L1系统下延期应用的分布情况，分析延期天数超过15天的原因'
   },
-  {
-    name: 'dashboard_stats',
-    displayName: '统计分析',
-    category: 'analysis',
-    description: '多维度统计分析：进度汇总、部门对比、趋势分析、完成率计算',
-    requiresEdit: false,
-    example: '分析各部门AK和云原生项目的进度差异，生成对比图表'
-  },
+  // {
+  //   name: 'dashboard_stats',
+  //   displayName: '统计分析',
+  //   category: 'analysis',
+  //   description: '多维度统计分析：进度汇总、部门对比、趋势分析、完成率计算',
+  //   requiresEdit: false,
+  //   example: '对比各项目的AK和云原生改造完成率，生成月度进展统计表'
+  // },
   {
     name: 'dashboard_export',
     displayName: 'Excel报表导出',
     category: 'analysis',
     description: '按需生成定制化Excel报表，支持自定义字段、排序、筛选',
     requiresEdit: false,
-    example: '导出2024年所有项目的进度明细表，包含子任务分解和负责人信息'
+    example: '导出双追踪表格式报表，包含所有应用的改造目标、档位和完成进度'
   },
 
   // CMDB System Query Tools (5)
-  {
-    name: 'cmdb_search_l2',
-    displayName: 'L2应用搜索',
-    category: 'cmdb',
-    description: '在CMDB中搜索L2级应用系统，支持多维度筛选',
-    requiresEdit: false,
-    example: '搜索所有集团级且生命周期为运行中的云原生L2应用'
-  },
-  {
-    name: 'cmdb_get_l2',
-    displayName: 'L2应用详情',
-    category: 'cmdb',
-    description: '获取L2应用在CMDB中的完整配置信息',
-    requiresEdit: false,
-    example: '查看L2应用的技术架构、部署环境和依赖关系'
-  },
+  // {
+  //   name: 'cmdb_search_l2',
+  //   displayName: 'L2应用搜索',
+  //   category: 'cmdb',
+  //   description: '在CMDB中搜索L2级应用系统，支持多维度筛选',
+  //   requiresEdit: false,
+  //   example: '搜索所有状态为运行中的L2应用，显示联系人和接口人'
+  // },
+  // {
+  //   name: 'cmdb_get_l2',
+  //   displayName: 'L2应用详情',
+  //   category: 'cmdb',
+  //   description: '获取L2应用在CMDB中的完整配置信息',
+  //   requiresEdit: false,
+  //   example: '查询"核心支付系统"的配置项ID、管理级别、所属156L1和87L1系统'
+  // },
   {
     name: 'cmdb_search_156l1',
     displayName: '156L1系统搜索',
     category: 'cmdb',
-    description: '搜索156L1系统（当前分类体系）',
+    description: '搜索156L1系统（当前分类体系，用于外部报送）',
     requiresEdit: false,
-    example: '搜索所有核心业务系统的156L1分类'
+    example: '搜索所有包含"风控"关键词的156L1系统'
   },
-  {
-    name: 'cmdb_get_156l1_with_l2s',
-    displayName: 'L1系统层级查询',
-    category: 'cmdb',
-    description: '获取L1系统及其下所有L2应用的完整层级结构',
-    requiresEdit: false,
-    example: '查询风控系统L1下所有L2应用及其改造进度情况'
-  },
-  {
-    name: 'cmdb_search_87l1',
-    displayName: '87L1系统搜索',
-    category: 'cmdb',
-    description: '搜索87L1系统（未来分类体系）',
-    requiresEdit: false,
-    example: '搜索新架构体系下的87L1系统分类'
-  }
+  // {
+  //   name: 'cmdb_get_156l1_with_l2s',
+  //   displayName: 'L1系统层级查询',
+  //   category: 'cmdb',
+  //   description: '获取L1系统及其下所有L2应用的完整层级结构',
+  //   requiresEdit: false,
+  //   example: '查询"清算结算系统"156L1下所有L2应用及其开发运维接口人'
+  // },
+  // {
+  //   name: 'cmdb_search_87l1',
+  //   displayName: '87L1系统搜索',
+  //   category: 'cmdb',
+  //   description: '搜索87L1系统（未来目标分类体系，计划2027年底过渡）',
+  //   requiresEdit: false,
+  //   example: '搜索87L1新架构下的核心业务系统分类'
+  // }
 ])
 
 // Get tools for a specific category
@@ -487,7 +479,7 @@ const executeToolExample = (tool: any) => {
 // Methods
 const getInputPlaceholder = () => {
   if (!uploadedFile.value) {
-    return '输入查询需求，例如：查询各部门进行中项目的延期情况并生成Excel报表...'
+    return '输入查询需求，例如：统计各L1系统下第一档位应用的AK改造完成率...'
   }
   if (uploadMode.value === 'template-fill') {
     return '点击发送开始填充模板（输入框可留空）'

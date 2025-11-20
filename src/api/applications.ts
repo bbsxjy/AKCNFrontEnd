@@ -263,6 +263,45 @@ export class ApplicationsAPI {
     }
   }
 
+  // Get application by L2 business ID (string like "CI000487374")
+  static async getApplicationByL2Id(l2Id: string): Promise<Application> {
+    const response = await api.get(`/applications/l2/${l2Id}`)
+
+    // Apply same business logic as getApplication
+    const akSubtaskCount = response.data.ak_subtask_count || 0
+    const cloudNativeSubtaskCount = response.data.cloud_native_subtask_count || 0
+    const cloudNativeStatus = response.data.cloud_native_status || 'NOT_STARTED'
+
+    let akStatus = response.data.ak_status || 'NOT_STARTED'
+    let akCompletionPercentage = response.data.ak_completion_percentage || 0
+
+    if (akSubtaskCount === 0 && cloudNativeSubtaskCount > 0 && cloudNativeStatus === 'COMPLETED') {
+      akStatus = 'COMPLETED'
+      akCompletionPercentage = 100
+    }
+
+    return {
+      ...response.data,
+      is_domain_transformation_completed: response.data.is_domain_transformation_completed || false,
+      is_dbpm_transformation_completed: response.data.is_dbpm_transformation_completed || false,
+      progress_percentage: response.data.progress_percentage || 0,
+      ak_subtask_count: akSubtaskCount,
+      ak_completed_count: response.data.ak_completed_count || 0,
+      ak_in_progress_count: response.data.ak_in_progress_count || 0,
+      ak_blocked_count: response.data.ak_blocked_count || 0,
+      ak_not_started_count: response.data.ak_not_started_count || 0,
+      ak_completion_percentage: akCompletionPercentage,
+      ak_status: akStatus,
+      cloud_native_subtask_count: cloudNativeSubtaskCount,
+      cloud_native_completed_count: response.data.cloud_native_completed_count || 0,
+      cloud_native_in_progress_count: response.data.cloud_native_in_progress_count || 0,
+      cloud_native_blocked_count: response.data.cloud_native_blocked_count || 0,
+      cloud_native_not_started_count: response.data.cloud_native_not_started_count || 0,
+      cloud_native_completion_percentage: response.data.cloud_native_completion_percentage || 0,
+      cloud_native_status: cloudNativeStatus
+    }
+  }
+
   // Create new application
   static async createApplication(data: CreateApplicationRequest): Promise<Application> {
     // Send data as-is, field names already match backend
@@ -362,6 +401,7 @@ export class ApplicationsAPI {
 export const applicationApi = {
   getApplications: ApplicationsAPI.getApplications.bind(ApplicationsAPI),
   getApplication: ApplicationsAPI.getApplication.bind(ApplicationsAPI),
+  getApplicationByL2Id: ApplicationsAPI.getApplicationByL2Id.bind(ApplicationsAPI),
   createApplication: ApplicationsAPI.createApplication.bind(ApplicationsAPI),
   updateApplication: ApplicationsAPI.updateApplication.bind(ApplicationsAPI),
   deleteApplication: ApplicationsAPI.deleteApplication.bind(ApplicationsAPI),

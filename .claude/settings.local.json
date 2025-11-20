@@ -27,7 +27,10 @@
       "Bash(powershell:*)",
       "WebSearch",
       "Bash(git restore:*)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Read(//d/Program Files/Repos/AKCNBackEnd/docs/**)",
+      "Bash(bash:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []

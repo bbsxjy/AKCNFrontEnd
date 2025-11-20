@@ -9,8 +9,8 @@
           @click="toggleSidebar"
         />
         <h1 class="title">
-          <span v-if="!isMobile">AK云原生改造管理应用</span>
-          <span v-else>AK云原生改造管理应用</span>
+          <span v-if="!isMobile">项目协同管理应用</span>
+          <span v-else>项目协同管理</span>
         </h1>
       </div>
       <div class="header-right">
@@ -120,7 +120,7 @@
             </el-menu-item-group>
 
             <!-- 数据管理 (Admin, Manager) -->
-            <el-menu-item-group v-if="canViewRoute('Import') || canViewRoute('Reports')" title="数据管理">
+            <el-menu-item-group v-if="canViewRoute('Import') || canViewRoute('Reports') || canViewRoute('CloudNative')" title="数据管理">
               <el-menu-item v-if="canViewRoute('Import')" index="/import">
                 <el-icon><upload /></el-icon>
                 <span>批量导入</span>
@@ -129,6 +129,11 @@
               <el-menu-item v-if="canViewRoute('Reports')" index="/reports">
                 <el-icon><pie-chart /></el-icon>
                 <span>报表中心</span>
+              </el-menu-item>
+
+              <el-menu-item v-if="canViewRoute('CloudNative')" index="/cloud-native">
+                <el-icon><trend-charts /></el-icon>
+                <span>云原生改造成果</span>
               </el-menu-item>
             </el-menu-item-group>
 
@@ -154,7 +159,7 @@
             <el-menu-item-group title="辅助工具">
               <el-menu-item v-if="canViewRoute('MCPAgent')" index="/mcp-agent">
                 <el-icon><chat-dot-round /></el-icon>
-                <span>MCP助手</span>
+                <span>智能助手</span>
               </el-menu-item>
             </el-menu-item-group>
           </template>
@@ -182,7 +187,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, onUnmounted } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
-import { ArrowDown, Odometer, Document, User, Search, Upload, PieChart, Menu, Setting, ChatDotRound, BellFilled } from '@element-plus/icons-vue'
+import { ArrowDown, Odometer, Document, User, Search, Upload, PieChart, Menu, Setting, ChatDotRound, BellFilled, TrendCharts } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElNotification } from 'element-plus'
 import { NotificationsAPI } from '@/api/notifications'

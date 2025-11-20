@@ -5,6 +5,14 @@
         <div class="header">
           <h2>应用管理</h2>
           <div class="actions">
+            <el-button
+              type="success"
+              @click="showDispatchDialog = true"
+              v-if="mainTab === 'applications' && selectedApplications.length > 0"
+            >
+              <el-icon><user /></el-icon>
+              批量派发 ({{ selectedApplications.length }})
+            </el-button>
             <el-button type="primary" @click="showCreateDialog = true" v-if="mainTab === 'applications'">
               <el-icon><plus /></el-icon>
               新增应用
@@ -922,6 +930,14 @@
       @edit="editSubTask"
     />
 
+    <!-- Dispatch Dialog -->
+    <DispatchDialog
+      v-model="showDispatchDialog"
+      :application-ids="selectedApplications.map(app => app.id)"
+      :applications="allApplications"
+      @success="handleDispatchSuccess"
+    />
+
   </div>
 </template>
 
@@ -932,6 +948,7 @@ import {
   Plus,
   Upload,
   Download,
+  User,
   Warning as ElIconWarning,
   Clock as ElIconClock,
   CircleCheck as ElIconCircleCheck,
@@ -960,6 +977,7 @@ import ApplicationDetailDialog from '@/components/applications/dialogs/Applicati
 import DelayDetailsDialog from '@/components/applications/dialogs/DelayDetailsDialog.vue'
 import PlanHistoryDialog from '@/components/applications/dialogs/PlanHistoryDialog.vue'
 import ApplicationsTable from '@/components/applications/ApplicationsTable.vue'
+import DispatchDialog from '@/components/common/DispatchDialog.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -1008,6 +1026,7 @@ const showDelayDetailsDialog = ref(false)
 const delayDetailsData = ref<any>({})
 const delayDetailsLoading = ref(false)
 const selectedApplications = ref<Application[]>([])
+const showDispatchDialog = ref(false)
 const editingId = ref<number | null>(null)
 const editApplicationData = ref<Partial<Application>>({})
 const detailData = ref<Partial<Application>>({})
@@ -2077,6 +2096,21 @@ const resetSearch = () => {
 
 const handleSelectionChange = (selection: Application[]) => {
   selectedApplications.value = selection
+}
+
+const handleDispatchSuccess = async () => {
+  // 清空选择
+  selectedApplications.value = []
+  // 刷新应用列表
+  await loadApplications()
+
+  // 提示用户并引导到"我的任务"
+  ElMessage({
+    type: 'success',
+    message: '派发成功！受派人可在"我的任务"中查看新分配的任务',
+    duration: 5000,
+    showClose: true
+  })
 }
 
 const editApplication = (row: Application) => {

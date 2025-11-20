@@ -151,6 +151,13 @@ export class SubTasksAPI {
 
     const response = await api.get(`/subtasks?${queryParams.toString()}`)
 
+    console.log('🔍 [SubTasksAPI] 后端返回的原始数据:', response.data)
+    if (response.data && response.data.items && response.data.items.length > 0) {
+      console.log('🔍 [SubTasksAPI] 第1个子任务原始数据:', response.data.items[0])
+      console.log('🔍 [SubTasksAPI] 第1个子任务的dev_owner:', response.data.items[0].dev_owner)
+      console.log('🔍 [SubTasksAPI] 第1个子任务的ops_owner:', response.data.items[0].ops_owner)
+    }
+
     // Ensure data consistency and proper field mapping
     if (response.data && response.data.items) {
       response.data.items = response.data.items.map((item: any) => this.mapSubTaskData(item))

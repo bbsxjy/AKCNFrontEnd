@@ -74,6 +74,12 @@ const router = createRouter({
           name: 'MCPAgent',
           component: () => import('@/views/MCPAgentView.vue'),
           meta: { title: 'MCP助手', roles: ['admin', 'manager', 'editor', 'viewer'] }
+        },
+        {
+          path: 'cloud-native',
+          name: 'CloudNative',
+          component: () => import('@/views/CloudNativeView.vue'),
+          meta: { title: '云原生改造成果', roles: ['admin', 'manager', 'viewer'] }
         }
       ]
     }

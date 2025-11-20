@@ -27,6 +27,41 @@
         </div>
       </template>
 
+      <!-- Dispatch Notifications Alert -->
+      <el-alert
+        v-if="unreadNotifications.length > 0 && showNotificationAlert"
+        type="info"
+        :title="`您有 ${unreadNotifications.length} 条新的任务派发通知`"
+        :closable="true"
+        show-icon
+        class="notification-alert"
+        @close="dismissNotifications"
+      >
+        <div class="notification-list">
+          <div
+            v-for="notif in unreadNotifications.slice(0, 3)"
+            :key="notif.id"
+            class="notification-item"
+          >
+            <div class="notification-content">
+              <strong>{{ notif.title }}</strong>
+              <p>{{ notif.message }}</p>
+              <span class="notification-time">{{ formatDate(notif.created_at) }}</span>
+            </div>
+            <el-button
+              size="small"
+              type="primary"
+              @click="markNotificationAsRead(notif.id)"
+            >
+              标记已读
+            </el-button>
+          </div>
+          <div v-if="unreadNotifications.length > 3" class="more-notifications">
+            还有 {{ unreadNotifications.length - 3 }} 条通知...
+          </div>
+        </div>
+      </el-alert>
+
       <!-- Quick Filter Tabs - Loading Skeleton -->
       <div v-if="loading" class="filter-tabs">
         <el-skeleton :rows="1" animated style="height: 32px;" />
@@ -240,6 +275,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { SubTasksAPI } from '@/api/subtasks'
 import { DashboardAPI } from '@/api/dashboard'
+import { NotificationsAPI } from '@/api/notifications'
 import { useAuthStore } from '@/stores/auth'
 
 interface MyTask {
@@ -267,6 +303,8 @@ const showUpdateDialog = ref(false)
 const selectedTask = ref<MyTask | null>(null)
 const updating = ref(false)
 const loading = ref(false)
+const unreadNotifications = ref<any[]>([])
+const showNotificationAlert = ref(true)
 
 // Get current user's name for filtering tasks
 const currentUserName = computed(() => {
@@ -365,11 +403,53 @@ const loadMyTasks = async () => {
 
     // Use DashboardAPI to get properly formatted tasks with user filtering
     const userName = currentUserName.value
-    console.log('Loading tasks for user:', userName)
+    console.log('🔍 [我的任务] 当前用户:', userName)
+    console.log('🔍 [我的任务] 用户完整信息:', authStore.user)
+
     const tasks = await DashboardAPI.getMyTasks(100, userName) // Get more tasks for My Tasks view
+    console.log('🔍 [我的任务] API返回的任务数量:', tasks.length)
+    console.log('🔍 [我的任务] API返回的任务详情:', tasks)
+
+    // 🔧 临时Mock：加载localStorage中的派发记录
+    let mockTasks: any[] = []
+    try {
+      const mockDispatches = JSON.parse(localStorage.getItem('mock_dispatches') || '[]')
+      console.log('🔍 [Mock] 从本地加载派发记录:', mockDispatches.length, '条')
+
+      // 过滤出属于当前用户的mock任务
+      mockTasks = mockDispatches
+        .filter((dispatch: any) => dispatch.assigneeName === userName)
+        .map((dispatch: any) => {
+          const plannedDate = new Date(dispatch.plannedDate)
+          const now = Date.now()
+          const isOverdue = plannedDate < new Date()
+          const isUrgent = plannedDate.getTime() <= now + 3 * 24 * 60 * 60 * 1000
+
+          return {
+            id: dispatch.id,
+            appId: dispatch.appId,
+            appName: dispatch.appName,
+            taskName: dispatch.taskName,
+            status: dispatch.status,
+            progress: dispatch.progress,
+            plannedDate: dispatch.plannedDate,
+            isOverdue: isOverdue,
+            isUrgent: isUrgent,
+            daysRemaining: Math.ceil((plannedDate.getTime() - now) / (24 * 60 * 60 * 1000)),
+            applicationId: dispatch.applicationId,
+            isBlocked: false,
+            blockReason: '',
+            isMock: true // 标记为mock数据
+          }
+        })
+
+      console.log(`✅ [Mock] 找到 ${mockTasks.length} 个属于当前用户的mock任务`)
+    } catch (err) {
+      console.warn('⚠️ [Mock] 加载派发记录失败:', err)
+    }
 
     // Transform to MyTask format
-    allTasks.value = tasks
+    const realTasks = tasks
       .filter(task => {
         // Filter out completed tasks
         const isCompleted = task.status === '已完成' ||
@@ -390,12 +470,19 @@ const loadMyTasks = async () => {
         daysRemaining: task.daysRemaining,
         applicationId: task.applicationId,
         isBlocked: task.status === '存在阻塞',
-        blockReason: ''
+        blockReason: '',
+        isMock: false
       }))
 
-    console.log(`Loaded ${allTasks.value.length} tasks for current user`)
+    // 合并真实任务和mock任务
+    allTasks.value = [...mockTasks, ...realTasks]
+
+    console.log(`✅ [我的任务] 最终显示 ${allTasks.value.length} 个任务 (${mockTasks.length} mock + ${realTasks.length} 真实)`)
+    if (allTasks.value.length > 0) {
+      console.log('📋 [我的任务] 任务列表:', allTasks.value)
+    }
   } catch (error) {
-    console.error('Failed to load my tasks:', error)
+    console.error('❌ [我的任务] 加载失败:', error)
     allTasks.value = []
   } finally {
     loading.value = false
@@ -408,6 +495,107 @@ const refreshTasks = async (isManual = true) => {
     ElMessage.success('任务列表已刷新')
   }
 }
+
+// 加载派发通知
+const loadDispatchNotifications = async () => {
+  try {
+    console.log('🔔 [通知] 开始加载派发通知...')
+
+    const notifications = await NotificationsAPI.getNotifications({
+      unread_only: true,
+      limit: 10
+    })
+
+    console.log('🔔 [通知] API返回的所有未读通知:', notifications)
+    console.log('🔔 [通知] 未读通知总数:', notifications?.total)
+    console.log('🔔 [通知] 通知列表:', notifications?.items)
+
+    let realNotifications: any[] = []
+
+    // 检查返回数据格式
+    if (!notifications || !notifications.items) {
+      console.warn('⚠️ [通知] API返回格式不正确，应为 {total, unread_count, items}')
+    } else {
+      // 过滤出任务派发类型的通知
+      realNotifications = notifications.items.filter(
+        (notif: any) => notif.type === 'task_assignment'
+      )
+    }
+
+    // 🔧 临时Mock：加载localStorage中的派发通知
+    let mockNotifications: any[] = []
+    try {
+      const mockDispatches = JSON.parse(localStorage.getItem('mock_dispatches') || '[]')
+      const userName = currentUserName.value
+
+      // 将派发记录转换为通知格式
+      mockNotifications = mockDispatches
+        .filter((dispatch: any) => dispatch.assigneeName === userName)
+        .map((dispatch: any) => ({
+          id: `notif_${dispatch.id}`,
+          type: 'task_assignment',
+          title: '您有新的任务派发',
+          message: dispatch.message || `您被分配了应用 ${dispatch.appName} 的${dispatch.assigneeType === 'dev' ? '开发' : '运维'}任务，请及时查看并填写进展。`,
+          severity: 'medium',
+          is_read: false,
+          created_at: dispatch.dispatchedAt,
+          data: {
+            appId: dispatch.appId,
+            appName: dispatch.appName,
+            assigneeType: dispatch.assigneeType
+          },
+          isMock: true
+        }))
+
+      console.log(`✅ [Mock] 找到 ${mockNotifications.length} 条mock通知`)
+    } catch (err) {
+      console.warn('⚠️ [Mock] 加载mock通知失败:', err)
+    }
+
+    // 合并真实通知和mock通知
+    unreadNotifications.value = [...mockNotifications, ...realNotifications]
+
+    console.log(`✅ [通知] 最终显示 ${unreadNotifications.value.length} 条任务派发通知 (${mockNotifications.length} mock + ${realNotifications.length} 真实)`)
+    if (unreadNotifications.value.length > 0) {
+      console.log('📧 [通知] 派发通知详情:', unreadNotifications.value)
+    }
+  } catch (error) {
+    console.error('❌ [通知] 加载失败:', error)
+    unreadNotifications.value = []
+  }
+}
+
+// 标记通知为已读
+const markNotificationAsRead = async (notificationId: number | string) => {
+  try {
+    // 如果是mock通知（ID是字符串且以notif_mock_开头）
+    if (typeof notificationId === 'string' && notificationId.startsWith('notif_mock_')) {
+      console.log('🔔 [Mock] 删除mock通知:', notificationId)
+
+      // 从localStorage中移除对应的派发记录
+      const mockDispatches = JSON.parse(localStorage.getItem('mock_dispatches') || '[]')
+      const dispatchId = notificationId.replace('notif_', '')
+      const updatedDispatches = mockDispatches.filter((d: any) => d.id !== dispatchId)
+      localStorage.setItem('mock_dispatches', JSON.stringify(updatedDispatches))
+
+      // 重新加载通知
+      await loadDispatchNotifications()
+      return
+    }
+
+    // 真实通知，调用API
+    await NotificationsAPI.markAsRead(notificationId as number)
+    await loadDispatchNotifications()
+  } catch (error) {
+    console.error('Failed to mark notification as read:', error)
+  }
+}
+
+// 关闭通知提示
+const dismissNotifications = () => {
+  showNotificationAlert.value = false
+}
+
 
 // Navigate directly to subtask detail page for editing
 const goToTaskDetail = (task: MyTask) => {
@@ -463,9 +651,13 @@ let refreshInterval: ReturnType<typeof setInterval> | null = null
 onMounted(async () => {
   // Load initial data
   await loadMyTasks()
-  
+  await loadDispatchNotifications()
+
   // Auto-refresh tasks every 30 seconds (no notification for auto-refresh)
-  refreshInterval = setInterval(() => refreshTasks(false), 30000)
+  refreshInterval = setInterval(() => {
+    refreshTasks(false)
+    loadDispatchNotifications()
+  }, 30000)
 })
 
 onUnmounted(() => {
@@ -480,6 +672,58 @@ onUnmounted(() => {
 .my-tasks-view {
   padding: 20px;
 }
+
+.notification-alert {
+  margin-bottom: 20px;
+}
+
+.notification-list {
+  margin-top: 10px;
+}
+
+.notification-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.notification-item:last-child {
+  margin-bottom: 0;
+}
+
+.notification-content {
+  flex: 1;
+  margin-right: 15px;
+}
+
+.notification-content strong {
+  display: block;
+  color: #2d3748;
+  margin-bottom: 4px;
+}
+
+.notification-content p {
+  margin: 0;
+  color: #4a5568;
+  font-size: 14px;
+}
+
+.notification-time {
+  font-size: 12px;
+  color: #718096;
+}
+
+.more-notifications {
+  text-align: center;
+  padding: 8px;
+  color: #667eea;
+  font-size: 13px;
+}
+
 
 .header {
   display: flex;

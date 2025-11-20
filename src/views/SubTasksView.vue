@@ -794,7 +794,10 @@ const router = useRouter()
 const route = useRoute()
 
 // Get application ID from route params
-const applicationId = parseInt(route.params.id as string)
+// Support both numeric ID and L2 business ID (string like "CI000487374")
+const routeParam = route.params.id as string
+const applicationId = ref<number | null>(null)
+const isLoadingApplicationId = ref(true)
 
 // Reactive data
 const loading = ref(false)
@@ -823,7 +826,7 @@ const statistics = reactive({
 })
 
 const createForm = reactive<CreateSubTaskRequest>({
-  l2_id: Number(applicationId),
+  l2_id: 0, // Will be set when application is loaded
   sub_target: 'AK',
   version_name: '',
   task_status: '待启动',
@@ -975,10 +978,43 @@ const safeMessage = (message: string, type: 'success' | 'error' | 'warning' | 'i
   }, 0)
 }
 
+// Resolve application ID from route parameter (supports both numeric ID and L2 business ID)
+const resolveApplicationId = async (): Promise<number | null> => {
+  try {
+    // Try to parse as integer first
+    const numericId = parseInt(routeParam)
+    if (!isNaN(numericId)) {
+      // Verify the numeric ID exists
+      try {
+        const app = await ApplicationsAPI.getApplication(numericId)
+        return app.id
+      } catch (error) {
+        console.warn('Numeric ID not found, trying as L2 business ID')
+      }
+    }
+
+    // Try as L2 business ID (string)
+    try {
+      const app = await ApplicationsAPI.getApplicationByL2Id(routeParam)
+      return app.id
+    } catch (error) {
+      console.error('Failed to resolve application ID:', error)
+      ElMessage.error(`无法找到应用: ${routeParam}`)
+      return null
+    }
+  } catch (error) {
+    console.error('Error resolving application ID:', error)
+    ElMessage.error('解析应用ID失败')
+    return null
+  }
+}
+
 // Load application data
 const loadApplication = async () => {
+  if (!applicationId.value) return
+
   try {
-    application.value = await ApplicationsAPI.getApplication(applicationId)
+    application.value = await ApplicationsAPI.getApplication(applicationId.value)
   } catch (error) {
     console.error('Failed to load application:', error)
     ElMessage.error('加载应用信息失败')
@@ -987,9 +1023,11 @@ const loadApplication = async () => {
 
 // Load subtasks data
 const loadSubTasks = async () => {
+  if (!applicationId.value) return
+
   try {
     loading.value = true
-    const rawSubTasks = await SubTasksAPI.getSubTasksByApplication(applicationId)
+    const rawSubTasks = await SubTasksAPI.getSubTasksByApplication(applicationId.value)
     // Ensure all data properties are properly formatted
     subTasks.value = rawSubTasks.map(task => ({
       ...task,
@@ -1035,6 +1073,18 @@ const handleResize = () => {
 
 // Initialize data
 onMounted(async () => {
+  // First resolve the application ID from route parameter
+  isLoadingApplicationId.value = true
+  applicationId.value = await resolveApplicationId()
+  isLoadingApplicationId.value = false
+
+  if (!applicationId.value) {
+    ElMessage.error('无效的应用ID')
+    router.push('/applications')
+    return
+  }
+
+  // Load application and subtasks data
   await Promise.all([
     loadApplication(),
     loadSubTasks()
@@ -1390,9 +1440,14 @@ const viewDetails = (task: SubTask) => {
 
 // Create subtask
 const showCreateTaskDialog = () => {
+  if (!applicationId.value) {
+    ElMessage.error('应用ID未加载')
+    return
+  }
+
   // Reset form with dev_owner and ops_owner from application
   Object.assign(createForm, {
-    l2_id: Number(applicationId),
+    l2_id: applicationId.value,
     sub_target: application.value?.overall_transformation_target || 'AK',
     version_name: '',
     task_status: '待启动',
@@ -1502,10 +1557,10 @@ const handleEdit = async () => {
     await SubTasksAPI.updateSubTask(editingTask.value.id, formattedData)
     
     // Update application dates and delay status if plan dates changed
-    if (hasPlannedDateChanges.value && application.value) {
+    if (hasPlannedDateChanges.value && application.value && applicationId.value) {
       try {
         // Get all subtasks for this application to calculate aggregate dates
-        const allSubtasks = await SubTasksAPI.getSubTasksByApplication(applicationId)
+        const allSubtasks = await SubTasksAPI.getSubTasksByApplication(applicationId.value)
         
         // Get the latest planned dates from all subtasks
         const latestDates = {

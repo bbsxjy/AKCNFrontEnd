@@ -1,469 +1,378 @@
 <template>
   <div class="mcp-result-renderer">
-    <!-- 应用列表结果 - 直接使用ApplicationsTable组件 -->
-    <div v-if="isApplicationListResult" class="result-container">
-      <el-card shadow="hover">
-        <template #header>
-          <div class="result-header">
-            <el-icon :size="18"><list /></el-icon>
-            <span class="header-title">查询到 {{ resultData.length }} 个应用</span>
-            <div class="header-actions">
-              <el-button size="small" type="primary" @click="navigateToApplications">
-                <el-icon><right /></el-icon>
-                在应用管理中查看全部
-              </el-button>
-            </div>
-          </div>
-        </template>
-
-        <!-- 直接复用ApplicationsTable组件 -->
-        <ApplicationsTable
-          :applications="resultData"
-          :table-max-height="600"
-          :has-date-adjustment="() => false"
-          :get-delay-count="getDelayCount"
-          @selection-change="() => {}"
-          @toggle-favorite="() => {}"
-          @show-detail="navigateToApplicationByRow"
-          @view-subtasks="navigateToApplicationByRow"
-          @show-delay-details="() => {}"
-          @edit="navigateToApplicationByRow"
-        />
-      </el-card>
-    </div>
-
-    <!-- CMDB L2应用详情 (如CI000088398) -->
-    <div v-else-if="isCMDBL2DetailResult" class="result-container">
-      <el-card shadow="hover">
-        <template #header>
-          <div class="result-header">
-            <el-icon :size="18"><document /></el-icon>
-            <span class="header-title">{{ resultData.l2_id }} - {{ resultData.cmdb_info?.short_name }}</span>
-            <div class="header-actions">
-              <el-button
-                size="small"
-                type="primary"
-                @click="navigateToApplication(resultData.l2_id)"
-              >
-                <el-icon><right /></el-icon>
-                在应用管理中查看
-              </el-button>
-            </div>
-          </div>
-        </template>
-
-        <!-- CMDB基本信息 -->
-        <div class="section">
-          <h4 class="section-title">
-            <el-icon><info-filled /></el-icon>
-            CMDB基本信息
-          </h4>
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="配置项ID">
-              {{ resultData.cmdb_info?.config_id }}
-            </el-descriptions-item>
-            <el-descriptions-item label="规范名称">
-              {{ resultData.cmdb_info?.short_name }}
-            </el-descriptions-item>
-            <el-descriptions-item label="英文名称">
-              {{ resultData.cmdb_info?.english_name }}
-            </el-descriptions-item>
-            <el-descriptions-item label="系统状态">
-              <el-tag :type="getSystemStatusType(resultData.cmdb_info?.system_status)">
-                {{ resultData.cmdb_info?.system_status }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="管理级别">
-              <el-tag type="warning">
-                {{ resultData.cmdb_info?.management_level }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="系统产权">
-              {{ resultData.cmdb_info?.system_ownership }}
-            </el-descriptions-item>
-          </el-descriptions>
+    <!-- Debug Panel (Development Only) -->
+    <el-alert
+      v-if="showDebugPanel"
+      type="info"
+      :closable="true"
+      @close="showDebugPanel = false"
+      style="margin-bottom: 12px;"
+    >
+      <template #title>
+        <strong>🔍 调试信息</strong>
+      </template>
+      <div style="font-size: 12px; font-family: monospace; line-height: 1.8;">
+        <div><strong>检测到的renderType:</strong> <el-tag size="small">{{ renderType }}</el-tag></div>
+        <div><strong>数据类型:</strong> {{ Array.isArray(data) ? `数组 (${data.length}项)` : typeof data }}</div>
+        <div v-if="Array.isArray(data) && data.length > 0">
+          <strong>第一项的字段:</strong> {{ Object.keys(data[0]).slice(0, 10).join(', ') }}
         </div>
-
-        <!-- 联系人信息 -->
-        <div class="section">
-          <h4 class="section-title">
-            <el-icon><user /></el-icon>
-            联系人信息
-          </h4>
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="业务主管单位">
-              {{ resultData.cmdb_info?.business_supervisor_unit }}
-            </el-descriptions-item>
-            <el-descriptions-item label="联系人">
-              {{ resultData.cmdb_info?.contact_person }}
-            </el-descriptions-item>
-            <el-descriptions-item label="开发单位">
-              {{ resultData.cmdb_info?.dev_unit }}
-            </el-descriptions-item>
-            <el-descriptions-item label="开发接口人">
-              <el-text type="primary">{{ resultData.cmdb_info?.dev_contact }}</el-text>
-            </el-descriptions-item>
-            <el-descriptions-item label="运维单位">
-              {{ resultData.cmdb_info?.ops_unit }}
-            </el-descriptions-item>
-            <el-descriptions-item label="运维接口人">
-              <el-text type="primary">{{ resultData.cmdb_info?.ops_contact }}</el-text>
-            </el-descriptions-item>
-          </el-descriptions>
+        <div v-else-if="data && typeof data === 'object' && !Array.isArray(data)">
+          <strong>对象字段:</strong> {{ Object.keys(data).slice(0, 10).join(', ') }}
         </div>
+        <div><strong>后端metadata:</strong> {{ extractedData.metadata ? '✅ 有' : '❌ 无（使用自动检测）' }}</div>
+        <div v-if="metadata.title"><strong>标题:</strong> {{ metadata.title }}</div>
+        <el-button size="small" type="primary" style="margin-top: 8px;" @click="console.log('Full data:', props.result)">
+          在Console查看完整数据
+        </el-button>
+      </div>
+    </el-alert>
 
-        <!-- 改造信息 -->
-        <div class="section" v-if="resultData.transformation_info">
-          <h4 class="section-title">
-            <el-icon><odometer /></el-icon>
-            改造进度
-          </h4>
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="监管年份">
-              {{ resultData.transformation_info.ak_supervision_acceptance_year }}年
-            </el-descriptions-item>
-            <el-descriptions-item label="改造目标">
-              <el-tag :type="resultData.transformation_info.overall_transformation_target === 'AK' ? 'primary' : 'success'">
-                {{ resultData.transformation_info.overall_transformation_target }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="AK改造状态">
-              <el-tag :type="resultData.transformation_info.is_ak_completed ? 'success' : 'warning'">
-                {{ resultData.transformation_info.is_ak_completed ? '已完成' : '进行中' }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="云原生改造状态">
-              <el-tag :type="resultData.transformation_info.is_cloud_native_completed ? 'success' : 'warning'">
-                {{ resultData.transformation_info.is_cloud_native_completed ? '已完成' : '进行中' }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="当前状态">
-              {{ resultData.transformation_info.current_status }}
-            </el-descriptions-item>
-            <el-descriptions-item label="应用等级">
-              第{{ resultData.transformation_info.app_tier }}级
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
+    <!-- Application List -->
+    <ApplicationListRenderer
+      v-if="renderType === 'application_list'"
+      :data="data"
+      :metadata="metadata"
+    />
 
-        <!-- 延期状态 -->
-        <div class="section" v-if="resultData.cmdb_info">
-          <h4 class="section-title">
-            <el-icon><calendar /></el-icon>
-            上线时间
-          </h4>
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="计划业务上线">
-              {{ formatDate(resultData.cmdb_info.planned_biz_online_date) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="实际业务上线">
-              {{ formatDate(resultData.cmdb_info.actual_biz_online_date) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="延期状态">
-              <el-tag :type="resultData.cmdb_info.is_delayed ? 'danger' : 'success'">
-                {{ resultData.cmdb_info.is_delayed ? `延期${resultData.cmdb_info.delay_days}天` : '正常' }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="验收状态">
-              <el-tag :type="getAcceptanceStatusType(resultData.cmdb_info.acceptance_status)">
-                {{ resultData.cmdb_info.acceptance_status }}
-              </el-tag>
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
+    <!-- Subtask List -->
+    <SubtaskListRenderer
+      v-else-if="renderType === 'subtask_list'"
+      :data="data"
+      :metadata="metadata"
+    />
 
-        <!-- L1系统关联 -->
-        <div class="section" v-if="resultData.l1_systems">
-          <h4 class="section-title">
-            <el-icon><connection /></el-icon>
-            L1系统关联
-          </h4>
-          <el-row :gutter="16">
-            <el-col :span="12">
-              <el-card shadow="hover">
-                <template #header>
-                  <div class="card-header">
-                    <span>156L1系统（当前）</span>
-                    <el-tag size="small" type="info">外部报送用</el-tag>
-                  </div>
-                </template>
-                <el-descriptions :column="1" border>
-                  <el-descriptions-item label="系统名称">
-                    {{ resultData.l1_systems.l1_156?.short_name }}
-                  </el-descriptions-item>
-                  <el-descriptions-item label="管理级别">
-                    <el-tag type="warning">{{ resultData.l1_systems.l1_156?.management_level }}</el-tag>
-                  </el-descriptions-item>
-                  <el-descriptions-item label="所属域">
-                    {{ resultData.l1_systems.l1_156?.belongs_to_domain }}
-                  </el-descriptions-item>
-                  <el-descriptions-item label="所属层">
-                    {{ resultData.l1_systems.l1_156?.belongs_to_layer }}
-                  </el-descriptions-item>
-                </el-descriptions>
-              </el-card>
-            </el-col>
-            <el-col :span="12">
-              <el-card shadow="hover">
-                <template #header>
-                  <div class="card-header">
-                    <span>87L1系统（目标）</span>
-                    <el-tag size="small" type="success">2027过渡</el-tag>
-                  </div>
-                </template>
-                <el-descriptions :column="1" border>
-                  <el-descriptions-item label="系统名称">
-                    {{ resultData.l1_systems.l1_87?.short_name }}
-                  </el-descriptions-item>
-                  <el-descriptions-item label="管理级别">
-                    <el-tag type="warning">{{ resultData.l1_systems.l1_87?.management_level }}</el-tag>
-                  </el-descriptions-item>
-                  <el-descriptions-item label="所属域">
-                    {{ resultData.l1_systems.l1_87?.belongs_to_domain }}
-                  </el-descriptions-item>
-                  <el-descriptions-item label="关键系统">
-                    <el-tag :type="resultData.l1_systems.l1_87?.is_critical_system ? 'danger' : 'info'" size="small">
-                      {{ resultData.l1_systems.l1_87?.is_critical_system ? '是' : '否' }}
-                    </el-tag>
-                  </el-descriptions-item>
-                </el-descriptions>
-              </el-card>
-            </el-col>
-          </el-row>
-        </div>
+    <!-- CMDB L2 List -->
+    <CMDBL2ListRenderer
+      v-else-if="renderType === 'cmdb_l2_list'"
+      :data="data"
+      :metadata="metadata"
+    />
 
-        <!-- 子任务列表 -->
-        <div class="section" v-if="resultData.subtasks && resultData.subtasks.length > 0">
-          <h4 class="section-title">
-            <el-icon><list /></el-icon>
-            子任务详情 ({{ resultData.subtasks.length }}个)
-          </h4>
-          <el-table :data="resultData.subtasks" border stripe>
-            <el-table-column prop="sub_target" label="子目标" width="100" />
-            <el-table-column prop="version_name" label="版本" width="120" />
-            <el-table-column label="任务状态" width="120" align="center">
-              <template #default="{ row }">
-                <el-tag :type="getTaskStatusType(row.task_status)" size="small">
-                  {{ row.task_status }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="进度" width="120" align="center">
-              <template #default="{ row }">
-                <el-progress :percentage="row.progress_percentage" :status="row.progress_percentage >= 100 ? 'success' : undefined" />
-              </template>
-            </el-table-column>
-            <el-table-column label="计划技术上线" width="120" align="center">
-              <template #default="{ row }">
-                {{ formatDate(row.planned_tech_online_date) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="实际技术上线" width="120" align="center">
-              <template #default="{ row }">
-                {{ formatDate(row.actual_tech_online_date) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="阻塞" width="80" align="center">
-              <template #default="{ row }">
-                <el-tag v-if="row.is_blocked" type="danger" size="small">阻塞</el-tag>
-                <el-tag v-else type="success" size="small">正常</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="notes" label="备注" min-width="200" show-overflow-tooltip />
-          </el-table>
-        </div>
+    <!-- CMDB L1 List -->
+    <CMDBL1ListRenderer
+      v-else-if="renderType === 'cmdb_l1_list'"
+      :data="data"
+      :metadata="metadata"
+    />
 
-        <!-- 备注信息 -->
-        <div class="section" v-if="resultData.cmdb_info?.notes">
-          <h4 class="section-title">
-            <el-icon><warning /></el-icon>
-            备注与风险提示
-          </h4>
-          <el-alert
-            type="warning"
-            :closable="false"
-            show-icon
-          >
-            <pre class="notes-content">{{ resultData.cmdb_info.notes }}</pre>
-          </el-alert>
-        </div>
-      </el-card>
-    </div>
+    <!-- Integrated Detail (L2 with CMDB + Transformation Info) -->
+    <IntegratedDetailRenderer
+      v-else-if="renderType === 'integrated_detail'"
+      :data="data"
+      :metadata="metadata"
+    />
 
-    <!-- 其他数据：显示调试信息 -->
-    <div v-else class="result-container">
-      <el-card shadow="hover">
-        <template #header>
-          <div class="result-header">
-            <el-icon :size="18"><warning /></el-icon>
-            <span class="header-title">数据格式待优化</span>
-            <div class="header-actions">
-              <el-button size="small" type="primary" @click="navigateToApplications">
-                前往应用管理
-              </el-button>
-            </div>
-          </div>
-        </template>
+    <!-- Application Detail -->
+    <ApplicationDetailRenderer
+      v-else-if="renderType === 'application_detail'"
+      :data="data"
+      :metadata="metadata"
+    />
 
-        <el-alert type="info" :closable="false" style="margin-bottom: 16px;">
-          <template #title>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span>此数据格式暂不支持可视化展示</span>
-            </div>
-          </template>
-          <div style="margin-top: 8px; font-size: 13px; line-height: 1.6;">
-            <p>检测到的数据类型：{{ getDataType() }}</p>
-            <p v-if="Array.isArray(resultData)">数组长度：{{ resultData.length }}</p>
-            <p v-if="resultData && typeof resultData === 'object' && !Array.isArray(resultData)">
-              对象键：{{ Object.keys(resultData).slice(0, 10).join(', ') }}{{ Object.keys(resultData).length > 10 ? '...' : '' }}
-            </p>
-          </div>
-        </el-alert>
+    <!-- Statistics -->
+    <StatisticsRenderer
+      v-else-if="renderType === 'statistics'"
+      :data="data"
+      :metadata="metadata"
+    />
 
-        <!-- 简洁的数据预览 -->
-        <el-collapse>
-          <el-collapse-item title="查看原始数据（调试用）" name="1">
-            <pre style="background: #f5f7fa; padding: 12px; border-radius: 4px; font-size: 12px; max-height: 400px; overflow: auto;">{{ JSON.stringify(resultData, null, 2) }}</pre>
-          </el-collapse-item>
-        </el-collapse>
-      </el-card>
-    </div>
+    <!-- SQL Result -->
+    <SQLResultRenderer
+      v-else-if="renderType === 'sql_result'"
+      :data="data"
+      :metadata="metadata"
+    />
+
+    <!-- Audit Log List -->
+    <AuditLogListRenderer
+      v-else-if="renderType === 'audit_log_list'"
+      :data="data"
+      :metadata="metadata"
+    />
+
+    <!-- Schema Detail -->
+    <SchemaDetailRenderer
+      v-else-if="renderType === 'schema_detail' || renderType === 'schema_list'"
+      :data="data"
+      :metadata="metadata"
+    />
+
+    <!-- Progress Trend -->
+    <ProgressTrendRenderer
+      v-else-if="renderType === 'progress_trend'"
+      :data="data"
+      :metadata="metadata"
+    />
+
+    <!-- Operation Result -->
+    <OperationResultRenderer
+      v-else-if="renderType === 'operation_result'"
+      :data="data"
+      :metadata="metadata"
+    />
+
+    <!-- L1 to L2 Mapping -->
+    <L1ToL2MappingRenderer
+      v-else-if="renderType === 'cmdb_l1_to_l2_mapping'"
+      :data="data"
+      :metadata="metadata"
+    />
+
+    <!-- Generic List (fallback for unknown list types) -->
+    <GenericListRenderer
+      v-else-if="renderType === 'generic_list'"
+      :data="data"
+      :metadata="metadata"
+    />
+
+    <!-- Generic Detail (fallback for unknown detail types) -->
+    <GenericDetailRenderer
+      v-else-if="renderType === 'generic_detail'"
+      :data="data"
+      :metadata="metadata"
+    />
+
+    <!-- Empty State -->
+    <EmptyRenderer
+      v-else-if="renderType === 'empty'"
+      :metadata="metadata"
+    />
+
+    <!-- Fallback: Unknown Type -->
+    <UnknownTypeRenderer
+      v-else
+      :data="data"
+      :metadata="metadata"
+      :render-type="renderType"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-import {
-  Document,
-  Right,
-  InfoFilled,
-  User,
-  Odometer,
-  Calendar,
-  Connection,
-  List,
-  Warning
-} from '@element-plus/icons-vue'
-import ApplicationsTable from '@/components/applications/ApplicationsTable.vue'
-import type { Application } from '@/api/applications'
+import { computed, ref } from 'vue'
+import { detectRenderType, type MCPResponse, type MCPMetadata } from '@/utils/mcpRenderTypeDetector'
+
+// 导入所有渲染器组件
+import ApplicationListRenderer from './renderers/ApplicationListRenderer.vue'
+import SubtaskListRenderer from './renderers/SubtaskListRenderer.vue'
+import CMDBL2ListRenderer from './renderers/CMDBL2ListRenderer.vue'
+import CMDBL1ListRenderer from './renderers/CMDBL1ListRenderer.vue'
+import IntegratedDetailRenderer from './renderers/IntegratedDetailRenderer.vue'
+import ApplicationDetailRenderer from './renderers/ApplicationDetailRenderer.vue'
+import StatisticsRenderer from './renderers/StatisticsRenderer.vue'
+import SQLResultRenderer from './renderers/SQLResultRenderer.vue'
+import AuditLogListRenderer from './renderers/AuditLogListRenderer.vue'
+import SchemaDetailRenderer from './renderers/SchemaDetailRenderer.vue'
+import ProgressTrendRenderer from './renderers/ProgressTrendRenderer.vue'
+import OperationResultRenderer from './renderers/OperationResultRenderer.vue'
+import L1ToL2MappingRenderer from './renderers/L1ToL2MappingRenderer.vue'
+import GenericListRenderer from './renderers/GenericListRenderer.vue'
+import GenericDetailRenderer from './renderers/GenericDetailRenderer.vue'
+import EmptyRenderer from './renderers/EmptyRenderer.vue'
+import UnknownTypeRenderer from './renderers/UnknownTypeRenderer.vue'
 
 interface Props {
   result: any
 }
 
 const props = defineProps<Props>()
-const router = useRouter()
 
-// Extract actual data from result - 智能处理多层嵌套
-const resultData = computed(() => {
-  let data = props.result
+// 调试面板控制（默认隐藏，需要时可手动开启）
+const showDebugPanel = ref(false)
 
-  // 处理三层嵌套：{ success: true, result: { result: { success: true, data: {...} } } }
-  if (data?.result?.result?.data) {
-    return data.result.result.data
+// 暴露console给模板使用
+const console = window.console
+
+/**
+ * 智能提取数据和metadata
+ * 处理多层嵌套的响应结构
+ *
+ * MCP API返回格式：{ success: boolean, result: any, metadata?: any }
+ */
+const extractedData = computed(() => {
+  let current = props.result
+  const debugInfo: string[] = []
+
+  // 空值保护：流式响应可能返回空数据
+  if (!current) {
+    if (import.meta.env.DEV) {
+      console.log('[MCPResultRenderer] Received null/undefined result')
+    }
+    return {
+      success: false,
+      data: null,
+      metadata: undefined,
+      error: 'No data received'
+    } as MCPResponse
   }
 
-  // 处理多层嵌套：{ result: { success: true, data: {...} } }
-  if (data?.result?.data) {
-    return data.result.data
+  debugInfo.push(`Initial type: ${typeof current}`)
+  debugInfo.push(`Has success: ${current?.success !== undefined}`)
+  debugInfo.push(`Has result: ${current?.result !== undefined}`)
+  debugInfo.push(`Has data: ${current?.data !== undefined}`)
+  debugInfo.push(`Has metadata: ${current?.metadata !== undefined}`)
+
+  // 如果已经是标准格式（有success字段）
+  if (current?.success !== undefined) {
+    // MCP API uses "result" not "data"
+    let actualData = current.result?.data || current.result || current.data
+    let actualMetadata = current.metadata || current.result?.metadata
+
+    debugInfo.push(`Initial actualData type: ${typeof actualData}`)
+    debugInfo.push(`Initial actualData keys: ${actualData && typeof actualData === 'object' ? Object.keys(actualData).slice(0, 10).join(', ') : 'N/A'}`)
+
+    // 处理可能的双层嵌套：如果 actualData 只包含一个 result 字段，继续深入
+    if (actualData && typeof actualData === 'object' && !Array.isArray(actualData)) {
+      const keys = Object.keys(actualData)
+      if (keys.length === 1 && keys[0] === 'result') {
+        debugInfo.push('Found single result field, going deeper...')
+        actualData = actualData.result
+        // 空值检查：流式响应可能返回 null/undefined
+        if (actualData && typeof actualData === 'object') {
+          debugInfo.push(`After unwrapping: ${Object.keys(actualData).slice(0, 10).join(', ')}`)
+        }
+      }
+    }
+
+    // 重要：如果 actualData 是对象且包含 metadata 字段，需要提取出来
+    if (actualData && typeof actualData === 'object' && !Array.isArray(actualData) && 'metadata' in actualData) {
+      debugInfo.push('Found metadata inside data object, extracting...')
+      actualMetadata = actualData.metadata
+      // 从 data 中移除 metadata 字段
+      const { metadata: _, ...dataWithoutMetadata } = actualData
+      actualData = dataWithoutMetadata
+    }
+
+    // 如果提取 metadata 后还剩下一个对象，且只包含 data 字段，继续深入
+    if (actualData && typeof actualData === 'object' && !Array.isArray(actualData)) {
+      const keys = Object.keys(actualData)
+      if (keys.length === 1 && keys[0] === 'data') {
+        debugInfo.push('Found single data field after metadata extraction, unwrapping...')
+        actualData = actualData.data
+      }
+    }
+
+    debugInfo.push(`Final data type: ${typeof actualData}`)
+    debugInfo.push(`Final data is array: ${Array.isArray(actualData)}`)
+    if (Array.isArray(actualData)) {
+      debugInfo.push(`Array length: ${actualData.length}`)
+    }
+    if (actualData && typeof actualData === 'object' && !Array.isArray(actualData)) {
+      debugInfo.push(`Final object keys: ${Object.keys(actualData).slice(0, 10).join(', ')}`)
+    }
+    debugInfo.push(`Has metadata: ${!!actualMetadata}`)
+    if (actualMetadata) {
+      debugInfo.push(`Metadata renderType: ${actualMetadata.renderType}`)
+    }
+
+    // 开发环境输出调试信息
+    if (import.meta.env.DEV) {
+      console.log('[MCPResultRenderer] Debug info:', debugInfo.join(' | '))
+      console.log('[MCPResultRenderer] Actual data:', actualData)
+      console.log('[MCPResultRenderer] Metadata:', actualMetadata)
+    }
+
+    return {
+      success: current.success,
+      data: actualData,
+      metadata: actualMetadata,
+      error: current.error
+    } as MCPResponse
   }
 
-  // 处理标准嵌套：{ success: true, data: {...} }
-  if (data?.data) {
-    return data.data
+  // 如果不是标准格式，尝试深入提取
+  let extractedMetadata: any = undefined
+  let maxDepth = 10
+  while (maxDepth-- > 0) {
+    // 检查当前层是否有 metadata
+    if (current?.metadata && !extractedMetadata) {
+      debugInfo.push('Found metadata at this layer')
+      extractedMetadata = current.metadata
+    }
+
+    // 尝试深入到result或data层
+    if (current?.result) {
+      debugInfo.push('Going into result layer')
+      current = current.result
+      continue
+    }
+    if (current?.data) {
+      debugInfo.push('Going into data layer')
+      current = current.data
+      continue
+    }
+    break
   }
 
-  // 处理单层嵌套：{ result: {...} }
-  if (data?.result) {
-    return data.result
+  // 再次检查最终层是否有 metadata
+  if (current?.metadata && !extractedMetadata) {
+    debugInfo.push('Found metadata at final layer')
+    extractedMetadata = current.metadata
   }
 
-  // 直接返回原始数据
-  return data
+  // 如果提取到了metadata，需要从data中移除它（避免重复显示）
+  let finalData = current
+  if (extractedMetadata && current && typeof current === 'object' && !Array.isArray(current)) {
+    if ('metadata' in current) {
+      debugInfo.push('Removing metadata from data object')
+      // 创建一个新对象，排除metadata字段
+      const { metadata: _, ...dataWithoutMetadata } = current
+      finalData = dataWithoutMetadata
+    }
+  }
+
+  // 开发环境输出调试信息
+  if (import.meta.env.DEV) {
+    console.log('[MCPResultRenderer] Debug info:', debugInfo.join(' | '))
+    console.log('[MCPResultRenderer] Final extracted data:', finalData)
+    console.log('[MCPResultRenderer] Extracted metadata:', extractedMetadata)
+  }
+
+  // 返回推测的格式
+  return {
+    success: true,
+    data: finalData,
+    metadata: extractedMetadata
+  } as MCPResponse
 })
 
-// Type detection
-const isCMDBL2DetailResult = computed(() => {
-  const data = resultData.value
-  return !!(data?.l2_id && data?.cmdb_info && data?.transformation_info)
+/**
+ * 使用检测工具自动识别renderType
+ */
+const detectedMetadata = computed((): MCPMetadata => {
+  // 空值保护
+  if (!extractedData.value || extractedData.value.data === null) {
+    return { renderType: 'empty', title: '无数据' }
+  }
+  return detectRenderType(extractedData.value)
 })
 
-const isApplicationListResult = computed(() => {
-  return Array.isArray(resultData.value) &&
-         resultData.value.length > 0 &&
-         resultData.value[0]?.l2_id &&
-         resultData.value[0]?.app_name
+/**
+ * 最终使用的metadata（优先后端提供的）
+ */
+const metadata = computed((): MCPMetadata => {
+  return extractedData.value?.metadata || detectedMetadata.value
 })
 
-// Navigation
-const navigateToApplication = (l2Id: string) => {
-  router.push({
-    path: '/applications',
-    query: { search: l2Id }
-  })
-}
+/**
+ * 渲染类型
+ */
+const renderType = computed((): string => {
+  return metadata.value?.renderType || 'unknown'
+})
 
-const navigateToApplicationByRow = (app: Application) => {
-  navigateToApplication(app.l2_id)
-}
-
-const navigateToApplications = () => {
-  router.push('/applications')
-}
-
-// Helper for ApplicationsTable
-const getDelayCount = (row: Application): number => {
-  // 简单返回0，ApplicationsTable会自己计算
-  return 0
-}
-
-// Helper for debugging
-const getDataType = () => {
-  const data = resultData.value
-  if (data === null) return 'null'
-  if (data === undefined) return 'undefined'
-  if (Array.isArray(data)) return `数组 (${data.length}项)`
-  if (typeof data === 'object') return `对象 (${Object.keys(data).length}个键)`
-  return typeof data
-}
-
-// Formatters
-const formatDate = (date: string | null | undefined) => {
-  if (!date) return '-'
-  return new Date(date).toLocaleDateString('zh-CN')
-}
-
-// Tag types
-const getSystemStatusType = (status: string | undefined) => {
-  if (!status) return 'info'
-  if (status === '运行中') return 'success'
-  if (status === '建设中') return 'warning'
-  return 'info'
-}
-
-const getAcceptanceStatusType = (status: string | undefined) => {
-  if (!status) return 'info'
-  if (status === '已验收') return 'success'
-  if (status === '待验收') return 'warning'
-  return 'info'
-}
-
-const getTaskStatusType = (status: string | undefined) => {
-  if (!status) return 'info'
-  if (status === '子任务完成') return 'success'
-  if (status.includes('进行中')) return 'primary'
-  if (status.includes('阻塞')) return 'danger'
-  return 'info'
-}
+/**
+ * 实际数据
+ */
+const data = computed(() => {
+  return extractedData.value?.data
+})
 </script>
 
 <style scoped lang="scss">
 .mcp-result-renderer {
   margin-top: 12px;
-}
-
-.result-container {
   animation: fadeIn 0.3s ease-in-out;
 }
 
@@ -476,73 +385,5 @@ const getTaskStatusType = (status: string | undefined) => {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.result-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  .header-title {
-    flex: 1;
-    font-size: 16px;
-    font-weight: 600;
-    color: #303133;
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 8px;
-  }
-}
-
-.section {
-  margin-top: 20px;
-
-  &:first-child {
-    margin-top: 0;
-  }
-
-  .section-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 0 12px 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: #606266;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #e4e7ed;
-  }
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
-}
-
-.notes-content {
-  margin: 0;
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-:deep(.el-descriptions__label) {
-  font-weight: 600;
-  color: #606266;
-  background: #f5f7fa;
-}
-
-:deep(.el-table) {
-  font-size: 13px;
-}
-
-:deep(.el-progress__text) {
-  font-size: 12px !important;
 }
 </style>

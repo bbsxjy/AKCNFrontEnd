@@ -441,8 +441,22 @@ export class DashboardAPI {
   // 获取待办任务（我的任务）- 根据用户角色和任务阶段筛选
   static async getMyTasks(limit: number = 5, currentUserName?: string): Promise<any[]> {
     try {
+      console.log('🔍 [DashboardAPI] 开始获取任务，用户名:', currentUserName)
+
       // 获取当前用户的子任务
       const subtasks = await SubTasksAPI.getMySubTasks()
+      console.log('🔍 [DashboardAPI] 获取到所有子任务数量:', subtasks.length)
+
+      if (subtasks.length > 0) {
+        console.log('🔍 [DashboardAPI] 前3个子任务示例:', subtasks.slice(0, 3).map(t => ({
+          id: t.id,
+          version_name: t.version_name,
+          status: t.task_status,
+          dev_owner: t.dev_owner,
+          ops_owner: t.ops_owner
+        })))
+        console.log('🔍 [DashboardAPI] 第1个子任务完整数据:', subtasks[0])
+      }
 
       // 获取所有应用信息以便获取应用名称
       const applications = await ApplicationsAPI.getApplications({ limit: 1000 })
@@ -460,22 +474,39 @@ export class DashboardAPI {
         const isCompleted = task.task_status === '已完成' ||
                            task.task_status === '全部完成' ||
                            task.task_status === 'completed'
-        if (isCompleted) return false
+        if (isCompleted) {
+          console.log(`  ⏭️  跳过已完成任务: ${task.version_name}`)
+          return false
+        }
 
         // 只显示正在进行中或有阻塞的任务
         const isInProgress = task.task_status === '研发进行中' ||
                             task.task_status === 'in_progress'
 
         const isTesting = task.task_status === '业务上线中' ||
+                         task.task_status === '技术上线中' ||  // 新增：支持技术上线中
                          task.task_status === 'testing'
 
         const isBlocked = task.task_status === '存在阻塞' ||
                          task.task_status === 'blocked' ||
                          task.is_blocked === true
 
+        console.log(`  🔎 检查任务 ${task.version_name}:`, {
+          id: task.id,
+          status: task.task_status,
+          isInProgress,
+          isTesting,
+          isBlocked,
+          dev_owner: task.dev_owner,
+          ops_owner: task.ops_owner,
+          '完整子任务对象': task
+        })
+
         // 如果没有提供当前用户名，显示所有任务（向后兼容）
         if (!currentUserName) {
-          return isInProgress || isTesting || isBlocked
+          const shouldShow = isInProgress || isTesting || isBlocked
+          console.log(`  ${shouldShow ? '✅' : '❌'} 无用户名过滤，${shouldShow ? '显示' : '不显示'}`)
+          return shouldShow
         }
 
         // 根据任务阶段和用户角色筛选：
@@ -493,21 +524,33 @@ export class DashboardAPI {
                            task.ops_owner.includes(currentUserName) ||
                            currentUserName.includes(task.ops_owner))
 
+        console.log(`  👤 用户匹配检查:`, {
+          currentUserName,
+          dev_owner: task.dev_owner,
+          ops_owner: task.ops_owner,
+          isDevOwner,
+          isOpsOwner
+        })
+
         // 研发阶段 - 匹配开发负责人
         if (isInProgress && isDevOwner) {
+          console.log(`  ✅ 研发阶段任务，匹配开发负责人`)
           return true
         }
 
         // 上线阶段（技术上线、业务上线）- 匹配运维负责人
         if (isTesting && isOpsOwner) {
+          console.log(`  ✅ 上线阶段任务，匹配运维负责人`)
           return true
         }
 
         // 阻塞状态 - 匹配开发或运维负责人
         if (isBlocked && (isDevOwner || isOpsOwner)) {
+          console.log(`  ✅ 阻塞任务，匹配负责人`)
           return true
         }
 
+        console.log(`  ❌ 不匹配，不显示`)
         return false
       })
       .sort((a, b) => {
@@ -516,6 +559,8 @@ export class DashboardAPI {
         const dateB = new Date(b.planned_biz_online_date || '9999-12-31').getTime()
         return dateA - dateB
       })
+
+    console.log(`🎯 [DashboardAPI] 过滤后得到 ${pendingTasks.length} 个待办任务`)
 
     // 转换为仪表盘显示格式
     const now = Date.now()
@@ -546,9 +591,12 @@ export class DashboardAPI {
     })
 
     // 限制返回数量
-    return tasksWithAppInfo.slice(0, limit)
+    const finalTasks = tasksWithAppInfo.slice(0, limit)
+    console.log(`✅ [DashboardAPI] 返回 ${finalTasks.length} 个任务`)
+
+    return finalTasks
     } catch (error) {
-      console.error('Failed to get my tasks:', error)
+      console.error('❌ [DashboardAPI] 获取任务失败:', error)
       return []
     }
   }

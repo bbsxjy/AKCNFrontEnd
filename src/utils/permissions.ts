@@ -100,7 +100,8 @@ export function canAccessRoute(userRole: UserRole, routeName: string): boolean {
     'SubTasks': ['admin', 'manager', 'editor'],
     'Audit': ['admin'],  // Only admin
     'Import': ['admin', 'manager'],
-    'Reports': ['admin', 'manager'],
+    'Reports': ['admin', 'manager', 'viewer'],
+    'CloudNative': ['admin', 'manager', 'viewer'],  // Cloud Native Dashboard
     'UserManagement': ['admin'],  // Only admin
     'Announcements': ['admin', 'manager'],  // Admin and Manager
     'MCPAgent': ['admin', 'manager', 'editor', 'viewer']

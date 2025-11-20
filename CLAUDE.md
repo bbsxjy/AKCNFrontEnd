@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AKCNFrontEnd is the frontend application for the AK Cloud-Native Transformation Management System (AK云原生改造管理系统). This system manages and tracks the transformation of enterprise applications from traditional architecture to AK/cloud-native architecture.
+ProjectCollaborationManagement is the frontend application for the IT Engineering Project Collaboration Platform (项目协同管理应用). This system manages and tracks the progress of various IT projects including cloud-native transformation, subsidiary governance, system decommissioning, integration, and other engineering initiatives.
 
 ## Development Commands
 
